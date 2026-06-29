@@ -18,4 +18,7 @@ interface UsageSessionDao {
 
     @Query("SELECT SUM(durationMs) FROM usage_sessions WHERE packageName = :packageName AND dateKey = :dateKey")
     fun getTotalDurationForApp(packageName: String, dateKey: String): Flow<Long?>
+
+    @Query("DELETE FROM usage_sessions WHERE dateKey = :dateKey")
+    suspend fun clearForDate(dateKey: String)
 }
