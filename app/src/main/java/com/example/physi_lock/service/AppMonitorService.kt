@@ -2,39 +2,41 @@ package com.example.physi_lock.service
 
 import android.accessibilityservice.AccessibilityService
 import android.content.Intent
-import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import com.example.physi_lock.ui.LockActivity
 
 class AppMonitorService : AccessibilityService() {
 
-    private val lockedPackages = setOf(
-        "com.ss.android.ugc.trill",
-        "com.instagram.android",
-        "com.facebook.katana",
-        "com.google.android.youtube"
-    )
+    companion object {
+        var lastUnlockTime = 0L
 
-    private var lastLockedPackage: String? = null
+        fun triggerGlobalUnlock() {
+            lastUnlockTime = System.currentTimeMillis()
+        }
+    }
+
+    private val lockedPackages = setOf("com.google.android.youtube")
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val packageName = event?.packageName?.toString() ?: return
-        Log.d("PhysiLockMonitor", "Event from: $packageName")
-        if (event.eventType != AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) return
+        val currentTime = System.currentTimeMillis()
 
-        if (packageName in lockedPackages && packageName != lastLockedPackage) {
-            lastLockedPackage = packageName
-            try {
-                Log.d("PhysiLockMonitor", "Attempting to launch LockActivity for $packageName")
-                startActivity(Intent(this, LockActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-                })
-                Log.d("PhysiLockMonitor", "startActivity call completed without exception")
-            } catch (e: Exception) {
-                Log.e("PhysiLockMonitor", "Failed to launch LockActivity", e)
+        // IGNORE EVERYTHING FOR 8 SECONDS AFTER UNLOCKING (Kills the close-app loop completely)
+        if (currentTime - lastUnlockTime < 8000L) {
+            return
+        }
+
+        if (packageName == "com.example.physi_lock" || packageName.contains("physi_lock")) {
+            return
+        }
+
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            if (packageName in lockedPackages) {
+                val intent = Intent(this, LockActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                }
+                startActivity(intent)
             }
-        } else if (packageName !in lockedPackages) {
-            lastLockedPackage = null
         }
     }
 
