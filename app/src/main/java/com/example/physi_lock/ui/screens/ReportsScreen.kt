@@ -23,12 +23,16 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.physi_lock.data.AppUsageTotal
 import com.example.physi_lock.ui.reports.DayUsage
 import com.example.physi_lock.ui.reports.ReportsViewModel
+import com.example.physi_lock.ui.theme.SageAccent
 
 @Composable
 fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
     val weeklyUsage by reportsViewModel.weeklyUsage.collectAsState(initial = emptyList())
+    val topApps by reportsViewModel.topApps.collectAsState(initial = emptyList())
+    val insights by reportsViewModel.insights.collectAsState(initial = emptyList())
 
     Column(modifier = Modifier
         .fillMaxSize()
@@ -52,8 +56,81 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
 
         Card(modifier = Modifier.padding(8.dp), colors = CardDefaults.cardColors()) {
             Column(modifier = Modifier.padding(16.dp)) {
-                Text(text = "Category Breakdown", style = MaterialTheme.typography.titleLarge)
-                Text(text = "Placeholder for bar/pie chart (MPAndroidChart or Compose chart)", style = MaterialTheme.typography.bodyLarge)
+                Text(text = "Top Apps This Week", style = MaterialTheme.typography.titleLarge)
+                if (topApps.isEmpty()) {
+                    Text(
+                        text = "No app usage logged yet this week.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                } else {
+                    TopAppsList(
+                        apps = topApps,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 12.dp)
+                    )
+                }
+            }
+        }
+
+        Card(modifier = Modifier.padding(8.dp), colors = CardDefaults.cardColors()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(text = "Insights", style = MaterialTheme.typography.titleLarge)
+                if (insights.isEmpty()) {
+                    Text(
+                        text = "Insights appear once a full day of usage has been logged.",
+                        style = MaterialTheme.typography.bodyLarge,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                } else {
+                    Column(modifier = Modifier.padding(top = 8.dp)) {
+                        insights.forEach { insight ->
+                            Text(
+                                text = "• $insight",
+                                style = MaterialTheme.typography.bodyLarge,
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopAppsList(apps: List<AppUsageTotal>, modifier: Modifier = Modifier) {
+    val maxMs = (apps.maxOfOrNull { it.totalDurationMs } ?: 0L).coerceAtLeast(1L)
+
+    Column(modifier = modifier) {
+        apps.forEach { app ->
+            val minutes = app.totalDurationMs / 60_000L
+            val pct = (app.totalDurationMs.toFloat() / maxMs.toFloat()).coerceIn(0f, 1f)
+
+            Column(modifier = Modifier.padding(vertical = 6.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(text = app.appName, style = MaterialTheme.typography.bodyLarge)
+                    Text(text = "${minutes}m", style = MaterialTheme.typography.bodyLarge)
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(6.dp)
+                        .clip(RoundedCornerShape(3.dp))
+                        .background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.1f))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(pct)
+                            .height(6.dp)
+                            .clip(RoundedCornerShape(3.dp))
+                            .background(SageAccent)
+                    )
+                }
             }
         }
     }

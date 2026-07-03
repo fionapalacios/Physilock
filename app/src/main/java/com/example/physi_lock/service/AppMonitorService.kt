@@ -24,7 +24,7 @@ class AppMonitorService : AccessibilityService() {
         }
     }
 
-    private val lockedPackages = setOf("com.google.android.youtube")
+    @Volatile private var lockedPackages: Set<String> = emptySet()
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private lateinit var database: PhysiLockDatabase
     private var currentForegroundPackage: String? = null
@@ -34,6 +34,15 @@ class AppMonitorService : AccessibilityService() {
     override fun onCreate() {
         super.onCreate()
         database = PhysiLockDatabase.getInstance(this)
+
+        // Live-reload the locked app set from Settings > App Lock Rules; Room's
+        // Flow re-emits automatically whenever the table changes, so toggles
+        // made while the service is running take effect without a restart.
+        serviceScope.launch {
+            database.appLockRuleDao().getAllRules().collect { rules ->
+                lockedPackages = rules.filter { it.isLocked }.map { it.packageName }.toSet()
+            }
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {

@@ -31,7 +31,17 @@ fun NavGraph(startDestination: String = Screen.Home.route) {
             startDestination = startDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen() }
+            composable(Screen.Home.route) {
+                HomeScreen(
+                    onManageAppLock = {
+                        navController.navigate(Screen.Settings.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
             composable(Screen.Reports.route) { ReportsScreen() }
             composable(Screen.Move.route) { MoveScreen() }
             composable(Screen.Settings.route) { SettingsScreen() }

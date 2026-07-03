@@ -6,6 +6,12 @@ import androidx.room.Query
 import androidx.room.Update
 import kotlinx.coroutines.flow.Flow
 
+data class AppUsageTotal(
+    val packageName: String,
+    val appName: String,
+    val totalDurationMs: Long
+)
+
 @Dao
 interface AppUsageLogDao {
     @Insert
@@ -28,6 +34,20 @@ interface AppUsageLogDao {
 
     @Query("SELECT SUM(foregroundDurationMs) FROM app_usage_logs WHERE dateKey = :dateKey")
     suspend fun getTotalDurationByDateOnce(dateKey: String): Long?
+
+    @Query(
+        "SELECT packageName, appName, SUM(foregroundDurationMs) as totalDurationMs " +
+        "FROM app_usage_logs WHERE dateKey = :dateKey " +
+        "GROUP BY packageName ORDER BY totalDurationMs DESC"
+    )
+    fun getAppTotalsByDate(dateKey: String): Flow<List<AppUsageTotal>>
+
+    @Query(
+        "SELECT packageName, appName, SUM(foregroundDurationMs) as totalDurationMs " +
+        "FROM app_usage_logs WHERE dateKey BETWEEN :startDateKey AND :endDateKey " +
+        "GROUP BY packageName ORDER BY totalDurationMs DESC"
+    )
+    fun getAppTotalsByDateRange(startDateKey: String, endDateKey: String): Flow<List<AppUsageTotal>>
 
     @Query("DELETE FROM app_usage_logs WHERE julianday(datetime(sessionStartTime / 1000, 'unixepoch')) < julianday('now', '-90 days')")
     suspend fun deleteOldLogs()
