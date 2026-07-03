@@ -1,4 +1,4 @@
-package com.prototype.physi_lock.ui.theme
+﻿package com.prototype.physi_lock.ui.theme
 
 import android.app.Activity
 import android.os.Build
@@ -12,32 +12,29 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = PrimaryGreen,
+    secondary = SecondarySage,
+    tertiary = AccentLavender,
+    background = PrimaryDark,
+    surface = DeepOlive
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
-
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
-    */
+    primary = PrimaryGreen,
+    secondary = SecondarySage,
+    tertiary = AccentLavender,
+    background = BackgroundLight,
+    surface = TertiaryTan,
+    onPrimary = BackgroundLight,
+    onSecondary = PrimaryDark,
+    onBackground = PrimaryDark,
+    onSurface = PrimaryDark
 )
 
 @Composable
 fun PhysiLockTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
@@ -45,11 +42,9 @@ fun PhysiLockTheme(
             val context = LocalContext.current
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
-
         darkTheme -> DarkColorScheme
         else -> LightColorScheme
     }
-
     MaterialTheme(
         colorScheme = colorScheme,
         typography = Typography,
