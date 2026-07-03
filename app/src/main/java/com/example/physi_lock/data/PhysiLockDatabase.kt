@@ -6,13 +6,22 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 @Database(
-    entities = [UsageSession::class, AppLockRule::class],
+    entities = [
+        UsageSession::class,
+        AppLockRule::class,
+        AppUsageLog::class,
+        UserConfiguration::class,
+        MotionInterventionLog::class
+    ],
     version = 1,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {
     abstract fun usageSessionDao(): UsageSessionDao
     abstract fun appLockRuleDao(): AppLockRuleDao
+    abstract fun appUsageLogDao(): AppUsageLogDao
+    abstract fun userConfigurationDao(): UserConfigurationDao
+    abstract fun motionInterventionLogDao(): MotionInterventionLogDao
 
     companion object {
         @Volatile private var INSTANCE: PhysiLockDatabase? = null
@@ -23,7 +32,10 @@ abstract class PhysiLockDatabase : RoomDatabase() {
                     context.applicationContext,
                     PhysiLockDatabase::class.java,
                     "physilock_db"
-                ).build().also { INSTANCE = it }
+                )
+                    .fallbackToDestructiveMigration() // Only for dev/test
+                    .build()
+                    .also { INSTANCE = it }
             }
         }
     }
