@@ -11,33 +11,40 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
 
+// Map prototype palette into Material3 color schemes
 private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80
+    primary = SageAccent,
+    onPrimary = OnSurfaceDark,
+    secondary = Orchid,
+    onSecondary = OnSurfaceDark,
+    background = SurfaceDark,
+    surface = SurfaceDark,
+    onBackground = OnSurfaceDark,
+    onSurface = OnSurfaceDark,
+    tertiary = DeepOlive
 )
 
 private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40
+    primary = DeepOlive,
+    onPrimary = SurfaceLight,
+    secondary = SageAccent,
+    onSecondary = OnSurfaceLight,
+    background = SurfaceLight,
+    surface = SurfaceLight,
+    onBackground = OnSurfaceLight,
+    onSurface = OnSurfaceLight,
+    tertiary = Orchid
 
-    /* Other default colors to override
-    background = Color(0xFFFFFBFE),
-    surface = Color(0xFFFFFBFE),
-    onPrimary = Color.White,
-    onSecondary = Color.White,
-    onTertiary = Color.White,
-    onBackground = Color(0xFF1C1B1F),
-    onSurface = Color(0xFF1C1B1F),
+    /* Other defaults can be added as needed
     */
 )
 
 @Composable
 fun PhysiLockTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    // Dynamic color is available on Android 12+
-    dynamicColor: Boolean = true,
+    // Off by default so the brand palette (DeepOlive/SageAccent/Orchid) always renders,
+    // instead of being silently replaced by the device's wallpaper-derived Material You colors.
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit
 ) {
     val colorScheme = when {
