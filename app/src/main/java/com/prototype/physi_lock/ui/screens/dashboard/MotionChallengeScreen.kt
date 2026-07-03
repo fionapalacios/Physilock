@@ -17,7 +17,7 @@ import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
@@ -25,12 +25,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.prototype.physi_lock.sensor.ShakeDetector
 import com.prototype.physi_lock.ui.components.CircularProgressRing
 import com.prototype.physi_lock.ui.theme.AccentLavender
 import com.prototype.physi_lock.ui.theme.BackgroundLight
@@ -39,7 +41,6 @@ import com.prototype.physi_lock.ui.theme.NunitoFontFamily
 import com.prototype.physi_lock.ui.theme.PhysiLockTheme
 import com.prototype.physi_lock.ui.theme.PrimaryGreen
 import com.prototype.physi_lock.ui.theme.SecondarySage
-import kotlinx.coroutines.delay
 
 private val ChallengeBackground = Color(0xFF1F2A14)
 
@@ -47,13 +48,13 @@ data class MotionChallenge(
     val title: String,
     val emoji: String,
     val accentColor: Color,
-    val durationSeconds: Int
+    val shakesRequired: Int
 )
 
 val motionChallenges = listOf(
-    MotionChallenge("Take a 2-min Walk", "🚶", PrimaryGreen, durationSeconds = 120),
-    MotionChallenge("Jog in Place — 30 sec", "🏃", AccentLavender, durationSeconds = 30),
-    MotionChallenge("Arm Shake Burst", "💪", DeepOlive, durationSeconds = 20)
+    MotionChallenge("Take a 2-min Walk", "🚶", PrimaryGreen, shakesRequired = 15),
+    MotionChallenge("Jog in Place — 30 sec", "🏃", AccentLavender, shakesRequired = 10),
+    MotionChallenge("Arm Shake Burst", "💪", DeepOlive, shakesRequired = 8)
 )
 
 @Composable
@@ -62,17 +63,22 @@ fun MotionChallengeScreen(
     onComplete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    var secondsLeft by remember(challenge) { mutableIntStateOf(challenge.durationSeconds) }
+    val context = LocalContext.current
+    var shakesDone by remember(challenge) { mutableIntStateOf(0) }
 
-    LaunchedEffect(challenge) {
-        while (secondsLeft > 0) {
-            delay(1_000L)
-            secondsLeft--
-        }
-        onComplete()
+    DisposableEffect(challenge) {
+        val detector = ShakeDetector(
+            context = context,
+            shakesRequired = challenge.shakesRequired,
+            onShakeProgress = { count -> shakesDone = count },
+            onShakeComplete = onComplete
+        )
+        detector.start()
+        onDispose { detector.stop() }
     }
 
-    val progress = 1f - secondsLeft.toFloat() / challenge.durationSeconds.toFloat()
+    val shakesLeft = (challenge.shakesRequired - shakesDone).coerceAtLeast(0)
+    val progress = shakesDone.toFloat() / challenge.shakesRequired.toFloat()
 
     Box(
         modifier = modifier
@@ -126,7 +132,7 @@ fun MotionChallengeScreen(
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "$secondsLeft",
+                        text = "$shakesLeft",
                         fontFamily = FontFamily.Monospace,
                         fontSize = 26.sp,
                         fontWeight = FontWeight.Medium,

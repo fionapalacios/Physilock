@@ -31,6 +31,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.prototype.physi_lock.ui.components.AuthTabsBackground
 import com.prototype.physi_lock.ui.theme.AccentLavender
 import com.prototype.physi_lock.ui.theme.BackgroundLight
@@ -63,16 +65,17 @@ private data class CategoryGoalItem(
     val accentColor: Color
 )
 
-private val categoryGoals = listOf(
-    CategoryGoalItem(
-        emoji = "📱",
-        name = "Total Daily Screen Time",
-        currentHours = 5.55f,
-        initialGoalHours = 5f,
-        maxRange = 8f,
-        presets = listOf(0.5f, 1f, 1.5f, 2f, 2.5f),
-        accentColor = PrimaryDark
-    ),
+private val totalScreenTimeGoal = CategoryGoalItem(
+    emoji = "📱",
+    name = "Total Daily Screen Time",
+    currentHours = 5.55f,
+    initialGoalHours = 5f,
+    maxRange = 8f,
+    presets = listOf(0.5f, 1f, 1.5f, 2f, 2.5f),
+    accentColor = PrimaryDark
+)
+
+private val localCategoryGoals = listOf(
     CategoryGoalItem(
         emoji = "💬",
         name = "Social Media",
@@ -111,10 +114,12 @@ private fun formatHours(value: Float): String {
 fun UsageGoalsScreen(
     onBackClick: () -> Unit,
     onSaveClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    usageGoalsViewModel: UsageGoalsViewModel = viewModel()
 ) {
     var weeklyGoal by remember { mutableFloatStateOf(35f) }
     val weeklyCurrent = 41.2f
+    val dailyLimitHours by usageGoalsViewModel.dailyLimitHours.collectAsState()
 
     Column(modifier = modifier.fillMaxSize().background(BackgroundLight)) {
         Row(
@@ -191,7 +196,12 @@ fun UsageGoalsScreen(
             Spacer(modifier = Modifier.height(11.25.dp))
 
             Column(verticalArrangement = Arrangement.spacedBy(11.25.dp)) {
-                categoryGoals.forEach { item -> CategoryGoalCard(item) }
+                CategoryGoalCard(
+                    item = totalScreenTimeGoal,
+                    goal = dailyLimitHours,
+                    onGoalChange = { usageGoalsViewModel.setDailyLimitHours(it) }
+                )
+                localCategoryGoals.forEach { item -> LocalCategoryGoalCard(item) }
             }
 
             Spacer(modifier = Modifier.height(15.dp))
@@ -342,8 +352,13 @@ private fun WeeklyGoalCard(
 }
 
 @Composable
-private fun CategoryGoalCard(item: CategoryGoalItem) {
+private fun LocalCategoryGoalCard(item: CategoryGoalItem) {
     var goal by remember { mutableFloatStateOf(item.initialGoalHours) }
+    CategoryGoalCard(item = item, goal = goal, onGoalChange = { goal = it })
+}
+
+@Composable
+private fun CategoryGoalCard(item: CategoryGoalItem, goal: Float, onGoalChange: (Float) -> Unit) {
     val isOver = item.currentHours > goal
 
     Column(
@@ -391,7 +406,7 @@ private fun CategoryGoalCard(item: CategoryGoalItem) {
 
         Slider(
             value = goal,
-            onValueChange = { goal = it },
+            onValueChange = onGoalChange,
             valueRange = 0f..item.maxRange,
             colors = SliderDefaults.colors(
                 thumbColor = item.accentColor,
@@ -463,7 +478,7 @@ private fun CategoryGoalCard(item: CategoryGoalItem) {
                                 if (active) item.accentColor else PrimaryDark.copy(alpha = 0.06f),
                                 RoundedCornerShape(15.dp)
                             )
-                            .clickable { goal = preset }
+                            .clickable { onGoalChange(preset) }
                             .padding(horizontal = 7.5.dp, vertical = 3.75.dp)
                     ) {
                         Text(

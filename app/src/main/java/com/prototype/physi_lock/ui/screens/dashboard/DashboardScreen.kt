@@ -36,16 +36,19 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.collectAsState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
@@ -55,6 +58,8 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.prototype.physi_lock.data.openUsageAccessSettings
 import com.prototype.physi_lock.ui.components.AuthTabsBackground
 import com.prototype.physi_lock.ui.components.BottomNavBar
 import com.prototype.physi_lock.ui.components.BottomNavItem
@@ -74,6 +79,7 @@ import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 private val StreakOrange = Color(0xFFE8854A)
 
@@ -153,6 +159,22 @@ private fun rememberCurrentDateLabel(): String {
 
 @Composable
 fun DashboardScreen(modifier: Modifier = Modifier) {
+    val context = LocalContext.current
+    val dashboardViewModel: DashboardViewModel = viewModel()
+    val uiState by dashboardViewModel.uiState.collectAsState()
+    val hasUsageAccess by dashboardViewModel.hasUsageAccess.collectAsState()
+    val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
+
+    DisposableEffect(lifecycleOwner) {
+        val observer = androidx.lifecycle.LifecycleEventObserver { _, event ->
+            if (event == androidx.lifecycle.Lifecycle.Event.ON_RESUME) {
+                dashboardViewModel.refreshUsageAccessStatus()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+
     var selectedTab by remember { mutableStateOf(BottomNavItem.HOME) }
     var showNotifications by remember { mutableStateOf(false) }
     var showUsageGoals by remember { mutableStateOf(false) }
@@ -169,6 +191,11 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
             Box(modifier = Modifier.weight(1f)) {
                 if (selectedTab == BottomNavItem.HOME) {
                     HomeContent(
+                        uiState = uiState,
+                        hasUsageAccess = hasUsageAccess,
+                        onGrantUsageAccessClick = {
+                            openUsageAccessSettings(context)
+                        },
                         onNotificationsClick = { showNotifications = true },
                         onUsageGoalsClick = { showUsageGoals = true },
                         focusModeActive = focusModeActive,
@@ -254,6 +281,9 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
 
 @Composable
 private fun HomeContent(
+    uiState: DashboardUiState,
+    hasUsageAccess: Boolean,
+    onGrantUsageAccessClick: () -> Unit,
     onNotificationsClick: () -> Unit,
     onUsageGoalsClick: () -> Unit,
     focusModeActive: Boolean,
@@ -269,19 +299,24 @@ private fun HomeContent(
     ) {
         HeaderRow(onNotificationsClick = onNotificationsClick)
         Spacer(modifier = Modifier.height(18.75.dp))
-        ScreenTimeCard()
+        ScreenTimeCard(
+            uiState = uiState,
+            hasUsageAccess = hasUsageAccess,
+            onGrantUsageAccessClick = onGrantUsageAccessClick
+        )
         Spacer(modifier = Modifier.height(15.dp))
         BreakReminderBanner()
         Spacer(modifier = Modifier.height(15.dp))
         PredictiveOveruseBanner()
         Spacer(modifier = Modifier.height(15.dp))
         RiskAndActionsRow(
+            uiState = uiState,
             focusModeActive = focusModeActive,
             onFocusModeClick = onFocusModeClick,
             onLockAppsClick = onLockAppsClick
         )
         Spacer(modifier = Modifier.height(15.dp))
-        AppUsageCard()
+        AppUsageCard(uiState = uiState, hasUsageAccess = hasUsageAccess)
         Spacer(modifier = Modifier.height(15.dp))
         DoomscrollingBanner()
         Spacer(modifier = Modifier.height(15.dp))
@@ -347,14 +382,70 @@ private fun HeaderRow(onNotificationsClick: () -> Unit) {
     }
 }
 
+private fun formatDuration(ms: Long): String {
+    val totalMinutes = TimeUnit.MILLISECONDS.toMinutes(ms.coerceAtLeast(0L))
+    val hours = totalMinutes / 60
+    val minutes = totalMinutes % 60
+    return if (hours > 0) "${hours}h ${minutes}m" else "${minutes}m"
+}
+
 @Composable
-private fun ScreenTimeCard() {
+private fun ScreenTimeCard(
+    uiState: DashboardUiState,
+    hasUsageAccess: Boolean,
+    onGrantUsageAccessClick: () -> Unit
+) {
     Box(
         modifier = Modifier
             .fillMaxWidth()
             .background(PrimaryDark, RoundedCornerShape(22.5.dp))
             .padding(18.75.dp)
     ) {
+        if (!hasUsageAccess) {
+            Column {
+                Text(
+                    text = "TODAY'S SCREEN TIME",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 19.5.sp,
+                    color = PrimaryGreen
+                )
+                Spacer(modifier = Modifier.height(7.5.dp))
+                Text(
+                    text = "Grant Usage Access to see real screen time stats.",
+                    fontFamily = NunitoFontFamily,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    lineHeight = 21.sp,
+                    color = SecondarySage
+                )
+                Spacer(modifier = Modifier.height(11.25.dp))
+                Box(
+                    modifier = Modifier
+                        .background(SecondarySage, RoundedCornerShape(15.dp))
+                        .clickable(onClick = onGrantUsageAccessClick)
+                        .padding(horizontal = 15.dp, vertical = 9.38.dp)
+                ) {
+                    Text(
+                        text = "Grant Access",
+                        fontFamily = NunitoFontFamily,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = PrimaryDark
+                    )
+                }
+            }
+            return@Box
+        }
+
+        val progress = if (uiState.dailyLimitMs > 0) {
+            (uiState.todayScreenTimeMs.toFloat() / uiState.dailyLimitMs.toFloat()).coerceIn(0f, 1f)
+        } else {
+            0f
+        }
+        val diffMs = uiState.yesterdayScreenTimeMs - uiState.todayScreenTimeMs
+
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -367,7 +458,7 @@ private fun ScreenTimeCard() {
                 )
                 Spacer(modifier = Modifier.height(3.75.dp))
                 Text(
-                    text = "5h 33m",
+                    text = formatDuration(uiState.todayScreenTimeMs),
                     fontFamily = NunitoFontFamily,
                     fontSize = 34.sp,
                     fontWeight = FontWeight.ExtraBold,
@@ -376,7 +467,7 @@ private fun ScreenTimeCard() {
                 )
                 Spacer(modifier = Modifier.height(3.75.dp))
                 Text(
-                    text = "of 7h daily limit",
+                    text = "of ${formatDuration(uiState.dailyLimitMs)} daily limit",
                     fontFamily = NunitoFontFamily,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
@@ -395,7 +486,11 @@ private fun ScreenTimeCard() {
                         modifier = Modifier.size(13.dp)
                     )
                     Text(
-                        text = "18 min less than yesterday",
+                        text = if (diffMs >= 0) {
+                            "${formatDuration(diffMs)} less than yesterday"
+                        } else {
+                            "${formatDuration(-diffMs)} more than yesterday"
+                        },
                         fontFamily = NunitoFontFamily,
                         fontSize = 13.sp,
                         lineHeight = 19.5.sp,
@@ -404,7 +499,7 @@ private fun ScreenTimeCard() {
                 }
             }
             CircularProgressRing(
-                progress = 0.79f,
+                progress = progress,
                 trackColor = BackgroundLight.copy(alpha = 0.15f),
                 progressColor = SecondarySage,
                 ringSize = 100.dp,
@@ -412,7 +507,7 @@ private fun ScreenTimeCard() {
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
-                        text = "79%",
+                        text = "${(progress * 100).toInt()}%",
                         fontFamily = NunitoFontFamily,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -545,6 +640,7 @@ private fun PredictiveOveruseBanner() {
 
 @Composable
 private fun RiskAndActionsRow(
+    uiState: DashboardUiState,
     focusModeActive: Boolean,
     onFocusModeClick: () -> Unit,
     onLockAppsClick: () -> Unit
@@ -568,14 +664,14 @@ private fun RiskAndActionsRow(
             Spacer(modifier = Modifier.height(7.5.dp))
             Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
                 CircularProgressRing(
-                    progress = 0.62f,
+                    progress = uiState.riskScoreApprox / 100f,
                     trackColor = TertiaryTan,
                     progressColor = PrimaryDark,
                     ringSize = 60.dp,
                     strokeWidth = 8.dp
                 ) {
                     Text(
-                        text = "62",
+                        text = "${uiState.riskScoreApprox}",
                         fontFamily = NunitoFontFamily,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -596,7 +692,7 @@ private fun RiskAndActionsRow(
                     modifier = Modifier.size(11.dp)
                 )
                 Text(
-                    text = "Moderate risk",
+                    text = "${uiState.riskLevelLabel} risk",
                     fontFamily = NunitoFontFamily,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -663,23 +759,16 @@ private fun RiskAndActionsRow(
     }
 }
 
-private data class AppUsageEntry(
-    val emoji: String,
-    val name: String,
-    val time: String,
-    val progress: Float,
-    val isOverLimit: Boolean = false
-)
-
-private val appUsageEntries = listOf(
-    AppUsageEntry("📸", "Instagram", "2h 14m", 1.0f, isOverLimit = true),
-    AppUsageEntry("🎵", "TikTok", "1h 47m", 0.887f),
-    AppUsageEntry("▶️", "YouTube", "58m", 0.641f),
-    AppUsageEntry("𝕏", "Twitter/X", "34m", 0.751f)
-)
+private fun emojiFor(appName: String): String = when (appName) {
+    "Instagram" -> "📸"
+    "TikTok" -> "🎵"
+    "YouTube" -> "▶️"
+    "Twitter/X" -> "𝕏"
+    else -> "📱"
+}
 
 @Composable
-private fun AppUsageCard() {
+private fun AppUsageCard(uiState: DashboardUiState, hasUsageAccess: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -697,7 +786,7 @@ private fun AppUsageCard() {
                 color = PrimaryDark
             )
             Text(
-                text = "4 apps",
+                text = "${uiState.topAppUsage.size} apps",
                 fontFamily = FontFamily.Monospace,
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
@@ -705,14 +794,33 @@ private fun AppUsageCard() {
             )
         }
         Spacer(modifier = Modifier.height(15.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(11.25.dp)) {
-            appUsageEntries.forEach { entry -> AppUsageRow(entry) }
+        if (!hasUsageAccess) {
+            Text(
+                text = "Grant Usage Access above to see your top apps.",
+                fontFamily = NunitoFontFamily,
+                fontSize = 13.sp,
+                color = DeepOlive
+            )
+        } else if (uiState.topAppUsage.isEmpty()) {
+            Text(
+                text = "No app usage recorded yet today.",
+                fontFamily = NunitoFontFamily,
+                fontSize = 13.sp,
+                color = DeepOlive
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(11.25.dp)) {
+                uiState.topAppUsage.forEach { item -> AppUsageRow(item) }
+            }
         }
     }
 }
 
 @Composable
-private fun AppUsageRow(entry: AppUsageEntry) {
+private fun AppUsageRow(item: AppUsageUiItem) {
+    val maxRangeMs = item.dailyLimitMs ?: TimeUnit.HOURS.toMillis(3)
+    val progress = (item.durationMs.toFloat() / maxRangeMs.toFloat()).coerceIn(0f, 1f)
+
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -723,16 +831,16 @@ private fun AppUsageRow(entry: AppUsageEntry) {
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.5.dp)
             ) {
-                Text(text = entry.emoji, fontSize = 16.sp)
+                Text(text = emojiFor(item.appName), fontSize = 16.sp)
                 Text(
-                    text = entry.name,
+                    text = item.appName,
                     fontFamily = NunitoFontFamily,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
                     lineHeight = 21.sp,
                     color = PrimaryDark
                 )
-                if (entry.isOverLimit) {
+                if (item.isOverLimit) {
                     Box(
                         modifier = Modifier
                             .background(AccentLavender.copy(alpha = 0.13f), RoundedCornerShape(3.75.dp))
@@ -750,7 +858,7 @@ private fun AppUsageRow(entry: AppUsageEntry) {
                 }
             }
             Text(
-                text = entry.time,
+                text = formatDuration(item.durationMs),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
@@ -768,10 +876,10 @@ private fun AppUsageRow(entry: AppUsageEntry) {
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxWidth(entry.progress)
+                    .fillMaxWidth(progress)
                     .fillMaxHeight()
                     .background(
-                        if (entry.isOverLimit) AccentLavender else PrimaryGreen,
+                        if (item.isOverLimit) AccentLavender else PrimaryGreen,
                         RoundedCornerShape(50)
                     )
             )
