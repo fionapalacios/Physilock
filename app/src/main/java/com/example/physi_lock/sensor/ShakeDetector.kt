@@ -7,9 +7,26 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import kotlin.math.sqrt
 
+// Mirrors UserConfiguration.motionLockSensitivity ("LOW"/"MEDIUM"/"HIGH") — the
+// single source of truth for how the setting maps to detector behavior, shared
+// between the actual challenge (ShakeDetector) and its display in Settings.
+enum class ShakeSensitivity(val gForceThreshold: Float, val shakesRequired: Int) {
+    LOW(18f, 6),
+    MEDIUM(23.5f, 10),
+    HIGH(28f, 15);
+
+    companion object {
+        fun fromLabel(label: String?): ShakeSensitivity = when (label) {
+            "LOW" -> LOW
+            "HIGH" -> HIGH
+            else -> MEDIUM
+        }
+    }
+}
+
 class ShakeDetector(
     context: Context,
-    private val shakesRequired: Int = 10,
+    private val sensitivity: ShakeSensitivity = ShakeSensitivity.MEDIUM,
     private val onShakeProgress: (Int) -> Unit,
     private val onShakeComplete: () -> Unit
 ) : SensorEventListener {
@@ -17,14 +34,15 @@ class ShakeDetector(
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
 
+    private val shakesRequired = sensitivity.shakesRequired
     private var shakeCount = 0
     private var lastShakeTime = 0L
     private var isFinished = false
 
     private val shakeDebounceMs = 220L
 
-    // Raised to 23.5f: You must shake it aggressively with your hand for it to count. Bumping the table won't work.
-    private val shakeThreshold = 23.5f
+    // You must shake it aggressively with your hand for it to count; bumping the table won't work.
+    private val shakeThreshold = sensitivity.gForceThreshold
 
     fun start() {
         shakeCount = 0

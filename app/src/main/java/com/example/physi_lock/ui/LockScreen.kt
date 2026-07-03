@@ -12,6 +12,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -24,22 +25,41 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.sensor.ShakeDetector
+import com.example.physi_lock.sensor.ShakeSensitivity
 import com.example.physi_lock.service.AppMonitorService
 
 @Composable
 fun LockScreen(onUnlocked: () -> Unit) {
     val context = LocalContext.current
-    val totalShakesRequired = 10
+
+    // Settings > Motion Lock Sensitivity controls both the shake count and the
+    // g-force threshold; load it once before starting the sensor so the very
+    // first shake is already measured against the right difficulty.
+    var sensitivity by remember { mutableStateOf<ShakeSensitivity?>(null) }
+    LaunchedEffect(Unit) {
+        val db = PhysiLockDatabase.getInstance(context)
+        val cfg = try { db.userConfigurationDao().getActiveConfigurationOnce() } catch (e: Exception) { null }
+        sensitivity = ShakeSensitivity.fromLabel(cfg?.motionLockSensitivity)
+    }
+
+    val activeSensitivity = sensitivity
+    val totalShakesRequired = activeSensitivity?.shakesRequired ?: ShakeSensitivity.MEDIUM.shakesRequired
 
     // State to track shakes and dynamically force Compose recomposition
     var currentShakes by remember { mutableIntStateOf(0) }
 
-    // Inside your LockScreen.kt DisposableEffect block:
-    DisposableEffect(Unit) {
+    DisposableEffect(activeSensitivity) {
+        if (activeSensitivity == null) {
+            // Still loading the configured sensitivity; don't start the sensor
+            // with a guessed difficulty.
+            return@DisposableEffect onDispose { }
+        }
+
         val detector = ShakeDetector(
             context = context,
-            shakesRequired = 10,
+            sensitivity = activeSensitivity,
             onShakeProgress = { count: Int ->
                 currentShakes = count
             },

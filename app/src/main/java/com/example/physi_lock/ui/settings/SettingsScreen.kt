@@ -31,6 +31,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.physi_lock.sensor.ShakeSensitivity
 import com.example.physi_lock.ui.theme.DeepOlive
 
 private val userModes = listOf("STUDENT_MODE" to "Student", "WORK_MODE" to "Work")
@@ -145,8 +146,9 @@ fun SettingsScreen(settingsViewModel: SettingsViewModel = viewModel()) {
         Card(modifier = Modifier.padding(8.dp), colors = CardDefaults.cardColors()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(text = "Motion Lock Sensitivity", style = MaterialTheme.typography.titleLarge)
+                val activeSensitivity = ShakeSensitivity.fromLabel(config.motionLockSensitivity)
                 Text(
-                    text = "How aggressively you must shake to unlock",
+                    text = "Requires ${activeSensitivity.shakesRequired} aggressive shakes to unlock",
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Row(modifier = Modifier.padding(top = 8.dp)) {
