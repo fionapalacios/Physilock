@@ -185,6 +185,18 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
     var focusModeActive by remember { mutableStateOf(false) }
     var focusStartMillis by remember { mutableStateOf(0L) }
     var showEndFocusSheet by remember { mutableStateOf(false) }
+    var focusElapsedSeconds by remember { mutableStateOf(0L) }
+
+    var totalMoveXp by remember { mutableStateOf(20) }
+    var completedMoveChallengeIds by remember { mutableStateOf(setOf("walk_5min")) }
+    var activeMoveChallenge by remember { mutableStateOf<MoveChallenge?>(null) }
+
+    LaunchedEffect(focusModeActive, focusStartMillis) {
+        while (focusModeActive) {
+            focusElapsedSeconds = (System.currentTimeMillis() - focusStartMillis) / 1000
+            delay(1_000L)
+        }
+    }
 
     Box(modifier = modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize().background(BackgroundLight)) {
@@ -212,6 +224,14 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
                             activeChallenge = motionChallenges.random()
                         }
                     )
+                } else if (selectedTab == BottomNavItem.MOVE) {
+                    MoveScreen(
+                        totalXp = totalMoveXp,
+                        completedChallengeIds = completedMoveChallengeIds,
+                        onStartChallenge = { activeMoveChallenge = it }
+                    )
+                } else if (selectedTab == BottomNavItem.REPORTS) {
+                    ReportsScreen()
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
@@ -221,6 +241,39 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
                             color = PrimaryDark.copy(alpha = 0.6f)
                         )
                     }
+                }
+
+                val moveChallenge = activeMoveChallenge
+                if (moveChallenge != null) {
+                    ChallengeActiveScreen(
+                        challenge = moveChallenge,
+                        onBackClick = { activeMoveChallenge = null },
+                        onClaim = {
+                            totalMoveXp += moveChallenge.xpReward
+                            completedMoveChallengeIds = completedMoveChallengeIds + moveChallenge.id
+                            activeMoveChallenge = null
+                        },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                if (focusModeActive) {
+                    FocusModeScreen(
+                        elapsedSeconds = focusElapsedSeconds,
+                        onEndFocusClick = { showEndFocusSheet = true },
+                        modifier = Modifier.fillMaxSize()
+                    )
+                }
+
+                if (showEndFocusSheet) {
+                    EndFocusSessionSheet(
+                        elapsedSeconds = focusElapsedSeconds,
+                        onEndSession = {
+                            focusModeActive = false
+                            showEndFocusSheet = false
+                        },
+                        onKeepGoing = { showEndFocusSheet = false }
+                    )
                 }
             }
             BottomNavBar(selected = selectedTab, onItemSelected = { selectedTab = it })
@@ -264,17 +317,6 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
                     modifier = Modifier.fillMaxSize()
                 )
             }
-        }
-
-        if (showEndFocusSheet) {
-            EndFocusSessionSheet(
-                elapsedSeconds = (System.currentTimeMillis() - focusStartMillis) / 1000,
-                onEndSession = {
-                    focusModeActive = false
-                    showEndFocusSheet = false
-                },
-                onKeepGoing = { showEndFocusSheet = false }
-            )
         }
     }
 }

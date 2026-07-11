@@ -1,6 +1,7 @@
 package com.prototype.physi_lock.ui.screens.onboarding
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -12,12 +13,24 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.LocationOn
+import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Shield
+import androidx.compose.material.icons.filled.Tune
+import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -27,16 +40,22 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.prototype.physi_lock.R
 import com.prototype.physi_lock.ui.components.DashboardCard
+import com.prototype.physi_lock.ui.theme.AccentLavender
 import com.prototype.physi_lock.ui.theme.BackgroundLight
+import com.prototype.physi_lock.ui.theme.DeepOlive
 import com.prototype.physi_lock.ui.theme.NunitoFontFamily
 import com.prototype.physi_lock.ui.theme.PhysiLockTheme
 import com.prototype.physi_lock.ui.theme.PrimaryDark
+import com.prototype.physi_lock.ui.theme.PrimaryGreen
 import com.prototype.physi_lock.ui.theme.SecondarySage
 import com.prototype.physi_lock.ui.theme.TertiaryTan
 import kotlin.math.abs
@@ -60,21 +79,27 @@ private fun cssLinearGradient(
     return Brush.linearGradient(colorStops = colorStops, start = start, end = end)
 }
 
-private data class CoreModule(val title: String, val description: String)
+private data class CoreModule(
+    val title: String,
+    val description: String,
+    val icon: ImageVector,
+    val accentColor: Color
+)
 
 private val coreModules = listOf(
-    CoreModule("Core Monitoring", "Track screen time & overuse alerts"),
-    CoreModule("AI Behavior Analysis", "Addiction risk scoring & predictions"),
-    CoreModule("Motion Lock", "Move-to-unlock physical challenges"),
-    CoreModule("Smart Intervention", "Focus mode & goal-based limits"),
-    CoreModule("Mental Wellness", "Break reminders & reflection prompts"),
-    CoreModule("Personalization", "Student & Work mode profiles"),
-    CoreModule("Context AI", "Location-aware, doomscrolling detection")
+    CoreModule("Core Monitoring", "Track screen time & overuse alerts", Icons.Filled.Visibility, PrimaryGreen),
+    CoreModule("AI Behavior Analysis", "Addiction risk scoring & predictions", Icons.Filled.Psychology, AccentLavender),
+    CoreModule("Motion Lock", "Move-to-unlock physical challenges", Icons.Filled.Bolt, PrimaryGreen),
+    CoreModule("Smart Intervention", "Focus mode & goal-based limits", Icons.Filled.Shield, DeepOlive),
+    CoreModule("Mental Wellness", "Break reminders & reflection prompts", Icons.Filled.Favorite, AccentLavender),
+    CoreModule("Personalization", "Student & Work mode profiles", Icons.Filled.Tune, PrimaryGreen),
+    CoreModule("Context AI", "Location-aware, doomscrolling detection", Icons.Filled.LocationOn, DeepOlive)
 )
 
 @Composable
 fun GetStartedScreen(
     onGetStartedClick: () -> Unit,
+    onLoginClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Box(
@@ -105,14 +130,26 @@ fun GetStartedScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp, vertical = 32.dp),
+                .padding(horizontal = 24.dp)
+                .padding(top = 48.dp, bottom = 32.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text(
-                text = "Physi-Lock",
-                style = MaterialTheme.typography.headlineLarge,
-                fontWeight = FontWeight.Bold,
-                color = PrimaryDark
+            Image(
+                painter = painterResource(id = R.drawable.logo),
+                contentDescription = "Physi-Lock logo",
+                modifier = Modifier
+                    .width(118.dp)
+                    .height(97.dp)
+            )
+
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Image(
+                painter = painterResource(id = R.drawable.wordmark),
+                contentDescription = "Physi-Lock",
+                modifier = Modifier
+                    .width(184.dp)
+                    .height(35.dp)
             )
 
             Spacer(modifier = Modifier.height(12.dp))
@@ -177,7 +214,12 @@ fun GetStartedScreen(
             Spacer(modifier = Modifier.height(16.dp))
 
             coreModules.forEach { module ->
-                DashboardCard(title = module.title, description = module.description)
+                DashboardCard(
+                    title = module.title,
+                    description = module.description,
+                    icon = module.icon,
+                    accentColor = module.accentColor
+                )
                 Spacer(modifier = Modifier.height(12.dp))
             }
 
@@ -188,17 +230,57 @@ fun GetStartedScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(52.dp),
+                shape = RoundedCornerShape(15.dp),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    contentColor = MaterialTheme.colorScheme.onPrimary
+                    containerColor = PrimaryDark,
+                    contentColor = BackgroundLight
                 )
             ) {
                 Text(
-                    text = "Get Started →",
+                    text = "Sign Up — It's Free",
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                    contentDescription = null,
+                    tint = BackgroundLight,
+                    modifier = Modifier.height(16.dp)
                 )
             }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            OutlinedButton(
+                onClick = onLoginClick,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(52.dp),
+                shape = RoundedCornerShape(15.dp),
+                border = BorderStroke(0.792.dp, PrimaryDark.copy(alpha = 0.20f)),
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = PrimaryDark
+                )
+            ) {
+                Text(
+                    text = "Log In",
+                    style = MaterialTheme.typography.titleMedium,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            Text(
+                text = "Free · No ads · Your data stays on device",
+                fontFamily = NunitoFontFamily,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Normal,
+                lineHeight = 19.5.sp,
+                textAlign = TextAlign.Center,
+                color = PrimaryGreen
+            )
         }
     }
 }

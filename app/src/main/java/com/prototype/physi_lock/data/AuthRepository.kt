@@ -13,22 +13,35 @@ sealed interface AuthResult {
  */
 object AuthRepository {
     private val accounts = mutableMapOf("demo@physilock.com" to "password123")
+    private val usernames = mutableSetOf<String>()
 
-    fun register(name: String, email: String, password: String): AuthResult {
+    fun register(username: String, name: String, email: String, password: String): AuthResult {
         val normalizedEmail = email.trim().lowercase()
-        if (name.isBlank() || email.isBlank() || password.isBlank()) {
+        val normalizedUsername = username.trim().lowercase()
+        if (username.isBlank() || name.isBlank() || email.isBlank() || password.isBlank()) {
             return AuthResult.Failure("Please fill in all fields.")
         }
         if (!Patterns.EMAIL_ADDRESS.matcher(normalizedEmail).matches()) {
             return AuthResult.Failure("Please enter a valid email address.")
         }
-        if (password.length < 8) {
-            return AuthResult.Failure("Password must be at least 8 characters.")
+        if (password.length < 8 || password.none { it.isUpperCase() } || password.none { it.isDigit() }) {
+            return AuthResult.Failure("Password must be at least 8 characters and include an uppercase letter and a number.")
+        }
+        if (usernames.contains(normalizedUsername)) {
+            return AuthResult.Failure("This username is already taken.")
         }
         if (accounts.containsKey(normalizedEmail)) {
             return AuthResult.Failure("An account with this email already exists.")
         }
+        usernames.add(normalizedUsername)
         accounts[normalizedEmail] = password
+        return AuthResult.Success
+    }
+
+    fun verifyEmailCode(code: String): AuthResult {
+        if (code.length != 6 || code.any { !it.isDigit() }) {
+            return AuthResult.Failure("Enter the 6-digit code we sent to your email.")
+        }
         return AuthResult.Success
     }
 

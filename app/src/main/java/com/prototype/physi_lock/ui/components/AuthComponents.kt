@@ -1,5 +1,6 @@
 package com.prototype.physi_lock.ui.components
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -16,7 +17,6 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,20 +25,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.prototype.physi_lock.R
 import com.prototype.physi_lock.ui.theme.BackgroundLight
 import com.prototype.physi_lock.ui.theme.DeepOlive
 import com.prototype.physi_lock.ui.theme.NunitoFontFamily
 import com.prototype.physi_lock.ui.theme.PrimaryDark
 import com.prototype.physi_lock.ui.theme.PrimaryGreen
-import com.prototype.physi_lock.ui.theme.SecondarySage
 
 val AuthTabsBackground = Color(0xFFF5F3EB)
 val AuthInputFieldBackground = Color(0xFFEEEADE)
@@ -78,19 +83,12 @@ fun AuthHeader(title: String, subtitle: String, modifier: Modifier = Modifier) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(11.25.dp)
     ) {
-        Box(
-            modifier = Modifier
-                .size(48.dp)
-                .background(PrimaryDark, RoundedCornerShape(14.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(
-                imageVector = Icons.Default.Lock,
-                contentDescription = null,
-                tint = SecondarySage,
-                modifier = Modifier.size(22.dp)
-            )
-        }
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Physi-Lock logo",
+            contentScale = ContentScale.Fit,
+            modifier = Modifier.size(48.dp)
+        )
         Column {
             Text(
                 text = title,
@@ -175,6 +173,31 @@ fun AuthFieldLabel(text: String, modifier: Modifier = Modifier, fontSize: androi
         fontWeight = FontWeight.Bold,
         lineHeight = lineHeight,
         color = PrimaryDark,
+        modifier = modifier
+    )
+}
+
+@Composable
+fun AuthFieldLabelWithHint(
+    label: String,
+    hint: String,
+    modifier: Modifier = Modifier,
+    hintColor: Color = PrimaryGreen,
+    fontSize: androidx.compose.ui.unit.TextUnit = 13.sp,
+    lineHeight: androidx.compose.ui.unit.TextUnit = 19.5.sp
+) {
+    Text(
+        text = buildAnnotatedString {
+            withStyle(SpanStyle(color = PrimaryDark, fontWeight = FontWeight.Bold)) {
+                append("$label ")
+            }
+            withStyle(SpanStyle(color = hintColor, fontWeight = FontWeight.Medium)) {
+                append(hint)
+            }
+        },
+        fontFamily = NunitoFontFamily,
+        fontSize = fontSize,
+        lineHeight = lineHeight,
         modifier = modifier
     )
 }
