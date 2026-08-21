@@ -11,9 +11,11 @@ data class UserConfiguration(
     val hourlyExcessiveUsageThresholdMs: Long = 60 * 60 * 1000, // 60 minutes per hour
     val doomscrollingDetectionEnabled: Boolean = true,
     val motionLockSensitivity: String = "MEDIUM", // "LOW", "MEDIUM", "HIGH"
+    val breakReminderEnabled: Boolean = true,
+    val breakReminderIntervalMs: Long = 30 * 60 * 1000, // 30 minutes default
     val lastUpdatedTime: Long = System.currentTimeMillis()
 ) {
-    // Placeholder until Sprint 4's Random Forest risk scoring is wired in;
+    // Placeholder until Module 2's (AI-Based Behavior Analysis) Random Forest risk scoring is wired in;
     // mirrors motion sensitivity so the dashboard shows a sensible value meanwhile.
     val riskSensitivity: String
         get() = when (motionLockSensitivity) {

@@ -34,6 +34,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setMotionLockSensitivity(level: String) =
         update { it.copy(motionLockSensitivity = level) }
 
+    fun setBreakReminderEnabled(enabled: Boolean) =
+        update { it.copy(breakReminderEnabled = enabled) }
+
+    fun setBreakReminderIntervalMinutes(minutes: Int) =
+        update { it.copy(breakReminderIntervalMs = minutes * 60_000L) }
+
     private fun update(transform: (UserConfiguration) -> UserConfiguration) {
         viewModelScope.launch {
             val current = configuration.value

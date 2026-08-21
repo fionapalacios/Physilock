@@ -11,9 +11,12 @@ import androidx.room.RoomDatabase
         AppLockRule::class,
         AppUsageLog::class,
         UserConfiguration::class,
-        MotionInterventionLog::class
+        MotionInterventionLog::class,
+        AppCategory::class,
+        DefaultSettings::class,
+        CachedAccount::class
     ],
-    version = 1,
+    version = 7,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {
@@ -22,6 +25,9 @@ abstract class PhysiLockDatabase : RoomDatabase() {
     abstract fun appUsageLogDao(): AppUsageLogDao
     abstract fun userConfigurationDao(): UserConfigurationDao
     abstract fun motionInterventionLogDao(): MotionInterventionLogDao
+    abstract fun appCategoryDao(): AppCategoryDao
+    abstract fun defaultSettingsDao(): DefaultSettingsDao
+    abstract fun cachedAccountDao(): CachedAccountDao
 
     companion object {
         @Volatile private var INSTANCE: PhysiLockDatabase? = null
