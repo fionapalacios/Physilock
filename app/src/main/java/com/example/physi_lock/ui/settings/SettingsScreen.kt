@@ -242,6 +242,27 @@ fun SettingsScreen(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Column(modifier = Modifier.weight(1f)) {
+                    Text(text = "Overuse Alert", style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        text = "Notify me once per day when I exceed my daily screen time limit",
+                        style = MaterialTheme.typography.bodyLarge
+                    )
+                }
+                Switch(
+                    checked = config.overuseAlertsEnabled,
+                    onCheckedChange = { settingsViewModel.setOveruseAlertsEnabled(it) }
+                )
+            }
+        }
+
+        Card(modifier = Modifier.padding(8.dp), colors = CardDefaults.cardColors()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
                     Text(text = "Doomscrolling Detection", style = MaterialTheme.typography.titleLarge)
                     Text(
                         text = "Warn when scrolling patterns suggest doomscrolling",

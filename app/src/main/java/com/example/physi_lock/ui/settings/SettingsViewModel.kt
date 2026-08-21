@@ -40,6 +40,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setBreakReminderIntervalMinutes(minutes: Int) =
         update { it.copy(breakReminderIntervalMs = minutes * 60_000L) }
 
+    fun setOveruseAlertsEnabled(enabled: Boolean) =
+        update { it.copy(overuseAlertsEnabled = enabled) }
+
     private fun update(transform: (UserConfiguration) -> UserConfiguration) {
         viewModelScope.launch {
             val current = configuration.value

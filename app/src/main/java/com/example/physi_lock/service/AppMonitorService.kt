@@ -16,6 +16,7 @@ import com.example.physi_lock.MainActivity
 import com.example.physi_lock.R
 import com.example.physi_lock.data.AppUsageLog
 import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.UsageStatsRepository
 import com.example.physi_lock.ui.lock.LockActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -39,23 +40,35 @@ class AppMonitorService : AccessibilityService() {
         private const val IDLE_RESET_THRESHOLD_MS = 2 * 60 * 1000L
         private const val BREAK_REMINDER_CHANNEL_ID = "break_reminder_channel"
         private const val BREAK_REMINDER_NOTIFICATION_ID = 1001
+        private const val OVERUSE_ALERT_CHANNEL_ID = "overuse_alert_channel"
+        private const val OVERUSE_ALERT_NOTIFICATION_ID = 1002
+        // queryUsageStats is a real IPC call, not free — throttle how often
+        // checkOveruseAlert actually queries it rather than on every event.
+        private const val OVERUSE_CHECK_THROTTLE_MS = 60 * 1000L
     }
 
     @Volatile private var lockedPackages: Set<String> = emptySet()
     @Volatile private var breakReminderEnabled: Boolean = true
     @Volatile private var breakReminderIntervalMs: Long = 30 * 60 * 1000L
+    @Volatile private var overuseAlertsEnabled: Boolean = true
+    @Volatile private var dailyScreenTimeThresholdMs: Long = 480 * 60 * 1000L
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private lateinit var database: PhysiLockDatabase
+    private lateinit var usageStatsRepository: UsageStatsRepository
     private var currentForegroundPackage: String? = null
     private var currentSessionStartTime: Long? = null
     private var continuousUsageStartTime: Long? = null
     private var lastActivityEventTime: Long? = null
+    private var lastOveruseCheckTime: Long = 0L
+    private var lastOveruseAlertDateKey: String? = null
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     override fun onCreate() {
         super.onCreate()
         database = PhysiLockDatabase.getInstance(this)
+        usageStatsRepository = UsageStatsRepository(this)
         createBreakReminderNotificationChannel()
+        createOveruseAlertNotificationChannel()
 
         // Live-reload the locked app set from Settings > App Lock Rules; Room's
         // Flow re-emits automatically whenever the table changes, so toggles
@@ -71,6 +84,8 @@ class AppMonitorService : AccessibilityService() {
             database.userConfigurationDao().getActiveConfiguration().collect { config ->
                 breakReminderEnabled = config?.breakReminderEnabled ?: true
                 breakReminderIntervalMs = config?.breakReminderIntervalMs ?: (30 * 60 * 1000L)
+                overuseAlertsEnabled = config?.overuseAlertsEnabled ?: true
+                dailyScreenTimeThresholdMs = config?.dailyScreenTimeThresholdMs ?: (480 * 60 * 1000L)
             }
         }
     }
@@ -82,6 +97,17 @@ class AppMonitorService : AccessibilityService() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Reminders to take a break after continuous device use"
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    private fun createOveruseAlertNotificationChannel() {
+        val channel = NotificationChannel(
+            OVERUSE_ALERT_CHANNEL_ID,
+            "Overuse Alerts",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Alerts when today's total screen time exceeds your daily limit"
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -104,6 +130,7 @@ class AppMonitorService : AccessibilityService() {
             AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
                 handleWindowStateChange(packageName, currentTime)
                 trackContinuousUsage(currentTime)
+                checkOveruseAlert(currentTime)
             }
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
                 // Module 2 (AI-Based Behavior Analysis): doomscrolling detection
@@ -160,6 +187,61 @@ class AppMonitorService : AccessibilityService() {
             .build()
 
         NotificationManagerCompat.from(this).notify(BREAK_REMINDER_NOTIFICATION_ID, notification)
+    }
+
+    // Overuse Alert (Module 4/1): a passive, at-most-once-per-day notification when
+    // today's real aggregate screen time crosses the configured daily limit —
+    // separate from Break Reminder (repeating, continuous-usage-based) and from
+    // Adaptive Locking enforcement (blocked on Module 2). Throttled since
+    // UsageStatsManager queries are a real IPC call, not free.
+    private fun checkOveruseAlert(currentTime: Long) {
+        if (!overuseAlertsEnabled) return
+        if (currentTime - lastOveruseCheckTime < OVERUSE_CHECK_THROTTLE_MS) return
+        lastOveruseCheckTime = currentTime
+
+        val todayKey = dateFormatter.format(Date(currentTime))
+        if (lastOveruseAlertDateKey == todayKey) return
+
+        serviceScope.launch {
+            try {
+                val totalTodayMs = usageStatsRepository.getTodayUsage().sumOf { it.totalTimeMs }
+                if (totalTodayMs >= dailyScreenTimeThresholdMs) {
+                    postOveruseAlertNotification(totalTodayMs, dailyScreenTimeThresholdMs)
+                    lastOveruseAlertDateKey = todayKey
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun postOveruseAlertNotification(totalMs: Long, thresholdMs: Long) {
+        if (ActivityCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val contentIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val overMinutes = ((totalMs - thresholdMs) / 60_000L).coerceAtLeast(0)
+        val notification = NotificationCompat.Builder(this, OVERUSE_ALERT_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setContentTitle("Daily limit exceeded")
+            .setContentText("You've used your device $overMinutes min over your daily limit today")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(this).notify(OVERUSE_ALERT_NOTIFICATION_ID, notification)
     }
 
     private fun handleWindowStateChange(packageName: String, currentTime: Long) {

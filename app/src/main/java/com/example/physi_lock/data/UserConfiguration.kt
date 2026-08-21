@@ -13,6 +13,7 @@ data class UserConfiguration(
     val motionLockSensitivity: String = "MEDIUM", // "LOW", "MEDIUM", "HIGH"
     val breakReminderEnabled: Boolean = true,
     val breakReminderIntervalMs: Long = 30 * 60 * 1000, // 30 minutes default
+    val overuseAlertsEnabled: Boolean = true,
     val lastUpdatedTime: Long = System.currentTimeMillis()
 ) {
     // Placeholder until Module 2's (AI-Based Behavior Analysis) Random Forest risk scoring is wired in;
