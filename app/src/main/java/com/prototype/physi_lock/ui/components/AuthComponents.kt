@@ -17,11 +17,18 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Cancel
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Circle
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -30,6 +37,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -41,6 +49,7 @@ import androidx.compose.ui.unit.sp
 import com.prototype.physi_lock.R
 import com.prototype.physi_lock.ui.theme.BackgroundLight
 import com.prototype.physi_lock.ui.theme.DeepOlive
+import com.prototype.physi_lock.ui.theme.ErrorRed
 import com.prototype.physi_lock.ui.theme.NunitoFontFamily
 import com.prototype.physi_lock.ui.theme.PrimaryDark
 import com.prototype.physi_lock.ui.theme.PrimaryGreen
@@ -79,15 +88,15 @@ fun AuthBackButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
 @Composable
 fun AuthHeader(title: String, subtitle: String, modifier: Modifier = Modifier) {
     Row(
-        modifier = modifier.padding(bottom = 30.dp),
+        modifier = modifier.padding(bottom = 34.dp),
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(11.25.dp)
+        horizontalArrangement = Arrangement.spacedBy(14.dp)
     ) {
         Image(
             painter = painterResource(id = R.drawable.logo),
             contentDescription = "Physi-Lock logo",
             contentScale = ContentScale.Fit,
-            modifier = Modifier.size(48.dp)
+            modifier = Modifier.size(76.dp)
         )
         Column {
             Text(
@@ -211,7 +220,8 @@ fun AuthTextField(
     modifier: Modifier = Modifier,
     isPassword: Boolean = false,
     keyboardType: KeyboardType = KeyboardType.Text,
-    trailingContent: (@Composable () -> Unit)? = null
+    trailingContent: (@Composable () -> Unit)? = null,
+    onFocusChanged: (Boolean) -> Unit = {}
 ) {
     Row(
         modifier = modifier
@@ -253,9 +263,161 @@ fun AuthTextField(
                 },
                 keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
                 cursorBrush = SolidColor(PrimaryDark),
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .onFocusChanged { onFocusChanged(it.isFocused) }
             )
         }
         trailingContent?.invoke()
+    }
+}
+
+@Composable
+fun AuthRememberMeCheckbox(
+    checked: Boolean,
+    onCheckedChange: (Boolean) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.clickable { onCheckedChange(!checked) },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(7.5.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(15.dp)
+                .background(if (checked) PrimaryDark else BackgroundLight, RoundedCornerShape(2.dp))
+                .border(1.dp, if (checked) PrimaryDark else Color(0xFF767676), RoundedCornerShape(2.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            if (checked) {
+                Icon(
+                    imageVector = Icons.Filled.Check,
+                    contentDescription = null,
+                    tint = BackgroundLight,
+                    modifier = Modifier.size(11.dp)
+                )
+            }
+        }
+        Text(
+            text = "Remember me",
+            fontFamily = NunitoFontFamily,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            lineHeight = 19.5.sp,
+            color = DeepOlive
+        )
+    }
+}
+
+@Composable
+fun AuthOrDivider(modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(11.25.dp)
+    ) {
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            thickness = 1.dp,
+            color = PrimaryDark.copy(alpha = 0.12f)
+        )
+        Text(
+            text = "or",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Medium,
+            lineHeight = 19.5.sp,
+            color = PrimaryGreen
+        )
+        HorizontalDivider(
+            modifier = Modifier.weight(1f),
+            thickness = 1.dp,
+            color = PrimaryDark.copy(alpha = 0.12f)
+        )
+    }
+}
+
+@Composable
+fun AuthGoogleButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .shadow(
+                elevation = 1.dp,
+                shape = RoundedCornerShape(15.dp),
+                ambientColor = PrimaryDark.copy(alpha = 0.07f),
+                spotColor = PrimaryDark.copy(alpha = 0.07f)
+            )
+            .background(BackgroundLight, RoundedCornerShape(15.dp))
+            .border(0.79.dp, PrimaryDark.copy(alpha = 0.15f), RoundedCornerShape(15.dp))
+            .clickable(onClick = onClick)
+            .padding(vertical = 13.13.dp),
+        horizontalArrangement = Arrangement.spacedBy(11.25.dp, Alignment.CenterHorizontally),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.ic_google),
+            contentDescription = null,
+            modifier = Modifier.size(18.dp)
+        )
+        Text(
+            text = "Continue with Google",
+            fontFamily = NunitoFontFamily,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.Bold,
+            lineHeight = 21.sp,
+            color = PrimaryDark
+        )
+    }
+}
+
+private data class PasswordRequirement(val label: String, val isMet: (String) -> Boolean)
+
+private val passwordRequirements = listOf(
+    PasswordRequirement("8 characters minimum") { it.length >= 8 },
+    PasswordRequirement("At least one uppercase letter") { it.any(Char::isUpperCase) },
+    PasswordRequirement("At least one number") { it.any(Char::isDigit) },
+    PasswordRequirement("At least one lowercase letter") { it.any(Char::isLowerCase) }
+)
+
+@Composable
+fun PasswordRequirementsChecklist(password: String, modifier: Modifier = Modifier) {
+    Column(
+        modifier = modifier.padding(top = 7.5.dp),
+        verticalArrangement = Arrangement.spacedBy(3.75.dp)
+    ) {
+        val isEmpty = password.isEmpty()
+        passwordRequirements.forEach { requirement ->
+            val isMet = requirement.isMet(password)
+            val color = when {
+                isEmpty -> PrimaryDark.copy(alpha = 0.35f)
+                isMet -> PrimaryGreen
+                else -> ErrorRed
+            }
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(5.63.dp)
+            ) {
+                Icon(
+                    imageVector = when {
+                        isEmpty -> Icons.Filled.Circle
+                        isMet -> Icons.Filled.CheckCircle
+                        else -> Icons.Filled.Cancel
+                    },
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(if (isEmpty) 8.dp else 13.dp)
+                )
+                Text(
+                    text = requirement.label,
+                    fontFamily = NunitoFontFamily,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    lineHeight = 19.5.sp,
+                    color = color
+                )
+            }
+        }
     }
 }

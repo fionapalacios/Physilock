@@ -42,11 +42,15 @@ import androidx.compose.ui.unit.sp
 import com.prototype.physi_lock.ui.components.AuthBackButton
 import com.prototype.physi_lock.ui.components.AuthFieldLabel
 import com.prototype.physi_lock.ui.components.AuthFieldLabelWithHint
+import com.prototype.physi_lock.ui.components.AuthGoogleButton
 import com.prototype.physi_lock.ui.components.AuthHeader
 import com.prototype.physi_lock.ui.components.AuthModeTabs
+import com.prototype.physi_lock.ui.components.AuthOrDivider
+import com.prototype.physi_lock.ui.components.AuthRememberMeCheckbox
 import com.prototype.physi_lock.ui.components.AuthTab
 import com.prototype.physi_lock.ui.components.AuthTabsBackground
 import com.prototype.physi_lock.ui.components.AuthTextField
+import com.prototype.physi_lock.ui.components.PasswordRequirementsChecklist
 import com.prototype.physi_lock.ui.theme.BackgroundLight
 import com.prototype.physi_lock.ui.theme.DeepOlive
 import com.prototype.physi_lock.ui.theme.ErrorRed
@@ -58,7 +62,6 @@ import com.prototype.physi_lock.data.AuthRepository
 import com.prototype.physi_lock.data.AuthResult
 
 private enum class UsageMode(val emoji: String, val label: String) {
-    PERSONAL("🌿", "Personal"),
     STUDENT("📚", "Student"),
     WORK("💼", "Work")
 }
@@ -75,9 +78,11 @@ fun CreateAccountScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var confirmPassword by remember { mutableStateOf("") }
+    var passwordFieldFocused by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
-    var usageMode by remember { mutableStateOf(UsageMode.PERSONAL) }
+    var usageMode by remember { mutableStateOf(UsageMode.STUDENT) }
+    var rememberMe by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Box(
@@ -153,7 +158,7 @@ fun CreateAccountScreen(
                     password = it
                     errorMessage = null
                 },
-                placeholder = "Min 8 chars, 1 uppercase, 1 number",
+                placeholder = "Enter your password",
                 leadingIcon = Icons.Default.Lock,
                 isPassword = !passwordVisible,
                 keyboardType = KeyboardType.Password,
@@ -167,8 +172,16 @@ fun CreateAccountScreen(
                             .clickable { passwordVisible = !passwordVisible }
                     )
                 },
-                modifier = Modifier.padding(bottom = 15.dp)
+                onFocusChanged = { passwordFieldFocused = it }
             )
+            if (passwordFieldFocused) {
+                PasswordRequirementsChecklist(
+                    password = password,
+                    modifier = Modifier.padding(bottom = 15.dp)
+                )
+            } else {
+                Spacer(modifier = Modifier.height(15.dp))
+            }
 
             AuthFieldLabel(text = "Confirm Password")
             Spacer(modifier = Modifier.height(5.63.dp))
@@ -194,10 +207,15 @@ fun CreateAccountScreen(
                 }
             )
 
-            AuthFieldLabelWithHint(
-                label = "Usage Mode",
-                hint = "(can change later)",
-                hintColor = DeepOlive,
+            Spacer(modifier = Modifier.height(15.dp))
+
+            AuthRememberMeCheckbox(
+                checked = rememberMe,
+                onCheckedChange = { rememberMe = it }
+            )
+
+            AuthFieldLabel(
+                text = "Usage Mode",
                 modifier = Modifier.padding(top = 15.dp)
             )
             Spacer(modifier = Modifier.height(8.dp))
@@ -233,7 +251,6 @@ fun CreateAccountScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp)
                     .shadow(
                         elevation = 6.dp,
                         shape = RoundedCornerShape(15.dp),
@@ -262,11 +279,22 @@ fun CreateAccountScreen(
                     textAlign = TextAlign.Center,
                     fontFamily = NunitoFontFamily,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     lineHeight = 22.5.sp,
                     color = BackgroundLight
                 )
             }
+
+            Spacer(modifier = Modifier.height(11.25.dp))
+
+            AuthOrDivider()
+
+            Spacer(modifier = Modifier.height(11.25.dp))
+
+            AuthGoogleButton(
+                onClick = { },
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
         }
     }
 }

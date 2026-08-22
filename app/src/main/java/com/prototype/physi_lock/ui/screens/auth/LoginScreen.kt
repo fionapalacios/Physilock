@@ -2,8 +2,10 @@ package com.prototype.physi_lock.ui.screens.auth
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -37,8 +39,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.prototype.physi_lock.ui.components.AuthBackButton
 import com.prototype.physi_lock.ui.components.AuthFieldLabel
+import com.prototype.physi_lock.ui.components.AuthGoogleButton
 import com.prototype.physi_lock.ui.components.AuthHeader
 import com.prototype.physi_lock.ui.components.AuthModeTabs
+import com.prototype.physi_lock.ui.components.AuthOrDivider
+import com.prototype.physi_lock.ui.components.AuthRememberMeCheckbox
 import com.prototype.physi_lock.ui.components.AuthTab
 import com.prototype.physi_lock.ui.components.AuthTextField
 import com.prototype.physi_lock.ui.theme.BackgroundLight
@@ -61,6 +66,7 @@ fun LoginScreen(
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
+    var rememberMe by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Box(
@@ -128,18 +134,26 @@ fun LoginScreen(
 
             Spacer(modifier = Modifier.height(15.dp))
 
-            Text(
-                text = "Forgot password?",
-                textAlign = TextAlign.Right,
-                fontFamily = NunitoFontFamily,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 21.sp,
-                color = PrimaryGreen,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onNavigateToForgotPassword)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                AuthRememberMeCheckbox(
+                    checked = rememberMe,
+                    onCheckedChange = { rememberMe = it }
+                )
+                Text(
+                    text = "Forgot password?",
+                    textAlign = TextAlign.Right,
+                    fontFamily = NunitoFontFamily,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 19.5.sp,
+                    color = PrimaryGreen,
+                    modifier = Modifier.clickable(onClick = onNavigateToForgotPassword)
+                )
+            }
 
             if (errorMessage != null) {
                 Spacer(modifier = Modifier.height(11.25.dp))
@@ -159,7 +173,6 @@ fun LoginScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(bottom = 24.dp)
                     .shadow(
                         elevation = 6.dp,
                         shape = RoundedCornerShape(15.dp),
@@ -180,15 +193,26 @@ fun LoginScreen(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = "Sign In",
+                    text = "Continue",
                     textAlign = TextAlign.Center,
                     fontFamily = NunitoFontFamily,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.ExtraBold,
                     lineHeight = 22.5.sp,
                     color = BackgroundLight
                 )
             }
+
+            Spacer(modifier = Modifier.height(11.25.dp))
+
+            AuthOrDivider()
+
+            Spacer(modifier = Modifier.height(11.25.dp))
+
+            AuthGoogleButton(
+                onClick = { },
+                modifier = Modifier.padding(bottom = 24.dp)
+            )
         }
     }
 }
