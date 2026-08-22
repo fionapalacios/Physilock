@@ -13,3 +13,6 @@
 .externalNativeBuild
 .cxx
 local.properties
+
+# Firebase project config — device-specific, not needed by other contributors' local Firebase projects
+/app/google-services.json

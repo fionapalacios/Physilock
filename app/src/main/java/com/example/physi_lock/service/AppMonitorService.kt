@@ -34,6 +34,30 @@ class AppMonitorService : AccessibilityService() {
             lastUnlockTime = System.currentTimeMillis()
         }
 
+        const val EXTRA_PACKAGE_NAME = "extra_package_name"
+        const val CHALLENGE_UNLOCK_DURATION_MS = 20 * 60 * 1000L // 20 minutes
+
+        // packageName -> unlock expiry epoch ms. Reassigned (not mutated) on every
+        // change, same safe-without-locking pattern as the existing @Volatile
+        // lockedPackages below — separate from, and additive to, lastUnlockTime's
+        // blanket 8-second re-lock-loop suppression (still needed regardless of
+        // which mechanism granted the unlock).
+        @Volatile private var temporaryUnlocks: Map<String, Long> = emptyMap()
+
+        fun grantTemporaryUnlock(packageName: String, durationMs: Long) {
+            temporaryUnlocks = temporaryUnlocks + (packageName to System.currentTimeMillis() + durationMs)
+            triggerGlobalUnlock()
+        }
+
+        private fun isTemporarilyUnlocked(packageName: String, currentTime: Long): Boolean {
+            val expiry = temporaryUnlocks[packageName] ?: return false
+            if (currentTime >= expiry) {
+                temporaryUnlocks = temporaryUnlocks - packageName
+                return false
+            }
+            return true
+        }
+
         // Not derived from the manuscript or existing code — a break in accessibility
         // events longer than this is treated as the user having stepped away, which
         // resets the continuous-usage clock for the break reminder.
@@ -255,9 +279,10 @@ class AppMonitorService : AccessibilityService() {
         currentSessionStartTime = currentTime
 
         // Check if app should be locked
-        if (packageName in lockedPackages) {
+        if (packageName in lockedPackages && !isTemporarilyUnlocked(packageName, currentTime)) {
             val intent = Intent(this, LockActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
             }
             startActivity(intent)
         }

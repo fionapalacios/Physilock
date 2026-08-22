@@ -5,19 +5,27 @@ Physi-Lock is an AI-Based Mobile Locking System designed to systematically regul
 
 ## Architecture Summary
 
-### On-Device Edge Computing Model
-- **Privacy First:** All data persists locally; no cloud servers required
-- **Offline Functional:** Complete system operates without internet connectivity
-- **User Control:** Anonymized research data export optional
+### Hybrid Model
+Physi-Lock splits work between the device and the cloud along a privacy/latency line:
+- **On-Device:** usage tracking, AI/ML inference (risk scoring, doomscroll & hourly-excessive detection), and motion-lock logic — all privacy- and latency-sensitive, and all functional with no network connection.
+- **Cloud (Firebase — Auth + Firestore):** accounts & authentication, Admin-facing data, and aggregate/anonymized analytics + research data export.
+- **User Control:** Anonymized research data export is opt-in.
+
+### Actors
+- **User** — drives the entire on-device product experience: tracking, AI analytics, motion-lock challenges, personalization.
+- **Admin** — a thin governance layer, not a monitoring/processing engine: manages user accounts, curates the app/category master list used for tracking & risk scoring, configures global default settings for new accounts, and owns aggregate/anonymized analytics + research data export.
 
 ### Core Components
 
-#### 1. **Database Layer (Room + SQLite)**
+#### 1. **Database Layer (Room + SQLite — on-device)**
 - **AppUsageLog:** Session-level app usage tracking (screen time, scroll events)
 - **UserConfiguration:** User preferences and thresholds
 - **MotionInterventionLog:** Lock event audit trail with AI risk scores
 - **AppLockRule:** Application restriction policies
 - **UsageSession:** Legacy usage session tracking
+- **AppCategory:** Admin-curated master list of app categories (Social Media/Entertainment/Games/Productivity/Other) used for tracking & risk scoring
+- **DefaultSettings:** Admin-configured global defaults applied to new accounts (users can still override in their own Settings)
+- **CachedAccount:** Local offline-login cache (salted password hash + profile snapshot), written after every successful online login/registration — see Authentication & Accounts below
 
 #### 2. **Sensor Integration (SensorManager)**
 - **Accelerometer (TYPE_ACCELEROMETER):** Raw motion vectors (x, y, z)
@@ -31,7 +39,7 @@ Physi-Lock is an AI-Based Mobile Locking System designed to systematically regul
 
 #### 4. **AI/ML Pipeline (On-Device Inference)**
 - **Random Forest Classifier:** Risk scoring (Low/Moderate/High)
-- **Logistic Regression I:** Doomscrolling detection
+- **Logistic Regression I:** Doomscrolling detection — 3 raw inputs (scroll speed, pause patterns, time of day). The behavioral risk score is **not** a 4th input blended into this classifier; instead, risk score selects which sensitivity threshold set ("recipe") the 3 inputs are evaluated against — it picks the recipe, it isn't an ingredient.
 - **Logistic Regression II:** Hourly excessive usage prediction
 - **m2cgen Transpilation:** Pure Kotlin code, zero external ML dependencies
 
@@ -40,23 +48,38 @@ Physi-Lock is an AI-Based Mobile Locking System designed to systematically regul
 - **Dashboard:** Daily stats, risk trends, intervention history
 - **Settings:** User configuration and personalization
 - **Notifications:** Non-intrusive alerts and recommendations
+- **AuthScreen:** Login/registration
+- **AdminHomeScreen:** Admin governance dashboard (Accounts, Categories, Defaults, Analytics tabs)
+
+#### 6. **Authentication & Accounts**
+- **Primary path (live): Firebase Authentication + Firestore**, behind the `AccountRepository` abstraction so the UI layer doesn't touch Firebase directly.
+  - **Email/password:** Firebase verifies the credential directly and issues its own signed ID token (JWT) — no OAuth 2.0 exchange involved. Profile data (username, fullName, email, occupation, role, createdAt, isActive) lives in Firestore at `users/{uid}`.
+  - **Google Sign-In:** built on **OAuth 2.0 / OpenID Connect** — the device obtains a Google-issued token via the Google Identity/Credential Manager SDK, and Firebase verifies that token before minting a Firebase session on top of it. This is the one login path in the system that's actually OAuth 2.0-based; the primary username/password path is not.
+- **Offline fallback: `HybridAccountRepository`** wraps the Firebase repository and adds a Room-backed cache (`CachedAccount`) for when Firebase Auth/Firestore is unreachable:
+  - Every successful online login or registration writes a salted-hash snapshot of the account (via `PasswordHasher`, PBKDF2WithHmacSHA256) to the local cache.
+  - If a later login call throws (no network, Firestore/Auth unreachable), it falls back to verifying the identifier/password against that local snapshot instead of failing outright.
+  - **Scope of the fallback is login only** — registration and profile edits still require Firebase, since there's no server to reserve a username/email or reconcile a conflicting edit against while offline. Google Sign-In is also online-only (Credential Manager needs the network).
+  - The password hash used for the offline cache is a separate, device-local credential — it is never sent to Firebase and isn't the same secret Firebase Auth verifies.
 
 ---
 
 ## Development Lifecycle
 
-### 8-Sprint Scrum Framework
+### Agile Framework (Meet → Plan → Design → Develop → Test → Evaluate)
 
-| Sprint | Focus | Duration | Key Deliverables |
-|--------|-------|----------|-----------------|
-| 1 | Setup & DB Config | Week 1 | Database schema, DAOs, Permissions, AccessibilityService |
-| 2 | UI & Navigation | Week 2 | Dashboard, navigation, onboarding, settings |
-| 3 | Data Collection | Week 3 | Foreground tracking, usage aggregation, scroll detection |
-| 4 | Risk Scoring AI | Week 4 | Random Forest, m2cgen transpilation, inference service |
-| 5 | Behavioral Classifiers | Week 5 | Doomscroll & prediction models, notifications |
-| 6 | Motion-Lock Feature | Week 6 | Accelerometer, motion thresholds, lock overlay, shake calibration |
-| 7 | Smart Interventions | Week 7 | Context awareness, adaptive thresholds, personalization |
-| 8 | Integration & QA | Week 8 | E2E testing, performance profiling, ISO/IEC 25010 validation |
+Development is organized into self-contained **modules** — one per feature/sub-feature — rather than fixed-duration sprints. Each module moves through the full Meet/Plan/Design/Develop/Test/Evaluate cycle independently; "Status" below reflects where a module currently sits in that cycle, not a calendar week.
+
+| Module | Feature Group | Key Deliverables | Status |
+|--------|---------------|-------------------|--------|
+| 0. Foundation | — (cross-cutting) | Database schema, DAOs, permissions, AccessibilityService, navigation shell, onboarding | Established |
+| 1. Core Monitoring & Usage Awareness | Core Monitoring/Usage Awareness | Foreground tracking, usage aggregation, scroll detection, dashboard/reports UI | Most advanced |
+| 2. AI-Based Behavior Analysis | AI-Based Behavior Analysis | Random Forest risk scoring, m2cgen transpilation, doomscroll & hourly-excessive classifiers | Not started |
+| 3. Motion-Responsive Locking | Motion-Responsive Locking | Accelerometer integration, motion thresholds, lock overlay, shake calibration | Most advanced |
+| 4. Smart Intervention System | Smart Intervention System | Context-aware nudges, adaptive thresholds, break reminders | Partial |
+| 5. Mental Health & Awareness | Mental Health & Awareness | Reflection prompts, wellbeing check-ins | Not started |
+| 6. Personalization & User Control | Personalization & User Control | Usage profiles, custom lock rules, usage limits | Partial |
+| 7. Context-Aware AI | Context-Aware AI | Location-based rules, contextual doomscroll detection | Not started |
+| 8. Integration & QA | — (cross-cutting) | E2E testing, performance profiling, ISO/IEC 25010 validation | Ongoing |
 
 ---
 
@@ -170,7 +193,7 @@ Initialize new session for current app
 Check against AppLockRule (if locked, launch LockActivity)
 ```
 
-### 2. **Risk Scoring Pipeline (Sprint 4+)**
+### 2. **Risk Scoring Pipeline (Module 2: AI-Based Behavior Analysis)**
 ```
 Every 5 minutes:
   ↓
@@ -185,7 +208,7 @@ Store riskScore in MotionInterventionLog
 Stream to UI for dashboard display
 ```
 
-### 3. **Motion-to-Unlock Challenge (Sprint 6)**
+### 3. **Motion-to-Unlock Challenge (Module 3: Motion-Responsive Locking)**
 ```
 User tries to access locked app
   ↓
@@ -210,7 +233,7 @@ On completion: triggerGlobalUnlock() called
 
 ## Performance & Battery Optimization
 
-### Target Metrics (Sprint 8)
+### Target Metrics (Module 8: Integration & QA)
 - **CPU Usage:** <5% during sensor monitoring, <1% during AI inference
 - **Battery Drain:** <2% per 24 hours from Physi-Lock alone
 - **Memory Footprint:** <100 MB RAM during normal operation
@@ -226,16 +249,15 @@ On completion: triggerGlobalUnlock() called
 
 ## Privacy & Data Security
 
-### On-Device Storage Only
-- No mandatory cloud sync
-- All tracking data local to device
-- No external API calls for core functionality
-- Optional anonymized research export (user control)
+### Hybrid Storage, On-Device by Default
+- Sensitive usage/behavioral tracking data (AppUsageLog, MotionInterventionLog, UserConfiguration) stays on-device; no external API calls for the core monitoring/AI/motion-lock loop
+- Accounts, Admin-facing data, and aggregate/anonymized analytics are the only data that reach the cloud (Firebase Auth + Firestore, planned)
+- Optional anonymized research export (user control) via the Admin dashboard's Export Research Data function
 
 ### Data Retention
-- 90-day auto-cleanup for historical logs
-- User can manually wipe all data
-- No backup to cloud (unless opted-in for research)
+- 90-day auto-cleanup for historical usage logs (on-device)
+- User can manually wipe all local data
+- No cloud backup of raw usage/behavioral data (unless opted-in for research export)
 
 ---
 
@@ -269,7 +291,7 @@ On completion: triggerGlobalUnlock() called
 ## Deployment & Research Evaluation
 
 ### Pre-Deployment Checklist
-- ✅ All 61 sprint tasks completed
+- ✅ All module deliverables completed
 - ✅ ISO/IEC 25010 quality validation passed
 - ✅ E2E testing on SDK 26–36 successful
 - ✅ Performance targets met
@@ -290,7 +312,7 @@ On completion: triggerGlobalUnlock() called
 2. **Location-Based Locking:** Custom rules by WiFi network or geofence
 3. **Social Features:** Friend accountability, shared goals (optional cloud)
 4. **Wearable Integration:** Apple Watch, Wear OS motion detection
-5. **Advanced ML:** Federated learning for cohort-level insights without cloud
+   5. **Advanced ML:** Federated learning for cohort-level insights without cloud
 
 ---
 
@@ -298,5 +320,5 @@ On completion: triggerGlobalUnlock() called
 
 For technical issues or questions about Physi-Lock development:
 - Repository: joys-R-Us/physi-lock-capstone-project
-- Documentation: See plan.md and sprints in session state
+- Documentation: See the Development Lifecycle module table above
 - Database Inspector: Android Studio → Database Inspector tool

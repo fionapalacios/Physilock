@@ -7,8 +7,9 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.physi_lock.ui.screens.HomeScreen
-import com.example.physi_lock.ui.screens.ReportsScreen
+import com.example.physi_lock.data.Account
+import com.example.physi_lock.ui.home.HomeScreen
+import com.example.physi_lock.ui.reports.ReportsScreen
 import com.example.physi_lock.ui.move.MoveScreen
 import com.example.physi_lock.ui.settings.SettingsScreen
 
@@ -20,7 +21,12 @@ sealed class Screen(val route: String) {
 }
 
 @Composable
-fun NavGraph(startDestination: String = Screen.Home.route) {
+fun NavGraph(
+    currentAccount: Account?,
+    onAccountUpdated: (Account) -> Unit,
+    onLogout: () -> Unit,
+    startDestination: String = Screen.Home.route
+) {
     val navController = rememberNavController()
 
     Scaffold(
@@ -33,6 +39,7 @@ fun NavGraph(startDestination: String = Screen.Home.route) {
         ) {
             composable(Screen.Home.route) {
                 HomeScreen(
+                    displayName = currentAccount?.fullName ?: "Alex",
                     onManageAppLock = {
                         navController.navigate(Screen.Settings.route) {
                             popUpTo(navController.graph.startDestinationId) { saveState = true }
@@ -44,7 +51,13 @@ fun NavGraph(startDestination: String = Screen.Home.route) {
             }
             composable(Screen.Reports.route) { ReportsScreen() }
             composable(Screen.Move.route) { MoveScreen() }
-            composable(Screen.Settings.route) { SettingsScreen() }
+            composable(Screen.Settings.route) {
+                SettingsScreen(
+                    currentAccount = currentAccount,
+                    onAccountUpdated = onAccountUpdated,
+                    onLogout = onLogout
+                )
+            }
         }
     }
 }

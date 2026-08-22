@@ -1,6 +1,7 @@
 package com.example.physi_lock.ui.auth
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,6 +24,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Eco
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
@@ -31,8 +33,10 @@ import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -79,12 +83,15 @@ fun AuthScreen(
     onLogin: (identifier: String, password: String) -> Unit,
     onRegister: (AuthFormState) -> Unit,
     onForgotPassword: () -> Unit,
-    onBack: () -> Unit
+    onGoogleSignIn: () -> Unit,
+    onBack: () -> Unit,
+    errorMessage: String? = null
 ) {
     var mode by remember { mutableStateOf(AuthMode.LOGIN) }
     var form by remember { mutableStateOf(AuthFormState()) }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+    var validationError by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -256,11 +263,53 @@ fun AuthScreen(
             }
         }
 
+        if (errorMessage != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = errorMessage,
+                fontFamily = Nunito,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = Color(0xFFC0392B)
+            )
+        }
+
+        if (validationError != null) {
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = validationError.orEmpty(),
+                fontFamily = Nunito,
+                fontWeight = FontWeight.SemiBold,
+                fontSize = 13.sp,
+                color = Color(0xFFC0392B)
+            )
+        }
+
         Spacer(modifier = Modifier.height(if (mode == AuthMode.LOGIN) 8.dp else 24.dp))
 
         Button(
             onClick = {
-                if (mode == AuthMode.LOGIN) onLogin(form.identifier, form.password) else onRegister(form)
+                validationError = null
+                if (mode == AuthMode.LOGIN) {
+                    if (form.identifier.isBlank() || form.password.isBlank()) {
+                        validationError = "Enter your username/email and password to sign in."
+                    } else {
+                        onLogin(form.identifier, form.password)
+                    }
+                } else {
+                    if (form.username.isBlank() ||
+                        form.fullName.isBlank() ||
+                        form.identifier.isBlank() ||
+                        form.password.isBlank() ||
+                        form.confirmPassword.isBlank()
+                    ) {
+                        validationError = "Fill in all fields to create your account."
+                    } else if (form.password != form.confirmPassword) {
+                        validationError = "Passwords do not match."
+                    } else {
+                        onRegister(form)
+                    }
+                }
             },
             modifier = Modifier
                 .fillMaxWidth()
@@ -272,6 +321,45 @@ fun AuthScreen(
                 text = if (mode == AuthMode.LOGIN) "Sign In" else "Create Account",
                 fontFamily = Nunito,
                 fontWeight = FontWeight.Bold,
+                fontSize = 15.sp
+            )
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+            HorizontalDivider(modifier = Modifier.weight(1f), color = DeepOlive.copy(alpha = 0.15f))
+            Text(
+                text = "  or  ",
+                fontFamily = Nunito,
+                fontSize = 12.sp,
+                color = MutedText
+            )
+            HorizontalDivider(modifier = Modifier.weight(1f), color = DeepOlive.copy(alpha = 0.15f))
+        }
+
+        Spacer(modifier = Modifier.height(20.dp))
+
+        OutlinedButton(
+            onClick = onGoogleSignIn,
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(56.dp),
+            shape = RoundedCornerShape(16.dp),
+            border = BorderStroke(1.dp, DeepOlive.copy(alpha = 0.2f)),
+            colors = ButtonDefaults.outlinedButtonColors(contentColor = DeepOlive)
+        ) {
+            Icon(
+                imageVector = Icons.Filled.AccountCircle,
+                contentDescription = null,
+                tint = SageAccent,
+                modifier = Modifier.size(18.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "Continue with Google",
+                fontFamily = Nunito,
+                fontWeight = FontWeight.SemiBold,
                 fontSize = 15.sp
             )
         }

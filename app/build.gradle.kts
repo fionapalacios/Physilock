@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 
     id("com.google.devtools.ksp") /// new
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -54,7 +55,19 @@ dependencies {
     
     // Coroutines for async operations
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
-    
+    // Bridges Firebase Task<T> to suspend fun via .await()
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.3")
+
+    // Firebase Authentication + Firestore (BOM manages versions of the two lines below it)
+    implementation(platform("com.google.firebase:firebase-bom:34.17.0"))
+    implementation("com.google.firebase:firebase-auth")
+    implementation("com.google.firebase:firebase-firestore")
+
+    // Credential Manager (Google Sign-In)
+    implementation("androidx.credentials:credentials:1.6.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
+
     // Compose BOM and Material3
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.activity.compose)

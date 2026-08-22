@@ -1,0 +1,57 @@
+rules_version = '2';
+
+// Physi-Lock Firestore security rules.
+// This file isn't auto-deployed (no Firebase CLI configured in this repo) — paste its
+// contents into Firebase Console → Firestore Database → Rules, or deploy with
+// `firebase deploy --only firestore:rules` once the CLI is set up.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isAdmin() {
+      return request.auth != null &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'ADMIN';
+    }
+
+    match /users/{userId} {
+      // Any signed-in user can read a specific profile or query the collection —
+      // required for: username/email uniqueness checks (register), fetchAccount
+      // after login, and the Admin dashboard's account list.
+      // Caveat: this also lets any authenticated User (not just Admin) query the
+      // full account list, same as Admin does. Acceptable at this project's scale;
+      // tighten to Admin-only `list` + a narrower per-doc `get` if that matters later.
+      allow get, list: if request.auth != null;
+
+      // You can only create your own profile document (id must match your own uid).
+      allow create: if request.auth != null && request.auth.uid == userId;
+
+      // You can update/delete your own profile; Admin can update/delete any profile
+      // (activate/deactivate/delete accounts).
+      allow update, delete: if request.auth != null &&
+        (request.auth.uid == userId || isAdmin());
+    }
+
+    // Public username -> email lookup, used only to resolve a username to an email
+    // before sign-in (login-by-username; register/update's own uniqueness checks run
+    // post-auth against /users and don't need this). Deliberately minimal: each doc
+    // holds nothing but { email }, and only exact-ID `get` is allowed — never `list` —
+    // so the collection can't be enumerated, only looked up if you already know the
+    // exact username.
+    match /usernames/{username} {
+      allow get: if true;
+      allow list: if false;
+
+      // Create/overwrite only your own mapping: either the doc doesn't exist yet
+      // (fresh registration) or it already points at your own email (renaming your
+      // username later), and you must be setting it to your own email either way.
+      // (Split as create/update rather than `write` so it doesn't also have to
+      // account for delete, which has no request.resource to check.)
+      allow create, update: if request.auth != null &&
+        (resource == null || resource.data.email == request.auth.token.email) &&
+        request.resource.data.email == request.auth.token.email;
+
+      // Only the owner (by email) can remove their own mapping, e.g. when renaming.
+      allow delete: if request.auth != null &&
+        resource.data.email == request.auth.token.email;
+    }
+  }
+}

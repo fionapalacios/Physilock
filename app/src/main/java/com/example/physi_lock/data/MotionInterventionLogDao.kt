@@ -28,6 +28,9 @@ interface MotionInterventionLogDao {
     @Query("SELECT COUNT(DISTINCT date(datetime(interventionTimestamp / 1000, 'unixepoch'))) FROM motion_intervention_logs WHERE userResponse = 'UNLOCKED' AND interventionTimestamp > :afterTimestamp")
     suspend fun countSuccessfulInterventionDaysAfter(afterTimestamp: Long): Int
 
+    @Query("SELECT COALESCE(SUM(xpEarned), 0) FROM motion_intervention_logs WHERE userResponse = 'UNLOCKED'")
+    fun getTotalXp(): Flow<Int>
+
     @Query("DELETE FROM motion_intervention_logs WHERE julianday(datetime(interventionTimestamp / 1000, 'unixepoch')) < julianday('now', '-90 days')")
     suspend fun deleteOldInterventions()
 }

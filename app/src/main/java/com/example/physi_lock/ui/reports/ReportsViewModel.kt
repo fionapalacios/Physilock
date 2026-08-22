@@ -5,6 +5,9 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.physi_lock.data.AppUsageTotal
 import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.UsageStatsRepository
+import java.time.LocalDate
+import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToInt
@@ -17,8 +20,8 @@ data class DayUsage(val dayLabel: String, val minutes: Int, val isToday: Boolean
 
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
     private val db = PhysiLockDatabase.getInstance(application)
-    private val appUsageDao = db.appUsageLogDao()
     private val userConfigDao = db.userConfigurationDao()
+    private val usageStatsRepository = UsageStatsRepository(application)
 
     private val _weeklyUsage = MutableStateFlow<List<DayUsage>>(emptyList())
     val weeklyUsage: StateFlow<List<DayUsage>> = _weeklyUsage.asStateFlow()
@@ -29,40 +32,74 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val _insights = MutableStateFlow<List<String>>(emptyList())
     val insights: StateFlow<List<String>> = _insights.asStateFlow()
 
+    private val _dailyLimitMinutes = MutableStateFlow(480)
+    val dailyLimitMinutes: StateFlow<Int> = _dailyLimitMinutes.asStateFlow()
+
     init {
         viewModelScope.launch {
-            val today = java.time.LocalDate.now()
+            val today = LocalDate.now()
             // Oldest to newest, ending with today
             val last7Dates = (6 downTo 0).map { today.minusDays(it.toLong()) }
+
+            // Same UsageStatsManager source Home uses (see HomeViewModel), not AppUsageLog —
+            // that only reflects usage since AppMonitorService started watching, not real
+            // historical totals. One query per day rather than a single 7-day range query,
+            // since UsageStatsManager's multi-day aggregation isn't reliable enough to trust
+            // (see UsageStatsRepository.getUsageForRange kdoc); totals are folded client-side.
+            val packageTotals = mutableMapOf<String, Long>()
             val days = last7Dates.map { date ->
-                val totalMs = try { appUsageDao.getTotalDurationByDateOnce(date.toString()) } catch (e: Exception) { 0L }
+                val (dayStart, dayEnd) = dayBoundsMillis(date, today)
+                val usage = try {
+                    usageStatsRepository.getUsageForRange(dayStart, dayEnd)
+                } catch (e: Exception) {
+                    emptyList()
+                }
+                usage.forEach { packageTotals[it.packageName] = (packageTotals[it.packageName] ?: 0L) + it.totalTimeMs }
                 DayUsage(
                     dayLabel = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(1),
-                    minutes = ((totalMs ?: 0L) / 60_000L).toInt(),
+                    minutes = (usage.sumOf { it.totalTimeMs } / 60_000L).toInt(),
                     isToday = date == today
                 )
             }
             _weeklyUsage.value = days
             _insights.value = buildInsights(days)
 
-            try {
-                appUsageDao.getAppTotalsByDateRange(last7Dates.first().toString(), last7Dates.last().toString())
-                    .collect { totals -> _topApps.value = totals.take(5) }
-            } catch (e: Exception) {
-                _topApps.value = emptyList()
-            }
+            _topApps.value = packageTotals.entries
+                .sortedByDescending { it.value }
+                .take(5)
+                .map { (packageName, totalMs) ->
+                    AppUsageTotal(
+                        packageName = packageName,
+                        appName = usageStatsRepository.getAppLabel(packageName),
+                        totalDurationMs = totalMs
+                    )
+                }
         }
+    }
+
+    /** Midnight-to-midnight for past days; midnight-to-now for today. */
+    private fun dayBoundsMillis(date: LocalDate, today: LocalDate): Pair<Long, Long> {
+        val zone = ZoneId.systemDefault()
+        val startMillis = date.atStartOfDay(zone).toInstant().toEpochMilli()
+        val endMillis = if (date == today) {
+            System.currentTimeMillis()
+        } else {
+            date.plusDays(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        }
+        return startMillis to endMillis
     }
 
     // Simple rule-based observations from real logged usage — not an ML prediction.
     private suspend fun buildInsights(days: List<DayUsage>): List<String> {
+        val cfg = try { userConfigDao.getActiveConfigurationOnce() } catch (e: Exception) { null }
+        val limitMinutes = ((cfg?.dailyScreenTimeThresholdMs ?: (480 * 60_000L)) / 60_000L).toInt()
+        _dailyLimitMinutes.value = limitMinutes
+
         if (days.isEmpty() || days.all { it.minutes == 0 }) return emptyList()
 
         val todayMinutes = days.lastOrNull { it.isToday }?.minutes ?: 0
         val avgMinutes = days.map { it.minutes }.average()
         val peakDay = days.maxByOrNull { it.minutes }
-        val cfg = try { userConfigDao.getActiveConfigurationOnce() } catch (e: Exception) { null }
-        val limitMinutes = ((cfg?.dailyScreenTimeThresholdMs ?: (480 * 60_000L)) / 60_000L).toInt()
 
         val insights = mutableListOf<String>()
 

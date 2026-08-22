@@ -5,6 +5,8 @@ import android.app.AppOpsManager
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
+import android.os.PowerManager
 import android.os.Process
 import android.provider.Settings
 import android.view.accessibility.AccessibilityManager
@@ -46,7 +48,8 @@ private data class PermissionStep(
     val title: String,
     val description: String,
     val isGranted: (Context) -> Boolean,
-    val settingsIntent: (Context) -> Intent
+    val settingsIntent: (Context) -> Intent,
+    val required: Boolean = true
 )
 
 private val permissionSteps = listOf(
@@ -80,6 +83,37 @@ private val permissionSteps = listOf(
                 .any { it.resolveInfo.serviceInfo.packageName == context.packageName }
         },
         settingsIntent = { Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS) }
+    ),
+    PermissionStep(
+        title = "Notifications",
+        description = "Lets Physi-Lock send break reminders, overuse alerts, and intervention prompts.",
+        isGranted = { context ->
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+                true
+            } else {
+                androidx.core.app.NotificationManagerCompat.from(context).areNotificationsEnabled()
+            }
+        },
+        settingsIntent = { context ->
+            Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+            }
+        }
+    ),
+    PermissionStep(
+        title = "Battery Optimization",
+        description = "Recommended for reliable background monitoring and lock enforcement.",
+        isGranted = { context ->
+            val pm = context.getSystemService(Context.POWER_SERVICE) as PowerManager
+            pm.isIgnoringBatteryOptimizations(context.packageName)
+        },
+        settingsIntent = { context ->
+            Intent(
+                Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+                Uri.parse("package:${context.packageName}")
+            )
+        },
+        required = false
     )
 )
 
@@ -100,6 +134,12 @@ fun OnboardingScreen(onFinished: () -> Unit) {
     val grantedStates = remember(refreshTick) {
         permissionSteps.map { it.isGranted(context) }
     }
+    val requiredSteps = permissionSteps.filter { it.required }
+    val grantedCount = permissionSteps.filterIndexed { index, step ->
+        step.required && grantedStates.getOrElse(index) { false }
+    }.size
+    val totalCount = requiredSteps.size
+    val allGranted = grantedCount == totalCount
 
     Column(
         modifier = Modifier
@@ -136,12 +176,15 @@ fun OnboardingScreen(onFinished: () -> Unit) {
                     )
                     Spacer(modifier = Modifier.width(12.dp))
                     Column(modifier = Modifier.weight(1f)) {
-                        Text(text = step.title, style = MaterialTheme.typography.titleLarge)
+                        Text(
+                            text = if (step.required) step.title else "${step.title} (recommended)",
+                            style = MaterialTheme.typography.titleLarge
+                        )
                         Text(text = step.description, style = MaterialTheme.typography.bodyLarge)
                     }
                     if (!granted) {
                         TextButton(onClick = { context.startActivity(step.settingsIntent(context)) }) {
-                            Text("Enable")
+                            Text(if (step.required) "Enable" else "Enable")
                         }
                     }
                 }
@@ -150,10 +193,23 @@ fun OnboardingScreen(onFinished: () -> Unit) {
 
         Spacer(modifier = Modifier.height(24.dp))
         Button(
-            onClick = onFinished,
+            onClick = {
+                if (allGranted) {
+                    onFinished()
+                } else {
+                    val nextRequiredIndex = permissionSteps.indices.firstOrNull { index ->
+                        permissionSteps[index].required && !grantedStates.getOrElse(index) { false }
+                    } ?: -1
+                    if (nextRequiredIndex >= 0) {
+                        context.startActivity(permissionSteps[nextRequiredIndex].settingsIntent(context))
+                    } else {
+                        onFinished()
+                    }
+                }
+            },
             modifier = Modifier.fillMaxWidth()
         ) {
-            Text("Get Started")
+            Text(if (allGranted) "Continue to Dashboard" else "Continue $grantedCount/$totalCount")
         }
     }
 }

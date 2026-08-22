@@ -42,7 +42,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.Account
 import com.example.physi_lock.data.auth.FirebaseAccountRepository
-import com.example.physi_lock.sensor.ShakeSensitivity
+import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.ui.theme.DeepOlive
 import kotlinx.coroutines.launch
 
@@ -314,9 +314,10 @@ fun SettingsScreen(
         Card(modifier = Modifier.padding(8.dp), colors = CardDefaults.cardColors()) {
             Column(modifier = Modifier.padding(16.dp)) {
                 Text(text = "Motion Lock Sensitivity", style = MaterialTheme.typography.titleLarge)
-                val activeSensitivity = ShakeSensitivity.fromLabel(config.motionLockSensitivity)
+                val activeSensitivity = ChallengeSensitivity.fromLabel(config.motionLockSensitivity)
                 Text(
-                    text = "Requires ${activeSensitivity.shakesRequired} aggressive shakes to unlock",
+                    text = "Requires ${activeSensitivity.armRepsRequired} arm-movement reps " +
+                        "(or a ${activeSensitivity.walkStepsRequired}-step walk / sustained jog) to unlock",
                     style = MaterialTheme.typography.bodyLarge
                 )
                 Row(modifier = Modifier.padding(top = 8.dp)) {
