@@ -13,10 +13,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Bolt
@@ -28,6 +29,7 @@ import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -42,13 +44,13 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.prototype.physi_lock.R
-import com.prototype.physi_lock.ui.components.DashboardCard
 import com.prototype.physi_lock.ui.theme.AccentLavender
 import com.prototype.physi_lock.ui.theme.BackgroundLight
 import com.prototype.physi_lock.ui.theme.DeepOlive
@@ -79,21 +81,56 @@ private fun cssLinearGradient(
     return Brush.linearGradient(colorStops = colorStops, start = start, end = end)
 }
 
-private data class CoreModule(
+private data class OnboardingSlide(
     val title: String,
     val description: String,
     val icon: ImageVector,
     val accentColor: Color
 )
 
-private val coreModules = listOf(
-    CoreModule("Core Monitoring", "Track screen time & overuse alerts", Icons.Filled.Visibility, PrimaryGreen),
-    CoreModule("AI Behavior Analysis", "Addiction risk scoring & predictions", Icons.Filled.Psychology, AccentLavender),
-    CoreModule("Motion Lock", "Move-to-unlock physical challenges", Icons.Filled.Bolt, PrimaryGreen),
-    CoreModule("Smart Intervention", "Focus mode & goal-based limits", Icons.Filled.Shield, DeepOlive),
-    CoreModule("Mental Wellness", "Break reminders & reflection prompts", Icons.Filled.Favorite, AccentLavender),
-    CoreModule("Personalization", "Student & Work mode profiles", Icons.Filled.Tune, PrimaryGreen),
-    CoreModule("Context AI", "Location-aware, doomscrolling detection", Icons.Filled.LocationOn, DeepOlive)
+private val onboardingSlides = listOf(
+    OnboardingSlide(
+        "Core Monitoring",
+        "Real-time tracking of app usage, screen unlocks, and overuse alerts so you always know where your time goes.",
+        Icons.Filled.Visibility,
+        PrimaryGreen
+    ),
+    OnboardingSlide(
+        "AI Behavior Analysis",
+        "Personalized addiction risk scoring and early predictions that flag unhealthy patterns before they take hold.",
+        Icons.Filled.Psychology,
+        AccentLavender
+    ),
+    OnboardingSlide(
+        "Motion-Responsive Locking",
+        "Physical move-to-unlock challenges that turn screen time limits into a quick burst of real movement.",
+        Icons.Filled.Bolt,
+        PrimaryGreen
+    ),
+    OnboardingSlide(
+        "Smart Intervention",
+        "Focus mode sessions and goal-based limits step in automatically the moment you start to drift.",
+        Icons.Filled.Shield,
+        DeepOlive
+    ),
+    OnboardingSlide(
+        "Mental Wellness",
+        "Timed break reminders, guided daily reflections, and wellness nudges when you need them most.",
+        Icons.Filled.Favorite,
+        AccentLavender
+    ),
+    OnboardingSlide(
+        "Personalization",
+        "Student and Work mode profiles tailor limits, schedules, and nudges to fit how you actually live.",
+        Icons.Filled.Tune,
+        PrimaryGreen
+    ),
+    OnboardingSlide(
+        "Context-Aware AI",
+        "Location-aware detection spots doomscrolling and context switches so interventions land at the right moment.",
+        Icons.Filled.LocationOn,
+        DeepOlive
+    )
 )
 
 @Composable
@@ -102,211 +139,235 @@ fun GetStartedScreen(
     onLoginClick: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
+    val pagerState = rememberPagerState(pageCount = { onboardingSlides.size })
+
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(BackgroundLight)
+            .drawWithCache {
+                val brush = cssLinearGradient(
+                    angleDeg = 170f,
+                    colorStops = arrayOf(
+                        0.0f to SecondarySage,
+                        0.45f to TertiaryTan,
+                        1.0f to BackgroundLight
+                    ),
+                    size = size
+                )
+                onDrawBehind { drawRect(brush) }
+            }
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(320.dp)
-                .align(Alignment.TopCenter)
-                .drawWithCache {
-                    val brush = cssLinearGradient(
-                        angleDeg = 160f,
-                        colorStops = arrayOf(
-                            0.0849f to SecondarySage,
-                            0.583f to TertiaryTan,
-                            0.9151f to BackgroundLight
-                        ),
-                        size = size
-                    )
-                    onDrawBehind { drawRect(brush) }
-                }
-        )
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 24.dp)
-                .padding(top = 48.dp, bottom = 32.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
-        ) {
-            Image(
-                painter = painterResource(id = R.drawable.logo),
-                contentDescription = "Physi-Lock logo",
+        Column(modifier = Modifier.fillMaxSize()) {
+            Column(
                 modifier = Modifier
-                    .width(118.dp)
-                    .height(97.dp)
-            )
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Image(
-                painter = painterResource(id = R.drawable.wordmark),
-                contentDescription = "Physi-Lock",
-                modifier = Modifier
-                    .width(184.dp)
-                    .height(35.dp)
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Text(
-                text = "Move your body. Reclaim your mind.",
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                textAlign = TextAlign.Center,
-                color = PrimaryDark
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            Box(
-                modifier = Modifier
-                    .background(
-                        color = PrimaryDark.copy(alpha = 0.07f),
-                        shape = RoundedCornerShape(15.dp)
-                    )
-                    .border(
-                        width = 0.792.dp,
-                        color = PrimaryDark.copy(alpha = 0.12f),
-                        shape = RoundedCornerShape(15.dp)
-                    )
-                    .padding(16.dp)
+                    .fillMaxWidth()
+                    .padding(horizontal = 22.5.dp)
+                    .padding(top = 28.dp, bottom = 18.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Physi-Lock logo",
+                    modifier = Modifier
+                        .size(128.dp)
+                        .padding(bottom = 14.dp)
+                )
                 Text(
-                    text = "AI-powered screen time control that rewards physical movement " +
-                        "and protects your mental wellness.",
-                    fontFamily = NunitoFontFamily,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Normal,
-                    lineHeight = 22.75.sp,
+                    text = "Physi-Lock",
                     textAlign = TextAlign.Center,
+                    fontFamily = NunitoFontFamily,
+                    fontSize = 30.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    lineHeight = 33.sp,
                     color = PrimaryDark
                 )
-            }
-
-            Spacer(modifier = Modifier.height(28.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                StatItem(value = "7", label = "Modules", modifier = Modifier.weight(1f))
-                StatItem(value = "13+", label = "Features", modifier = Modifier.weight(1f))
-                StatItem(value = "AI", label = "Powered", modifier = Modifier.weight(1f))
-            }
-
-            Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text = "CORE MODULES",
-                style = MaterialTheme.typography.labelLarge,
-                letterSpacing = 1.5.sp,
-                fontWeight = FontWeight.Bold,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.fillMaxWidth()
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            coreModules.forEach { module ->
-                DashboardCard(
-                    title = module.title,
-                    description = module.description,
-                    icon = module.icon,
-                    accentColor = module.accentColor
-                )
-                Spacer(modifier = Modifier.height(12.dp))
-            }
-
-            Spacer(modifier = Modifier.height(20.dp))
-
-            Button(
-                onClick = onGetStartedClick,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(15.dp),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = PrimaryDark,
-                    contentColor = BackgroundLight
-                )
-            ) {
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = "Sign Up — It's Free",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowForward,
-                    contentDescription = null,
-                    tint = BackgroundLight,
-                    modifier = Modifier.height(16.dp)
+                    text = "Move your body. Reclaim your mind.",
+                    textAlign = TextAlign.Center,
+                    fontFamily = NunitoFontFamily,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium,
+                    lineHeight = 19.5.sp,
+                    color = DeepOlive
                 )
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
-
-            OutlinedButton(
-                onClick = onLoginClick,
+            Column(
                 modifier = Modifier
+                    .weight(1f)
                     .fillMaxWidth()
-                    .height(52.dp),
-                shape = RoundedCornerShape(15.dp),
-                border = BorderStroke(0.792.dp, PrimaryDark.copy(alpha = 0.20f)),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = PrimaryDark
-                )
+                    .padding(15.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
-                Text(
-                    text = "Log In",
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.Bold
-                )
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(220.dp),
+                    contentAlignment = Alignment.TopCenter
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 20.dp)
+                            .fillMaxWidth(0.78f)
+                            .height(180.dp)
+                            .background(BackgroundLight.copy(alpha = 0.30f), RoundedCornerShape(23.dp))
+                            .border(1.5.dp, PrimaryDark.copy(alpha = 0.12f), RoundedCornerShape(23.dp))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 25.dp)
+                            .fillMaxWidth(0.74f)
+                            .height(171.dp)
+                            .background(BackgroundLight.copy(alpha = 0.17f), RoundedCornerShape(22.dp))
+                            .border(1.35.dp, PrimaryDark.copy(alpha = 0.12f), RoundedCornerShape(22.dp))
+                    )
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 10.dp)
+                            .fillMaxWidth(0.86f)
+                            .height(200.dp)
+                            .background(BackgroundLight.copy(alpha = 0.92f), RoundedCornerShape(22.5.dp))
+                            .border(1.5.dp, PrimaryDark.copy(alpha = 0.14f), RoundedCornerShape(22.5.dp))
+                    ) {
+                        HorizontalPager(
+                            state = pagerState,
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .padding(22.5.dp)
+                        ) { page ->
+                            val slide = onboardingSlides[page]
+                            Column(modifier = Modifier.fillMaxSize()) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(52.dp)
+                                            .background(slide.accentColor.copy(alpha = 0.09f), RoundedCornerShape(15.dp)),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = slide.icon,
+                                            contentDescription = null,
+                                            tint = slide.accentColor,
+                                            modifier = Modifier.size(24.dp)
+                                        )
+                                    }
+                                    Text(
+                                        text = "${page + 1} / ${onboardingSlides.size}",
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 13.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        lineHeight = 19.5.sp,
+                                        color = PrimaryGreen
+                                    )
+                                }
+                                Spacer(modifier = Modifier.height(15.dp))
+                                Text(
+                                    text = slide.title,
+                                    fontFamily = NunitoFontFamily,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    lineHeight = 24.sp,
+                                    color = PrimaryDark
+                                )
+                                Spacer(modifier = Modifier.height(6.dp))
+                                Text(
+                                    text = slide.description,
+                                    fontFamily = NunitoFontFamily,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Normal,
+                                    lineHeight = 20.15.sp,
+                                    color = DeepOlive
+                                )
+                            }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(18.75.dp))
+
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(5.63.dp)
+                ) {
+                    onboardingSlides.indices.forEach { index ->
+                        val isActive = pagerState.currentPage == index
+                        Box(
+                            modifier = Modifier
+                                .height(6.dp)
+                                .width(if (isActive) 18.dp else 6.dp)
+                                .background(
+                                    color = if (isActive) PrimaryDark else TertiaryTan,
+                                    shape = RoundedCornerShape(50)
+                                )
+                        )
+                    }
+                }
             }
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Column(modifier = Modifier.fillMaxWidth()) {
+                HorizontalDivider(thickness = 1.5.dp, color = PrimaryDark.copy(alpha = 0.12f))
 
-            Text(
-                text = "Free · No ads · Your data stays on device",
-                fontFamily = NunitoFontFamily,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Normal,
-                lineHeight = 19.5.sp,
-                textAlign = TextAlign.Center,
-                color = PrimaryGreen
-            )
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 18.75.dp)
+                        .padding(top = 7.5.dp, bottom = 30.dp)
+                ) {
+                    Button(
+                        onClick = onGetStartedClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(52.dp),
+                        shape = RoundedCornerShape(15.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = PrimaryDark,
+                            contentColor = BackgroundLight
+                        )
+                    ) {
+                        Text(
+                            text = "Get Started",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                            contentDescription = null,
+                            tint = BackgroundLight,
+                            modifier = Modifier.height(16.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(11.25.dp))
+
+                    OutlinedButton(
+                        onClick = onLoginClick,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(50.dp),
+                        shape = RoundedCornerShape(15.dp),
+                        border = BorderStroke(1.5.dp, PrimaryDark.copy(alpha = 0.18f)),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = PrimaryDark
+                        )
+                    ) {
+                        Text(
+                            text = "I already have an account",
+                            fontFamily = NunitoFontFamily,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            lineHeight = 21.sp
+                        )
+                    }
+                }
+            }
         }
-    }
-}
-
-@Composable
-private fun StatItem(value: String, label: String, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .background(
-                color = Color.White.copy(alpha = 0.60f),
-                shape = RoundedCornerShape(19.dp)
-            )
-            .padding(vertical = 14.dp, horizontal = 8.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
-    ) {
-        Text(
-            text = value,
-            style = MaterialTheme.typography.headlineSmall,
-            fontWeight = FontWeight.Bold,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onBackground.copy(alpha = 0.7f)
-        )
     }
 }
 
