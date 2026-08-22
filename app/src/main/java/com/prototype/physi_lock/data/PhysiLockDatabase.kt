@@ -13,7 +13,7 @@ import androidx.room.RoomDatabase
         UserConfiguration::class,
         MotionInterventionLog::class
     ],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {

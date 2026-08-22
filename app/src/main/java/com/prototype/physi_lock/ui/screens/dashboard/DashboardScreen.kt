@@ -66,6 +66,8 @@ import com.prototype.physi_lock.ui.components.BottomNavItem
 import com.prototype.physi_lock.ui.components.CircularProgressRing
 import com.prototype.physi_lock.ui.components.NotificationEntry
 import com.prototype.physi_lock.ui.components.NotificationsOverlay
+import com.prototype.physi_lock.ui.screens.settings.ProfileViewModel
+import com.prototype.physi_lock.ui.screens.settings.SettingsScreen
 import com.prototype.physi_lock.ui.theme.AccentLavender
 import com.prototype.physi_lock.ui.theme.BackgroundLight
 import com.prototype.physi_lock.ui.theme.DeepOlive
@@ -163,6 +165,8 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
     val dashboardViewModel: DashboardViewModel = viewModel()
     val uiState by dashboardViewModel.uiState.collectAsState()
     val hasUsageAccess by dashboardViewModel.hasUsageAccess.collectAsState()
+    val profileViewModel: ProfileViewModel = viewModel()
+    val profile by profileViewModel.profile.collectAsState()
     val lifecycleOwner = androidx.lifecycle.compose.LocalLifecycleOwner.current
 
     DisposableEffect(lifecycleOwner) {
@@ -204,6 +208,7 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
                 if (selectedTab == BottomNavItem.HOME) {
                     HomeContent(
                         uiState = uiState,
+                        displayName = profile.fullName.substringBefore(" ").ifBlank { profile.fullName },
                         hasUsageAccess = hasUsageAccess,
                         onGrantUsageAccessClick = {
                             openUsageAccessSettings(context)
@@ -232,6 +237,8 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
                     )
                 } else if (selectedTab == BottomNavItem.REPORTS) {
                     ReportsScreen()
+                } else if (selectedTab == BottomNavItem.SETTINGS) {
+                    SettingsScreen(profileViewModel = profileViewModel)
                 } else {
                     Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                         Text(
@@ -324,6 +331,7 @@ fun DashboardScreen(modifier: Modifier = Modifier) {
 @Composable
 private fun HomeContent(
     uiState: DashboardUiState,
+    displayName: String,
     hasUsageAccess: Boolean,
     onGrantUsageAccessClick: () -> Unit,
     onNotificationsClick: () -> Unit,
@@ -339,7 +347,7 @@ private fun HomeContent(
             .padding(horizontal = 15.dp)
             .padding(top = 7.5.dp, bottom = 24.dp)
     ) {
-        HeaderRow(onNotificationsClick = onNotificationsClick)
+        HeaderRow(displayName = displayName, onNotificationsClick = onNotificationsClick)
         Spacer(modifier = Modifier.height(18.75.dp))
         ScreenTimeCard(
             uiState = uiState,
@@ -367,7 +375,7 @@ private fun HomeContent(
 }
 
 @Composable
-private fun HeaderRow(onNotificationsClick: () -> Unit) {
+private fun HeaderRow(displayName: String, onNotificationsClick: () -> Unit) {
     val dateLabel = rememberCurrentDateLabel()
 
     Row(
@@ -387,7 +395,7 @@ private fun HeaderRow(onNotificationsClick: () -> Unit) {
                 overflow = TextOverflow.Ellipsis
             )
             Text(
-                text = "Good morning, Alex",
+                text = "Good morning, $displayName",
                 fontFamily = NunitoFontFamily,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.ExtraBold,

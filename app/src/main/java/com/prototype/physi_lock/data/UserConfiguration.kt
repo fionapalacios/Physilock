@@ -6,6 +6,9 @@ import androidx.room.PrimaryKey
 @Entity(tableName = "user_configuration")
 data class UserConfiguration(
     @PrimaryKey val configId: Int = 1, // Single active configuration
+    val fullName: String = "John Doe",
+    val username: String = "johndoe123",
+    val email: String = "johndoe@gmail.com",
     val userMode: String = "STUDENT_MODE", // "STUDENT_MODE" or "WORK_MODE"
     val dailyScreenTimeThresholdMs: Long = 480 * 60 * 1000, // 480 minutes default
     val hourlyExcessiveUsageThresholdMs: Long = 60 * 60 * 1000, // 60 minutes per hour
