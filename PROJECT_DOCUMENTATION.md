@@ -73,7 +73,7 @@ Development is organized into self-contained **modules** — one per feature/sub
 |--------|---------------|-------------------|--------|
 | 0. Foundation | — (cross-cutting) | Database schema, DAOs, permissions, AccessibilityService, navigation shell, onboarding | Established |
 | 1. Core Monitoring & Usage Awareness | Core Monitoring/Usage Awareness | Foreground tracking, usage aggregation, scroll detection, dashboard/reports UI | Most advanced |
-| 2. AI-Based Behavior Analysis | AI-Based Behavior Analysis | Random Forest risk scoring, m2cgen transpilation, doomscroll & hourly-excessive classifiers | Not started |
+| 2. AI-Based Behavior Analysis | AI-Based Behavior Analysis | Random Forest risk scoring, m2cgen transpilation, doomscroll & hourly-excessive classifiers | Partial — Random Forest live (2026-08-23), classifiers not started |
 | 3. Motion-Responsive Locking | Motion-Responsive Locking | Accelerometer integration, motion thresholds, lock overlay, shake calibration | Most advanced |
 | 4. Smart Intervention System | Smart Intervention System | Context-aware nudges, adaptive thresholds, break reminders | Partial |
 | 5. Mental Health & Awareness | Mental Health & Awareness | Reflection prompts, wellbeing check-ins | Not started |

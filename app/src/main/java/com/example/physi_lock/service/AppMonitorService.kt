@@ -81,6 +81,12 @@ class AppMonitorService : AccessibilityService() {
     private lateinit var usageStatsRepository: UsageStatsRepository
     private var currentForegroundPackage: String? = null
     private var currentSessionStartTime: Long? = null
+    // Module 2 (AI-Based Behavior Analysis): raw scroll signal for the doomscroll
+    // classifier's "scroll speed"/"pause pattern" inputs, scoped to the current
+    // foreground session and flushed into that session's AppUsageLog row when it ends.
+    private var currentSessionScrollCount = 0
+    private var currentSessionLastScrollTime: Long? = null
+    private var currentSessionMaxScrollGapMs: Long = 0
     private var continuousUsageStartTime: Long? = null
     private var lastActivityEventTime: Long? = null
     private var lastOveruseCheckTime: Long = 0L
@@ -271,12 +277,20 @@ class AppMonitorService : AccessibilityService() {
     private fun handleWindowStateChange(packageName: String, currentTime: Long) {
         // Log the previous app session if it changed
         if (currentForegroundPackage != null && currentForegroundPackage != packageName) {
-            logAppSession(currentForegroundPackage!!, currentTime)
+            logAppSession(
+                currentForegroundPackage!!,
+                currentTime,
+                scrollEventCount = currentSessionScrollCount,
+                maxScrollGapMs = currentSessionMaxScrollGapMs
+            )
         }
 
-        // Update current foreground app
+        // Update current foreground app; reset per-session scroll tracking
         currentForegroundPackage = packageName
         currentSessionStartTime = currentTime
+        currentSessionScrollCount = 0
+        currentSessionLastScrollTime = null
+        currentSessionMaxScrollGapMs = 0
 
         // Check if app should be locked
         if (packageName in lockedPackages && !isTemporarilyUnlocked(packageName, currentTime)) {
@@ -288,7 +302,12 @@ class AppMonitorService : AccessibilityService() {
         }
     }
 
-    private fun logAppSession(packageName: String, endTime: Long) {
+    private fun logAppSession(
+        packageName: String,
+        endTime: Long,
+        scrollEventCount: Int = 0,
+        maxScrollGapMs: Long = 0
+    ) {
         val startTime = currentSessionStartTime ?: return
         val duration = endTime - startTime
         if (duration <= 0) return
@@ -303,6 +322,8 @@ class AppMonitorService : AccessibilityService() {
                     sessionStartTime = startTime,
                     sessionEndTime = endTime,
                     foregroundDurationMs = duration,
+                    scrollEventCount = scrollEventCount,
+                    maxScrollGapMs = maxScrollGapMs,
                     dateKey = dateKey
                 )
                 database.appUsageLogDao().insert(log)
@@ -312,8 +333,20 @@ class AppMonitorService : AccessibilityService() {
         }
     }
 
+    // Module 2 (AI-Based Behavior Analysis): doomscroll classifier's raw scroll signal.
+    // Only counts scroll events for the app currently in the foreground, since a stray
+    // TYPE_VIEW_SCROLLED can arrive from a different window mid-transition.
     private fun logScrollEvent(packageName: String, currentTime: Long) {
-        // Module 2 (AI-Based Behavior Analysis): increment scroll counter
+        if (packageName != currentForegroundPackage) return
+        currentSessionScrollCount++
+        val lastScrollTime = currentSessionLastScrollTime
+        if (lastScrollTime != null) {
+            val gap = currentTime - lastScrollTime
+            if (gap > currentSessionMaxScrollGapMs) {
+                currentSessionMaxScrollGapMs = gap
+            }
+        }
+        currentSessionLastScrollTime = currentTime
     }
 
     private fun getAppName(packageName: String): String {
@@ -333,7 +366,12 @@ class AppMonitorService : AccessibilityService() {
         super.onDestroy()
         // Log final session if any
         currentForegroundPackage?.let {
-            logAppSession(it, System.currentTimeMillis())
+            logAppSession(
+                it,
+                System.currentTimeMillis(),
+                scrollEventCount = currentSessionScrollCount,
+                maxScrollGapMs = currentSessionMaxScrollGapMs
+            )
         }
     }
 }

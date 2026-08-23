@@ -9,6 +9,8 @@ import androidx.lifecycle.viewModelScope
 import com.example.physi_lock.data.AppUsageTotal
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
+import com.example.physi_lock.ml.RiskFeatureExtractor
+import com.example.physi_lock.ml.RiskScoringEngine
 import androidx.core.app.NotificationManagerCompat
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -27,6 +29,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val appLockRuleDao = db.appLockRuleDao()
     private val usageStatsRepository = UsageStatsRepository(application)
     private val notificationManager = NotificationManagerCompat.from(application)
+    private val riskFeatureExtractor = RiskFeatureExtractor(application)
     private val today = java.time.LocalDate.now().toString()
 
     private val _todayScreenTimeMinutes = MutableStateFlow(0)
@@ -35,11 +38,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _dailyLimitMinutes = MutableStateFlow(480)
     val dailyLimitMinutes: StateFlow<Int> = _dailyLimitMinutes.asStateFlow()
 
-    // Reflects the configured shake-to-unlock difficulty (Settings > Motion Lock
-    // Sensitivity), not a computed risk score — real ML risk scoring is Module 2
-    // (AI-Based Behavior Analysis).
-    private val _lockSensitivity = MutableStateFlow("Moderate")
-    val lockSensitivity: StateFlow<String> = _lockSensitivity.asStateFlow()
+    // Module 2 (AI-Based Behavior Analysis): real Random Forest risk classification
+    // over today's actual logged usage (see RiskFeatureExtractor/RiskScoringEngine).
+    // Replaces the old UserConfiguration.riskSensitivity placeholder, which just
+    // mirrored the motion-lock-sensitivity setting.
+    private val _riskLevel = MutableStateFlow("Moderate")
+    val riskLevel: StateFlow<String> = _riskLevel.asStateFlow()
+
+    private val _riskScorePercent = MutableStateFlow(0.5f)
+    val riskScorePercent: StateFlow<Float> = _riskScorePercent.asStateFlow()
 
     private val _hasUsageAccess = MutableStateFlow(false)
     val hasUsageAccess: StateFlow<Boolean> = _hasUsageAccess.asStateFlow()
@@ -66,8 +73,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
         viewModelScope.launch {
             val cfg = try { userConfigDao.getActiveConfigurationOnce() } catch (e: Exception) { null }
-            _lockSensitivity.value = cfg?.riskSensitivity ?: "Moderate"
             _dailyLimitMinutes.value = ((cfg?.dailyScreenTimeThresholdMs ?: (480 * 60_000L)) / 60_000L).toInt()
+        }
+    }
+
+    private fun refreshRiskScore() {
+        viewModelScope.launch {
+            try {
+                val features = riskFeatureExtractor.extractTodayFeatures()
+                val assessment = RiskScoringEngine.score(features)
+                _riskLevel.value = assessment.level.label
+                _riskScorePercent.value = assessment.score.toFloat()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 
@@ -77,6 +96,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _hasOverlayPermission.value = Settings.canDrawOverlays(getApplication())
         _hasAccessibilityAccess.value = isAccessibilityServiceEnabled(getApplication())
         refreshTodayScreenTime()
+        refreshRiskScore()
     }
 
     // Today's screen time comes from Android's own UsageStatsManager (same source

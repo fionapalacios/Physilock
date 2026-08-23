@@ -84,7 +84,8 @@ fun HomeScreen(
     val lifecycleOwner = LocalLifecycleOwner.current
     val todayMinutes by homeViewModel.todayScreenTimeMinutes.collectAsState(initial = 0)
     val dailyLimitMinutes by homeViewModel.dailyLimitMinutes.collectAsState(initial = 480)
-    val lockSensitivity by homeViewModel.lockSensitivity.collectAsState(initial = "Moderate")
+    val riskLevel by homeViewModel.riskLevel.collectAsState(initial = "Moderate")
+    val riskScorePercent by homeViewModel.riskScorePercent.collectAsState(initial = 0.5f)
     val lockedAppsToday by homeViewModel.lockedAppsToday.collectAsState(initial = emptyList())
     val hasUsageAccess by homeViewModel.hasUsageAccess.collectAsState(initial = false)
     val notificationsEnabled by homeViewModel.notificationsEnabled.collectAsState(initial = false)
@@ -124,7 +125,8 @@ fun HomeScreen(
         ScreenTimeCard(todayMinutes = todayMinutes, dailyLimitMinutes = dailyLimitMinutes)
         Spacer(modifier = Modifier.height(12.dp))
         RiskAndActionsRow(
-            lockSensitivity = lockSensitivity,
+            riskLevel = riskLevel,
+            riskScorePercent = riskScorePercent,
             onManageAppLock = onManageAppLock,
             onNavigateToFocus = onNavigateToFocus
         )
@@ -388,16 +390,11 @@ private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int) {
 
 @Composable
 private fun RiskAndActionsRow(
-    lockSensitivity: String,
+    riskLevel: String,
+    riskScorePercent: Float,
     onManageAppLock: () -> Unit,
     onNavigateToFocus: () -> Unit
 ) {
-    val sensitivityPercent = when (lockSensitivity) {
-        "Low" -> 0.3f
-        "High" -> 0.8f
-        else -> 0.55f
-    }
-
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(
             modifier = Modifier.weight(1f),
@@ -409,21 +406,21 @@ private fun RiskAndActionsRow(
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
-                    text = "LOCK SENSITIVITY",
+                    text = "RISK LEVEL",
                     fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
                     color = PrimaryGreen
                 )
                 Spacer(modifier = Modifier.height(8.dp))
                 CircularProgressRing(
-                    progress = sensitivityPercent,
+                    progress = riskScorePercent,
                     trackColor = TertiaryTan,
                     progressColor = PrimaryDark,
                     ringSize = 60.dp,
                     strokeWidth = 8.dp
                 ) {
                     Text(
-                        text = lockSensitivity,
+                        text = riskLevel,
                         fontFamily = Nunito,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.ExtraBold,
@@ -435,7 +432,7 @@ private fun RiskAndActionsRow(
                     Icon(Icons.Default.WarningAmber, contentDescription = null, tint = AccentLavender, modifier = Modifier.size(14.dp))
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(
-                        text = "Motion challenge difficulty",
+                        text = "Behavioral risk score",
                         fontFamily = Nunito,
                         fontSize = 12.sp,
                         color = DeepOlive

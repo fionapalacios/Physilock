@@ -35,6 +35,18 @@ interface AppUsageLogDao {
     @Query("SELECT SUM(foregroundDurationMs) FROM app_usage_logs WHERE dateKey = :dateKey")
     suspend fun getTotalDurationByDateOnce(dateKey: String): Long?
 
+    // Module 2 (AI-Based Behavior Analysis) feature extraction — one row per app-open
+    // session, so a row count is exactly "application launch frequency" for the day.
+    @Query("SELECT COUNT(*) FROM app_usage_logs WHERE dateKey = :dateKey")
+    suspend fun getSessionCountByDate(dateKey: String): Int
+
+    @Query(
+        "SELECT COALESCE(SUM(u.foregroundDurationMs), 0) FROM app_usage_logs u " +
+        "INNER JOIN app_categories c ON u.packageName = c.packageName " +
+        "WHERE c.category = :category AND u.dateKey = :dateKey"
+    )
+    suspend fun getDurationByCategoryAndDate(category: String, dateKey: String): Long
+
     @Query(
         "SELECT packageName, appName, SUM(foregroundDurationMs) as totalDurationMs " +
         "FROM app_usage_logs WHERE dateKey = :dateKey " +

@@ -19,6 +19,15 @@ interface MotionInterventionLogDao {
     @Query("SELECT COUNT(*) FROM motion_intervention_logs WHERE userResponse = 'UNLOCKED' AND interventionTimestamp > :afterTimestamp")
     fun getSuccessfulUnlocksCount(afterTimestamp: Long): Flow<Int>
 
+    // A "bypass attempt" is a lock challenge the user was shown but left without completing
+    // (back button, home button, recents-swipe — anything that stops LockActivity before
+    // onComplete fires). See LockActivity.onStop(). Module 2 Random Forest feature.
+    @Query("SELECT COUNT(*) FROM motion_intervention_logs WHERE userResponse = 'DISMISSED' AND interventionTimestamp > :afterTimestamp")
+    suspend fun countBypassAttemptsAfter(afterTimestamp: Long): Int
+
+    @Query("SELECT COUNT(*) FROM motion_intervention_logs WHERE userResponse = 'DISMISSED' AND packageName = :packageName AND interventionTimestamp > :afterTimestamp")
+    suspend fun countBypassAttemptsByPackageAfter(packageName: String, afterTimestamp: Long): Int
+
     @Query("SELECT AVG(riskScore) FROM motion_intervention_logs WHERE interventionTimestamp > :afterTimestamp")
     fun getAverageRiskScore(afterTimestamp: Long): Flow<Double?>
 

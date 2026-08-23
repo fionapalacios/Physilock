@@ -16,7 +16,7 @@ import androidx.room.RoomDatabase
         DefaultSettings::class,
         CachedAccount::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {

@@ -16,3 +16,8 @@ local.properties
 
 # Firebase project config — device-specific, not needed by other contributors' local Firebase projects
 /app/google-services.json
+
+# Module 2 ML pipeline — local venv and its cache; requirements.txt/scripts/README are tracked
+/ml/.venv
+/ml/__pycache__
+
