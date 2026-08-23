@@ -30,6 +30,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.AppUsageTotal
+import com.example.physi_lock.data.ExcessiveUsagePredictionLog
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
@@ -49,6 +50,7 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
     val topApps by reportsViewModel.topApps.collectAsState(initial = emptyList())
     val insights by reportsViewModel.insights.collectAsState(initial = emptyList())
     val dailyLimitMinutes by reportsViewModel.dailyLimitMinutes.collectAsState(initial = 480)
+    val todaysPredictions by reportsViewModel.todaysPredictions.collectAsState(initial = emptyList())
 
     Column(
         modifier = Modifier
@@ -158,6 +160,45 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     topApps.forEach { app -> TopAppRow(app, topApps) }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(15.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AuthTabsBackground, RoundedCornerShape(22.dp))
+                .border(1.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(22.dp))
+                .padding(15.dp)
+        ) {
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                Text(
+                    text = "Today's Usage Predictions",
+                    fontFamily = Nunito,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PrimaryDark
+                )
+                Text(
+                    text = "AI",
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 12.sp,
+                    color = PrimaryGreen
+                )
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            if (todaysPredictions.isEmpty()) {
+                Text(
+                    text = "Predictions appear here throughout the day as they're generated.",
+                    fontFamily = Nunito,
+                    fontSize = 13.sp,
+                    color = DeepOlive
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    todaysPredictions.sortedBy { it.hour }.forEach { prediction -> PredictionRow(prediction) }
                 }
             }
         }
@@ -356,6 +397,52 @@ private fun TopAppRow(app: AppUsageTotal, allApps: List<AppUsageTotal>) {
                     .background(PrimaryGreen, RoundedCornerShape(50))
             )
         }
+    }
+}
+
+private fun formatHour(hour: Int): String {
+    val period = if (hour < 12) "AM" else "PM"
+    val displayHour = when {
+        hour == 0 -> 12
+        hour > 12 -> hour - 12
+        else -> hour
+    }
+    return "$displayHour $period"
+}
+
+@Composable
+private fun PredictionRow(prediction: ExcessiveUsagePredictionLog) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(
+                if (prediction.isExcessive) AccentLavender.copy(alpha = 0.10f) else PrimaryGreen.copy(alpha = 0.08f),
+                RoundedCornerShape(12.dp)
+            )
+            .padding(horizontal = 12.dp, vertical = 9.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = formatHour(prediction.hour),
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = PrimaryDark
+        )
+        Text(
+            text = "~${prediction.predictedUsageMinutes.roundToInt()} min predicted",
+            fontFamily = Nunito,
+            fontSize = 13.sp,
+            color = DeepOlive
+        )
+        Text(
+            text = if (prediction.isExcessive) "Excessive" else "Normal",
+            fontFamily = Nunito,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = if (prediction.isExcessive) AccentLavender else PrimaryGreen
+        )
     }
 }
 

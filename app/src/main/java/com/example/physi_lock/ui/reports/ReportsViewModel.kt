@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.physi_lock.data.AppUsageTotal
+import com.example.physi_lock.data.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
 import java.time.LocalDate
@@ -12,8 +13,10 @@ import java.time.format.TextStyle
 import java.util.Locale
 import kotlin.math.roundToInt
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class DayUsage(val dayLabel: String, val minutes: Int, val isToday: Boolean)
@@ -22,6 +25,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val db = PhysiLockDatabase.getInstance(application)
     private val userConfigDao = db.userConfigurationDao()
     private val usageStatsRepository = UsageStatsRepository(application)
+
+    // Module 2 (AI-Based Behavior Analysis): Logistic Regression II's real output log
+    // (see AppMonitorService.checkExcessiveUsagePrediction / ml/README.md) — unlike
+    // `insights` below, this IS a genuine ML prediction, not a rule-based observation.
+    val todaysPredictions: StateFlow<List<ExcessiveUsagePredictionLog>> =
+        db.excessiveUsagePredictionLogDao().getPredictionsByDate(LocalDate.now().toString())
+            .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _weeklyUsage = MutableStateFlow<List<DayUsage>>(emptyList())
     val weeklyUsage: StateFlow<List<DayUsage>> = _weeklyUsage.asStateFlow()

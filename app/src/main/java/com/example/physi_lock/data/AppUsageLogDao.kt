@@ -47,6 +47,24 @@ interface AppUsageLogDao {
     )
     suspend fun getDurationByCategoryAndDate(category: String, dateKey: String): Long
 
+    // Module 2 Logistic Regression II (hourly excessive-usage prediction) feature:
+    // average usage during this specific hour-of-day (local time), across days since
+    // sinceMillis where there was any usage in that hour. Days with zero usage in the
+    // hour don't contribute a 0 row, which slightly overestimates the "typical" value —
+    // an accepted simplification, see ml/README.md.
+    @Query(
+        "SELECT AVG(hourlyTotal) FROM (" +
+        "  SELECT dateKey, SUM(foregroundDurationMs) as hourlyTotal FROM app_usage_logs" +
+        "  WHERE CAST(strftime('%H', datetime(sessionStartTime / 1000, 'unixepoch', 'localtime')) AS INTEGER) = :hour" +
+        "    AND sessionStartTime >= :sinceMillis" +
+        "  GROUP BY dateKey" +
+        ")"
+    )
+    suspend fun getAvgDurationForHourOfDay(hour: Int, sinceMillis: Long): Double?
+
+    @Query("SELECT COALESCE(SUM(foregroundDurationMs), 0) FROM app_usage_logs WHERE sessionStartTime >= :startMillis AND sessionStartTime < :endMillis")
+    suspend fun getDurationInRange(startMillis: Long, endMillis: Long): Long
+
     @Query(
         "SELECT packageName, appName, SUM(foregroundDurationMs) as totalDurationMs " +
         "FROM app_usage_logs WHERE dateKey = :dateKey " +

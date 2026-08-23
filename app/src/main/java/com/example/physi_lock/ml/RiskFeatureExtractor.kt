@@ -19,12 +19,7 @@ data class RiskFeatures(
 
 /**
  * Pulls today's Module 2 feature vector from real logged data — see AppMonitorService's
- * session/scroll logging and LockActivity's bypass-attempt logging.
- *
- * [RiskFeatures.doomscrollEpisodeCount] is NOT yet real: it's hardcoded to 0 until
- * Logistic Regression I (the doomscroll classifier) exists to actually detect episodes
- * from the scroll data AppMonitorService now collects (AppUsageLog.scrollEventCount /
- * maxScrollGapMs). See ml/README.md.
+ * session/scroll/doomscroll logging and LockActivity's bypass-attempt logging.
  */
 class RiskFeatureExtractor(context: Context) {
     private val db = PhysiLockDatabase.getInstance(context.applicationContext)
@@ -39,6 +34,7 @@ class RiskFeatureExtractor(context: Context) {
         val socialMediaDurationMs =
             db.appUsageLogDao().getDurationByCategoryAndDate(AppCategoryType.SOCIAL_MEDIA, todayKey)
         val bypassAttempts = db.motionInterventionLogDao().countBypassAttemptsAfter(dayStartMillis)
+        val doomscrollEpisodes = db.motionInterventionLogDao().countDoomscrollAlertsAfter(dayStartMillis)
 
         val dailyScreenTimeMin = totalDurationMs / 60_000.0
         val avgSessionLengthMin = if (sessionCount > 0) dailyScreenTimeMin / sessionCount else 0.0
@@ -54,7 +50,7 @@ class RiskFeatureExtractor(context: Context) {
             appLaunchFrequency = sessionCount.toDouble(),
             socialMediaFraction = socialMediaFraction,
             bypassAttemptCount = bypassAttempts.toDouble(),
-            doomscrollEpisodeCount = 0.0
+            doomscrollEpisodeCount = doomscrollEpisodes.toDouble()
         )
     }
 

@@ -28,6 +28,11 @@ interface MotionInterventionLogDao {
     @Query("SELECT COUNT(*) FROM motion_intervention_logs WHERE userResponse = 'DISMISSED' AND packageName = :packageName AND interventionTimestamp > :afterTimestamp")
     suspend fun countBypassAttemptsByPackageAfter(packageName: String, afterTimestamp: Long): Int
 
+    // Module 2 Random Forest feature — the count of DOOMSCROLL_ALERT rows Logistic
+    // Regression I has logged today (see AppMonitorService.checkDoomscrolling).
+    @Query("SELECT COUNT(*) FROM motion_intervention_logs WHERE triggerType = 'DOOMSCROLL_ALERT' AND interventionTimestamp > :afterTimestamp")
+    suspend fun countDoomscrollAlertsAfter(afterTimestamp: Long): Int
+
     @Query("SELECT AVG(riskScore) FROM motion_intervention_logs WHERE interventionTimestamp > :afterTimestamp")
     fun getAverageRiskScore(afterTimestamp: Long): Flow<Double?>
 

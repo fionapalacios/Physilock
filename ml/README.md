@@ -1,6 +1,13 @@
-# Module 2: AI-Based Behavior Analysis — Random Forest risk scoring
+# Module 2: AI-Based Behavior Analysis
 
-## Pipeline
+All three Module 2 models live here now: the Random Forest risk classifier,
+Logistic Regression I (doomscroll detection), and Logistic Regression II
+(hourly excessive-usage prediction). All three follow the same shape: a
+Python script generates a synthetic bootstrap dataset, another trains a
+model and transpiles it to Java via m2cgen, and a Kotlin wrapper calls the
+generated Java class with real on-device feature values at inference time.
+
+## Pipeline — Random Forest (risk scoring)
 
 ```
 generate_dataset.py  -->  ml/data/synthetic_usage_risk.csv
@@ -13,6 +20,104 @@ train_risk_model.py  -->  app/src/main/java/com/example/physi_lock/ml/RiskModel.
         fed by RiskFeatureExtractor.kt reading real Room DB data
 ```
 
+## Pipeline — Logistic Regression I (doomscroll detection)
+
+```
+generate_doomscroll_dataset.py  -->  ml/data/synthetic_doomscroll.csv
+                                    |
+                                    v
+train_doomscroll_model.py  -->  app/.../ml/DoomscrollModel.java
+                                    |
+                                    v
+        DoomscrollDetector.kt calls DoomscrollModel.score(input) at runtime,
+        fed by live in-memory session state in AppMonitorService
+        (NOT Room-queried — see "Where the 3 inputs come from" below)
+```
+
+**Design constraint that shapes this model** (project memory "module2-
+doomscroll-design"): the behavioral risk score (from the Random Forest above)
+is explicitly **not** a 4th input feature here. It's applied at inference
+time in `DoomscrollDetector.kt` as a threshold selector — a high-risk user
+gets flagged by a weaker doomscroll signal than a low-risk user would need.
+`generate_doomscroll_dataset.py`/`train_doomscroll_model.py` only ever see
+the 3 raw inputs (scroll speed, pause pattern, time of day); don't add risk
+score as a training column if this gets retrained.
+
+**Where the 3 inputs come from**: `AppMonitorService` already tracks live,
+in-progress session state for the currently-foregrounded app
+(`currentSessionScrollCount`, `currentSessionMaxScrollGapMs`,
+`currentSessionStartTime`) to populate `AppUsageLog` when a session ends.
+`checkDoomscrolling()` reads that same live state mid-session (scroll speed =
+count / elapsed minutes, pause = max gap in seconds, time of day = current
+hour) rather than querying Room, since doomscrolling needs to be caught while
+it's happening, not after the session's already over.
+
+**m2cgen's Java export differs by model type**: `RiskModel.score()` (Random
+Forest) returns a `double[]` of class probabilities. `DoomscrollModel.score()`
+(Logistic Regression) returns a single raw **logit** (pre-sigmoid linear
+score) — `DoomscrollDetector.kt` applies the sigmoid itself. Check the actual
+generated file's signature after any retrain rather than assuming either shape.
+
+**Trained on raw, unscaled features** — unlike the reference Colab notebook's
+Logistic Regression models (which use `StandardScaler` + a `scaler_params.json`
+replicated on-device). With only 3 features of modest scale, unscaled
+`LogisticRegression` (lbfgs) still separates the classes fine, and skipping
+the scaler avoids a real bug surface: replicating `mean_`/`scale_` arithmetic
+correctly by hand on the Kotlin side. Revisit if this gets retrained on real
+(not synthetic) data where scaling might matter more.
+
+**Known simplification — hour-of-day wraparound**: `hourOfDay` is a single
+raw 0–23 value, not cyclically encoded (no sin/cos). A plain linear model
+can't represent "11pm and 1am are close together" — it learns a rough
+monotonic trend instead (this trained model's `hourOfDay` coefficient is
+negative, i.e. smaller raw hour → higher doomscroll probability, which
+correctly favors early-morning hours but under-flags the late-evening hours
+that should also score high). Good enough for a bootstrap model; revisit with
+cyclical encoding if this becomes the deployed model trained on real data.
+
+## Pipeline — Logistic Regression II (hourly excessive-usage prediction)
+
+```
+generate_excessive_usage_dataset.py  -->  ml/data/synthetic_excessive_usage.csv
+                                    |
+                                    v
+train_excessive_usage_model.py  -->  app/.../ml/ExcessiveUsageModel.java
+                                    |
+                                    v
+        ExcessiveUsageDetector.kt calls ExcessiveUsageModel.score(input),
+        fed by ExcessiveUsageFeatureExtractor.kt reading real Room DB data
+```
+
+The manuscript's Data Dictionary has an `EXCESSIVE_USAGE_PREDICTION` table, but
+it only specifies the model's **output** log schema (`hour`,
+`predicted_usage_minutes`, `excessive_probability`, `is_excessive`) — same
+relationship as `MotionInterventionLog` (output) vs. `RiskFeatures` (input)
+for the Random Forest. It does not enumerate input features anywhere in that
+appendix. The 4-feature input set below was proposed and confirmed
+2026-08-23 (see project memory "project-next-session-tasks"), not
+transcribed from the manuscript the way the Random Forest's feature list was:
+
+1. `avgUsageThisHourMin` — average usage during this hour-of-day, over the past 30 days
+2. `cumulativeUsageTodayMin` — total usage so far today
+3. `usagePrevHourMin` — usage in the immediately preceding hour
+4. `isWeekend`
+
+Label (`isExcessiveLabel`): whether the hour's actual usage crosses the
+already-existing `UserConfiguration.hourlyExcessiveUsageThresholdMs`
+(60 min default) — real, no new threshold invented.
+
+Output is logged to a new `ExcessiveUsagePredictionLog` Room entity (mirrors
+the manuscript's table almost field-for-field), one row per hour, via
+`AppMonitorService.checkExcessiveUsagePrediction()` on a 15-minute loop. The
+resulting notification is gated behind the existing **Overuse Alerts**
+Settings toggle (`UserConfiguration.overuseAlertsEnabled`) rather than a new
+dedicated toggle — it's still fundamentally an overuse alert, just
+predictive instead of reactive-on-today's-total.
+
+Unlike `DoomscrollDetector`, there's no risk-level threshold "recipe" here —
+that pattern was specifically confirmed for the doomscroll classifier only;
+this one uses a plain fixed 0.5 probability threshold.
+
 ## Setup
 
 ```
@@ -20,10 +125,27 @@ py -3.14 -m venv ml/.venv
 ml/.venv/Scripts/python.exe -m pip install -r ml/requirements.txt
 ml/.venv/Scripts/python.exe ml/generate_dataset.py
 ml/.venv/Scripts/python.exe ml/train_risk_model.py
+ml/.venv/Scripts/python.exe ml/generate_doomscroll_dataset.py
+ml/.venv/Scripts/python.exe ml/train_doomscroll_model.py
+ml/.venv/Scripts/python.exe ml/generate_excessive_usage_dataset.py
+ml/.venv/Scripts/python.exe ml/train_excessive_usage_model.py
 ```
 
-The last step overwrites `app/src/main/java/com/example/physi_lock/ml/RiskModel.java` —
-rerun `gradlew compileDebugKotlin` afterward to confirm it still compiles.
+The training scripts overwrite `app/src/main/java/com/example/physi_lock/ml/RiskModel.java`,
+`DoomscrollModel.java`, and `ExcessiveUsageModel.java` respectively — rerun
+`gradlew assembleDebug` afterward to confirm all three still compile *and*
+dex (see the method-size note below — only relevant to the Random Forest).
+
+## Open question: manuscript discrepancy on Logistic Regression I's inputs
+
+The manuscript's `DOOMSCROLLING_DETECTION` Data Dictionary table implies
+different inputs than what got built — `scrolling_duration_minutes` and
+`scroll_pause_frequency` (a count), not scroll speed (events/min) + max
+single pause gap, and no `hour`/time-of-day column at all. This may come
+from a different manuscript section than whatever narrative chapter
+originally confirmed the "3 raw inputs" design (project memory
+"module2-doomscroll-design") — not necessarily a contradiction, but
+unresolved. Flagged 2026-08-23, revisit later per user's request.
 
 ## Why the training data is synthetic
 

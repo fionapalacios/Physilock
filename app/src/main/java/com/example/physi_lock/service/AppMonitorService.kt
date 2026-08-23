@@ -15,13 +15,24 @@ import androidx.core.app.NotificationManagerCompat
 import com.example.physi_lock.MainActivity
 import com.example.physi_lock.R
 import com.example.physi_lock.data.AppUsageLog
+import com.example.physi_lock.data.ExcessiveUsagePredictionLog
+import com.example.physi_lock.data.MotionInterventionLog
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
+import com.example.physi_lock.ml.DoomscrollDetector
+import com.example.physi_lock.ml.DoomscrollInputs
+import com.example.physi_lock.ml.ExcessiveUsageDetector
+import com.example.physi_lock.ml.ExcessiveUsageFeatureExtractor
+import com.example.physi_lock.ml.RiskFeatureExtractor
+import com.example.physi_lock.ml.RiskLevel
+import com.example.physi_lock.ml.RiskScoringEngine
 import com.example.physi_lock.ui.lock.LockActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -69,6 +80,24 @@ class AppMonitorService : AccessibilityService() {
         // queryUsageStats is a real IPC call, not free — throttle how often
         // checkOveruseAlert actually queries it rather than on every event.
         private const val OVERUSE_CHECK_THROTTLE_MS = 60 * 1000L
+
+        private const val DOOMSCROLL_ALERT_CHANNEL_ID = "doomscroll_alert_channel"
+        private const val DOOMSCROLL_ALERT_NOTIFICATION_ID = 1003
+        // Doomscroll checks run against in-memory session state (cheap), so this only
+        // needs to throttle how chatty the model calls are, not IPC cost.
+        private const val DOOMSCROLL_CHECK_THROTTLE_MS = 15 * 1000L
+        // Once flagged, don't re-alert for the same continuing scroll binge.
+        private const val DOOMSCROLL_ALERT_COOLDOWN_MS = 10 * 60 * 1000L
+        // Matches the "every 5 minutes" cadence PROJECT_DOCUMENTATION.md's risk
+        // scoring pipeline describes — the doomscroll "recipe" selector (see
+        // DoomscrollDetector.kt) doesn't need every-scroll-event freshness.
+        private const val RISK_REFRESH_INTERVAL_MS = 5 * 60 * 1000L
+
+        private const val EXCESSIVE_USAGE_PREDICTION_CHANNEL_ID = "excessive_usage_prediction_channel"
+        private const val EXCESSIVE_USAGE_PREDICTION_NOTIFICATION_ID = 1004
+        // One EXCESSIVE_USAGE_PREDICTION row per hour is enough — checking more
+        // often than this wouldn't change the hour-bucketed prediction anyway.
+        private const val EXCESSIVE_USAGE_CHECK_INTERVAL_MS = 15 * 60 * 1000L
     }
 
     @Volatile private var lockedPackages: Set<String> = emptySet()
@@ -76,9 +105,18 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var breakReminderIntervalMs: Long = 30 * 60 * 1000L
     @Volatile private var overuseAlertsEnabled: Boolean = true
     @Volatile private var dailyScreenTimeThresholdMs: Long = 480 * 60 * 1000L
+    @Volatile private var doomscrollingDetectionEnabled: Boolean = true
+    // Refreshed periodically (RISK_REFRESH_INTERVAL_MS), not on every check — see
+    // startRiskRefreshLoop(). Selects the doomscroll detection threshold "recipe";
+    // is NOT fed into DoomscrollModel as a feature (see DoomscrollDetector.kt).
+    @Volatile private var cachedRiskLevel: RiskLevel = RiskLevel.MODERATE
+    @Volatile private var cachedRiskScore: Double = 0.5
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private lateinit var database: PhysiLockDatabase
     private lateinit var usageStatsRepository: UsageStatsRepository
+    private lateinit var riskFeatureExtractor: RiskFeatureExtractor
+    private lateinit var excessiveUsageFeatureExtractor: ExcessiveUsageFeatureExtractor
+    private var lastExcessiveUsageAlertHourKey: String? = null
     private var currentForegroundPackage: String? = null
     private var currentSessionStartTime: Long? = null
     // Module 2 (AI-Based Behavior Analysis): raw scroll signal for the doomscroll
@@ -91,14 +129,20 @@ class AppMonitorService : AccessibilityService() {
     private var lastActivityEventTime: Long? = null
     private var lastOveruseCheckTime: Long = 0L
     private var lastOveruseAlertDateKey: String? = null
+    private var lastDoomscrollCheckTime: Long = 0L
+    private var lastDoomscrollAlertTime: Long = 0L
     private val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
     override fun onCreate() {
         super.onCreate()
         database = PhysiLockDatabase.getInstance(this)
         usageStatsRepository = UsageStatsRepository(this)
+        riskFeatureExtractor = RiskFeatureExtractor(this)
+        excessiveUsageFeatureExtractor = ExcessiveUsageFeatureExtractor(this)
         createBreakReminderNotificationChannel()
         createOveruseAlertNotificationChannel()
+        createDoomscrollAlertNotificationChannel()
+        createExcessiveUsagePredictionNotificationChannel()
 
         // Live-reload the locked app set from Settings > App Lock Rules; Room's
         // Flow re-emits automatically whenever the table changes, so toggles
@@ -116,6 +160,78 @@ class AppMonitorService : AccessibilityService() {
                 breakReminderIntervalMs = config?.breakReminderIntervalMs ?: (30 * 60 * 1000L)
                 overuseAlertsEnabled = config?.overuseAlertsEnabled ?: true
                 dailyScreenTimeThresholdMs = config?.dailyScreenTimeThresholdMs ?: (480 * 60 * 1000L)
+                doomscrollingDetectionEnabled = config?.doomscrollingDetectionEnabled ?: true
+            }
+        }
+
+        startRiskRefreshLoop()
+        startExcessiveUsagePredictionLoop()
+    }
+
+    // Module 2 (AI-Based Behavior Analysis): periodically runs Logistic Regression II
+    // and logs one EXCESSIVE_USAGE_PREDICTION-equivalent row per hour (see
+    // ExcessiveUsagePredictionLog / ml/README.md). Reuses the existing Overuse Alerts
+    // toggle rather than adding a brand-new Settings toggle for this specific
+    // notification — it's still fundamentally an overuse alert, just predictive
+    // instead of reactive-on-today's-total.
+    private fun startExcessiveUsagePredictionLoop() {
+        serviceScope.launch {
+            while (true) {
+                try {
+                    checkExcessiveUsagePrediction()
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                delay(EXCESSIVE_USAGE_CHECK_INTERVAL_MS)
+            }
+        }
+    }
+
+    private suspend fun checkExcessiveUsagePrediction() {
+        val calendar = Calendar.getInstance()
+        val hour = calendar.get(Calendar.HOUR_OF_DAY)
+        val dateKey = dateFormatter.format(calendar.time)
+
+        // One prediction row per hour — re-checking within the same hour wouldn't
+        // change the bucketed prediction.
+        if (database.excessiveUsagePredictionLogDao().countForHour(dateKey, hour) > 0) return
+
+        val inputs = excessiveUsageFeatureExtractor.extractCurrentHourFeatures()
+        val prediction = ExcessiveUsageDetector.predict(inputs)
+
+        database.excessiveUsagePredictionLogDao().insert(
+            ExcessiveUsagePredictionLog(
+                dateKey = dateKey,
+                hour = hour,
+                predictedUsageMinutes = inputs.avgUsageThisHourMin,
+                excessiveProbability = prediction.probability,
+                isExcessive = prediction.isExcessive
+            )
+        )
+
+        val hourKey = "$dateKey-$hour"
+        if (prediction.isExcessive && overuseAlertsEnabled && lastExcessiveUsageAlertHourKey != hourKey) {
+            lastExcessiveUsageAlertHourKey = hourKey
+            postExcessiveUsagePredictionNotification()
+        }
+    }
+
+    // Module 2 (AI-Based Behavior Analysis): periodically recomputes the Random
+    // Forest risk level so the doomscroll detector always has a reasonably fresh
+    // threshold "recipe" to check against, without recomputing it (several Room
+    // queries) on every scroll event.
+    private fun startRiskRefreshLoop() {
+        serviceScope.launch {
+            while (true) {
+                try {
+                    val features = riskFeatureExtractor.extractTodayFeatures()
+                    val assessment = RiskScoringEngine.score(features)
+                    cachedRiskLevel = assessment.level
+                    cachedRiskScore = assessment.score
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                delay(RISK_REFRESH_INTERVAL_MS)
             }
         }
     }
@@ -138,6 +254,28 @@ class AppMonitorService : AccessibilityService() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Alerts when today's total screen time exceeds your daily limit"
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    private fun createDoomscrollAlertNotificationChannel() {
+        val channel = NotificationChannel(
+            DOOMSCROLL_ALERT_CHANNEL_ID,
+            "Doomscrolling Detection",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Warns when scrolling patterns suggest doomscrolling"
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    private fun createExcessiveUsagePredictionNotificationChannel() {
+        val channel = NotificationChannel(
+            EXCESSIVE_USAGE_PREDICTION_CHANNEL_ID,
+            "Excessive Usage Predictions",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Warns when this hour is predicted to be an excessive-usage hour"
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -165,6 +303,7 @@ class AppMonitorService : AccessibilityService() {
             AccessibilityEvent.TYPE_VIEW_SCROLLED -> {
                 // Module 2 (AI-Based Behavior Analysis): doomscrolling detection
                 logScrollEvent(packageName, currentTime)
+                checkDoomscrolling(packageName, currentTime)
                 trackContinuousUsage(currentTime)
             }
         }
@@ -272,6 +411,112 @@ class AppMonitorService : AccessibilityService() {
             .build()
 
         NotificationManagerCompat.from(this).notify(OVERUSE_ALERT_NOTIFICATION_ID, notification)
+    }
+
+    // Doomscroll Detection (Module 2): checks the live, in-progress session's scroll
+    // rate/pause pattern against Logistic Regression I, using cachedRiskLevel as the
+    // detection threshold "recipe" (see DoomscrollDetector.kt — risk score is NOT a
+    // model feature). Runs off in-memory state only (cheap), throttled just to avoid
+    // calling the model on every single scroll event, plus a longer alert cooldown so
+    // one continuing scroll binge doesn't spam repeat notifications.
+    private fun checkDoomscrolling(packageName: String, currentTime: Long) {
+        if (!doomscrollingDetectionEnabled) return
+        if (currentTime - lastDoomscrollCheckTime < DOOMSCROLL_CHECK_THROTTLE_MS) return
+        lastDoomscrollCheckTime = currentTime
+        if (currentTime - lastDoomscrollAlertTime < DOOMSCROLL_ALERT_COOLDOWN_MS) return
+
+        val sessionStart = currentSessionStartTime ?: return
+        val elapsedMs = currentTime - sessionStart
+        // Too small a sample for a live per-session rate to mean anything yet.
+        if (currentSessionScrollCount < 5 || elapsedMs < 5_000L) return
+
+        val inputs = DoomscrollInputs(
+            scrollSpeedPerMin = currentSessionScrollCount / (elapsedMs / 60_000.0),
+            maxPauseGapSec = currentSessionMaxScrollGapMs / 1000.0,
+            hourOfDay = Calendar.getInstance().get(Calendar.HOUR_OF_DAY).toDouble()
+        )
+
+        val isDoomscrolling = try {
+            DoomscrollDetector.detect(inputs, cachedRiskLevel)
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
+        }
+
+        if (!isDoomscrolling) return
+        lastDoomscrollAlertTime = currentTime
+        postDoomscrollAlertNotification()
+
+        serviceScope.launch {
+            try {
+                database.motionInterventionLogDao().insert(
+                    MotionInterventionLog(
+                        packageName = packageName,
+                        triggerType = "DOOMSCROLL_ALERT",
+                        interventionTimestamp = currentTime,
+                        riskScore = cachedRiskScore
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun postDoomscrollAlertNotification() {
+        if (ActivityCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val contentIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, DOOMSCROLL_ALERT_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setContentTitle("Doomscrolling detected")
+            .setContentText("Your scrolling pattern looks like a doomscroll — maybe take a break?")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(this).notify(DOOMSCROLL_ALERT_NOTIFICATION_ID, notification)
+    }
+
+    private fun postExcessiveUsagePredictionNotification() {
+        if (ActivityCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val contentIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, EXCESSIVE_USAGE_PREDICTION_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setContentTitle("This hour looks like a heavy usage hour")
+            .setContentText("Your usual pattern suggests you're about to use your device a lot this hour")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(this).notify(EXCESSIVE_USAGE_PREDICTION_NOTIFICATION_ID, notification)
     }
 
     private fun handleWindowStateChange(packageName: String, currentTime: Long) {
