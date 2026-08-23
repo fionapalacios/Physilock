@@ -20,7 +20,12 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -230,4 +235,27 @@ private fun BlockedAppChip(emoji: String, name: String) {
             color = MutedText
         )
     }
+}
+
+/**
+ * Drives [FocusModeScreen] with a locally-ticking elapsed-time counter, since no real Focus
+ * Mode session/timer backend exists yet (Module 6). The timer resets whenever this leaves
+ * composition (e.g. navigating away ends the "session") — there's no persisted session state.
+ */
+@Composable
+fun FocusModeRoute(onEndFocusClick: () -> Unit, modifier: Modifier = Modifier) {
+    var elapsedSeconds by remember { mutableLongStateOf(0L) }
+
+    LaunchedEffect(Unit) {
+        while (true) {
+            delay(1000)
+            elapsedSeconds++
+        }
+    }
+
+    FocusModeScreen(
+        elapsedSeconds = elapsedSeconds,
+        onEndFocusClick = onEndFocusClick,
+        modifier = modifier
+    )
 }

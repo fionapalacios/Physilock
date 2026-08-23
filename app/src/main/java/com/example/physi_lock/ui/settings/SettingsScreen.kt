@@ -9,19 +9,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Lock
-import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -37,7 +34,6 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.Account
@@ -63,13 +59,32 @@ fun SettingsScreen(
     var showAccountEditor by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
-    var username by remember(currentAccount) { mutableStateOf(currentAccount?.username.orEmpty()) }
-    var fullName by remember(currentAccount) { mutableStateOf(currentAccount?.fullName.orEmpty()) }
-    var email by remember(currentAccount) { mutableStateOf(currentAccount?.email.orEmpty()) }
-    var occupation by remember(currentAccount) { mutableStateOf(currentAccount?.occupation.orEmpty()) }
-
     if (showAppLockRules) {
         AppLockRulesScreen(onBack = { showAppLockRules = false })
+        return
+    }
+
+    if (showAccountEditor) {
+        EditProfileScreen(
+            currentAccount = currentAccount,
+            errorMessage = errorMessage,
+            onBackClick = {
+                errorMessage = null
+                showAccountEditor = false
+            },
+            onSave = { updated ->
+                coroutineScope.launch {
+                    val saved = accountRepository.updateAccount(updated)
+                    if (saved == null) {
+                        errorMessage = "Username or email is already in use."
+                    } else {
+                        errorMessage = null
+                        showAccountEditor = false
+                        onAccountUpdated(saved)
+                    }
+                }
+            }
+        )
         return
     }
 
@@ -86,85 +101,6 @@ fun SettingsScreen(
             onEditProfile = { showAccountEditor = true },
             onLogout = onLogout
         )
-
-        if (showAccountEditor && currentAccount != null) {
-            Spacer(modifier = Modifier.padding(top = 8.dp))
-            Card(modifier = Modifier.padding(8.dp), colors = CardDefaults.cardColors()) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Text(text = "Account Settings", style = MaterialTheme.typography.titleLarge)
-                    Text(
-                        text = "Edit your username, profile, and occupation.",
-                        style = MaterialTheme.typography.bodyLarge
-                    )
-                    Spacer(modifier = Modifier.padding(top = 12.dp))
-                    OutlinedTextField(
-                        value = username,
-                        onValueChange = { username = it },
-                        label = { Text("Username") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.padding(top = 12.dp))
-                    OutlinedTextField(
-                        value = fullName,
-                        onValueChange = { fullName = it },
-                        label = { Text("Full name") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-                    Spacer(modifier = Modifier.padding(top = 12.dp))
-                    OutlinedTextField(
-                        value = email,
-                        onValueChange = {},
-                        label = { Text("Email") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true,
-                        readOnly = true,
-                        supportingText = { Text("Email changes aren't supported yet — contact support to update it.") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email)
-                    )
-                    Spacer(modifier = Modifier.padding(top = 12.dp))
-                    OutlinedTextField(
-                        value = occupation,
-                        onValueChange = { occupation = it },
-                        label = { Text("Occupation") },
-                        modifier = Modifier.fillMaxWidth(),
-                        singleLine = true
-                    )
-
-                    if (errorMessage != null) {
-                        Spacer(modifier = Modifier.padding(top = 8.dp))
-                        Text(text = errorMessage.orEmpty(), color = MaterialTheme.colorScheme.error)
-                    }
-
-                    Spacer(modifier = Modifier.padding(top = 16.dp))
-                    Row(modifier = Modifier.fillMaxWidth()) {
-                        Button(
-                            onClick = {
-                                val updated = currentAccount.copy(
-                                    username = username.trim(),
-                                    fullName = fullName.trim(),
-                                    email = email.trim(),
-                                    occupation = occupation.trim().ifBlank { null }
-                                )
-                                coroutineScope.launch {
-                                    val saved = accountRepository.updateAccount(updated)
-                                    if (saved == null) {
-                                        errorMessage = "Username or email is already in use."
-                                    } else {
-                                        errorMessage = null
-                                        showAccountEditor = false
-                                        onAccountUpdated(saved)
-                                    }
-                                }
-                            }
-                        ) {
-                            Text("Save changes")
-                        }
-                    }
-                }
-            }
-        }
 
         Card(
             modifier = Modifier

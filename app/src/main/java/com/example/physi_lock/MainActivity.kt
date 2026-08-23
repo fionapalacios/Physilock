@@ -12,18 +12,20 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.Account
 import com.example.physi_lock.data.Role
 import com.example.physi_lock.ui.admin.AdminHomeScreen
-import com.example.physi_lock.ui.auth.AuthScreen
+import com.example.physi_lock.ui.auth.AuthFormState
 import com.example.physi_lock.ui.auth.AuthViewModel
+import com.example.physi_lock.ui.auth.CreateAccountScreen
+import com.example.physi_lock.ui.auth.LoginScreen
 import com.example.physi_lock.ui.landing.LandingScreen
 import com.example.physi_lock.ui.navigation.NavGraph
 import com.example.physi_lock.ui.onboarding.OnboardingScreen
 import com.example.physi_lock.ui.theme.PhysiLockTheme
 import kotlinx.coroutines.launch
 
-// Prototype-testing flow: Landing -> Auth -> Onboarding (User only) -> Home/AdminHome,
-// skipping email verification / mode picker for now (see project memory
+// Prototype-testing flow: Landing -> Auth (Login/Register) -> Onboarding (User only) ->
+// Home/AdminHome, skipping email verification / mode picker for now (see project memory
 // "project-auth-screens" for the full intended flow to wire in later).
-private enum class AppStage { LANDING, AUTH, ONBOARDING, HOME, ADMIN_HOME }
+private enum class AppStage { LANDING, AUTH_LOGIN, AUTH_REGISTER, ONBOARDING, HOME, ADMIN_HOME }
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -39,8 +41,8 @@ class MainActivity : ComponentActivity() {
 
             PhysiLockTheme {
                 when (stage) {
-                    AppStage.LANDING -> LandingScreen(onGetStarted = { stage = AppStage.AUTH })
-                    AppStage.AUTH -> AuthScreen(
+                    AppStage.LANDING -> LandingScreen(onGetStarted = { stage = AppStage.AUTH_LOGIN })
+                    AppStage.AUTH_LOGIN -> LoginScreen(
                         errorMessage = authError,
                         onLogin = { identifier, password ->
                             coroutineScope.launch {
@@ -58,23 +60,7 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         },
-                        onRegister = { form ->
-                            coroutineScope.launch {
-                                try {
-                                    val account = authViewModel.register(form)
-                                    if (account == null) {
-                                        authError = "That username or email is already registered."
-                                    } else {
-                                        authError = null
-                                        currentAccount = account
-                                        stage = AppStage.ONBOARDING
-                                    }
-                                } catch (e: Exception) {
-                                    authError = e.message ?: "Registration failed."
-                                }
-                            }
-                        },
-                        onForgotPassword = { /* not wired yet */ },
+                        onNavigateToForgotPassword = { /* not wired yet */ },
                         onGoogleSignIn = {
                             coroutineScope.launch {
                                 try {
@@ -95,9 +81,60 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         },
-                        onBack = {
+                        onNavigateToRegister = {
+                            authError = null
+                            stage = AppStage.AUTH_REGISTER
+                        },
+                        onBackClick = {
                             authError = null
                             stage = AppStage.LANDING
+                        }
+                    )
+                    AppStage.AUTH_REGISTER -> CreateAccountScreen(
+                        errorMessage = authError,
+                        onCreateAccount = { form: AuthFormState ->
+                            coroutineScope.launch {
+                                try {
+                                    val account = authViewModel.register(form)
+                                    if (account == null) {
+                                        authError = "That username or email is already registered."
+                                    } else {
+                                        authError = null
+                                        currentAccount = account
+                                        stage = AppStage.ONBOARDING
+                                    }
+                                } catch (e: Exception) {
+                                    authError = e.message ?: "Registration failed."
+                                }
+                            }
+                        },
+                        onGoogleSignIn = {
+                            coroutineScope.launch {
+                                try {
+                                    val account = authViewModel.signInWithGoogle(context)
+                                    if (account == null) {
+                                        authError = "Google sign-in failed."
+                                    } else {
+                                        authError = null
+                                        currentAccount = account
+                                        stage = if (account.role == Role.ADMIN) AppStage.ADMIN_HOME else AppStage.ONBOARDING
+                                    }
+                                } catch (e: GetCredentialCancellationException) {
+                                    // User dismissed the account picker — not an error, no banner.
+                                } catch (e: GetCredentialException) {
+                                    authError = e.message ?: "Google sign-in failed."
+                                } catch (e: Exception) {
+                                    authError = e.message ?: "Google sign-in failed."
+                                }
+                            }
+                        },
+                        onNavigateToLogin = {
+                            authError = null
+                            stage = AppStage.AUTH_LOGIN
+                        },
+                        onBackClick = {
+                            authError = null
+                            stage = AppStage.AUTH_LOGIN
                         }
                     )
                     AppStage.ONBOARDING -> OnboardingScreen(onFinished = { stage = AppStage.HOME })
@@ -109,7 +146,7 @@ class MainActivity : ComponentActivity() {
                                 authViewModel.logout(context)
                                 currentAccount = null
                                 authError = null
-                                stage = AppStage.AUTH
+                                stage = AppStage.AUTH_LOGIN
                             }
                         }
                     )

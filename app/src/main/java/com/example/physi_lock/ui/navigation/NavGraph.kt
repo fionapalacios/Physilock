@@ -8,6 +8,8 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import com.example.physi_lock.data.Account
+import com.example.physi_lock.ui.focus.FocusModeRoute
+import com.example.physi_lock.ui.goals.UsageGoalsScreen
 import com.example.physi_lock.ui.home.HomeScreen
 import com.example.physi_lock.ui.reports.ReportsScreen
 import com.example.physi_lock.ui.move.MoveScreen
@@ -18,6 +20,8 @@ sealed class Screen(val route: String) {
     object Reports : Screen("reports")
     object Move : Screen("move")
     object Settings : Screen("settings")
+    object Focus : Screen("focus")
+    object Goals : Screen("goals")
 }
 
 @Composable
@@ -46,7 +50,9 @@ fun NavGraph(
                             launchSingleTop = true
                             restoreState = true
                         }
-                    }
+                    },
+                    onNavigateToFocus = { navController.navigate(Screen.Focus.route) },
+                    onNavigateToGoals = { navController.navigate(Screen.Goals.route) }
                 )
             }
             composable(Screen.Reports.route) { ReportsScreen() }
@@ -56,6 +62,15 @@ fun NavGraph(
                     currentAccount = currentAccount,
                     onAccountUpdated = onAccountUpdated,
                     onLogout = onLogout
+                )
+            }
+            composable(Screen.Focus.route) {
+                FocusModeRoute(onEndFocusClick = { navController.popBackStack() })
+            }
+            composable(Screen.Goals.route) {
+                UsageGoalsScreen(
+                    onBackClick = { navController.popBackStack() },
+                    onSaveClick = { navController.popBackStack() }
                 )
             }
         }

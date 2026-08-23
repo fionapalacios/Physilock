@@ -19,10 +19,12 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.automirrored.filled.MenuBook
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -36,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
@@ -53,6 +56,7 @@ import com.example.physi_lock.data.openUsageAccessSettings
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
@@ -72,7 +76,9 @@ private val AuthTabsBackground = SoftSand
 fun HomeScreen(
     homeViewModel: HomeViewModel = viewModel(),
     displayName: String = "Alex",
-    onManageAppLock: () -> Unit = {}
+    onManageAppLock: () -> Unit = {},
+    onNavigateToFocus: () -> Unit = {},
+    onNavigateToGoals: () -> Unit = {}
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -119,10 +125,17 @@ fun HomeScreen(
         Spacer(modifier = Modifier.height(12.dp))
         RiskAndActionsRow(
             lockSensitivity = lockSensitivity,
-            onManageAppLock = onManageAppLock
+            onManageAppLock = onManageAppLock,
+            onNavigateToFocus = onNavigateToFocus
         )
         Spacer(modifier = Modifier.height(12.dp))
         LockedAppsCard(lockedAppsToday = lockedAppsToday, onManageAppLock = onManageAppLock)
+        Spacer(modifier = Modifier.height(12.dp))
+        GoalsRow(
+            todayMinutes = todayMinutes,
+            dailyLimitMinutes = dailyLimitMinutes,
+            onUsageGoalsClick = onNavigateToGoals
+        )
     }
 }
 
@@ -376,7 +389,8 @@ private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int) {
 @Composable
 private fun RiskAndActionsRow(
     lockSensitivity: String,
-    onManageAppLock: () -> Unit
+    onManageAppLock: () -> Unit,
+    onNavigateToFocus: () -> Unit
 ) {
     val sensitivityPercent = when (lockSensitivity) {
         "Low" -> 0.3f
@@ -434,8 +448,8 @@ private fun RiskAndActionsRow(
             ActionTile(
                 icon = Icons.Default.Bedtime,
                 title = "Focus Mode",
-                subtitle = "Coming soon",
-                onClick = {}
+                subtitle = "Block distracting apps",
+                onClick = onNavigateToFocus
             )
             ActionTile(
                 icon = Icons.Default.Lock,
@@ -600,5 +614,80 @@ private fun LockedAppRow(
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
+    }
+}
+
+/** Ported from the teammate's sprint-2-ui-navigation branch (`DashboardScreen.kt`'s `GoalsRow`/`GoalCard`). */
+@Composable
+private fun GoalsRow(
+    todayMinutes: Int,
+    dailyLimitMinutes: Int,
+    onUsageGoalsClick: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.25.dp)) {
+        GoalCard(
+            modifier = Modifier.weight(1f),
+            iconBackground = PrimaryGreen.copy(alpha = 0.13f),
+            icon = Icons.Default.TrackChanges,
+            iconTint = PrimaryGreen,
+            title = "Usage Goals",
+            subtitle = "${formatMinutes(todayMinutes)} / ${formatMinutes(dailyLimitMinutes)} today",
+            onClick = onUsageGoalsClick
+        )
+        GoalCard(
+            modifier = Modifier.weight(1f),
+            iconBackground = AccentLavender.copy(alpha = 0.13f),
+            icon = Icons.AutoMirrored.Filled.MenuBook,
+            iconTint = AccentLavender,
+            title = "Daily Reflection",
+            subtitle = "Coming soon",
+            onClick = {}
+        )
+    }
+}
+
+@Composable
+private fun GoalCard(
+    modifier: Modifier,
+    iconBackground: Color,
+    icon: ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .background(AuthTabsBackground, RoundedCornerShape(15.dp))
+            .border(0.79.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(15.dp))
+            .clickable(onClick = onClick)
+            .padding(15.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .background(iconBackground, RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(16.dp))
+        }
+        Spacer(modifier = Modifier.height(7.5.dp))
+        Text(
+            text = title,
+            fontFamily = Nunito,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.ExtraBold,
+            lineHeight = 21.sp,
+            color = PrimaryDark
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = subtitle,
+            fontFamily = Nunito,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 18.sp,
+            color = MutedText
+        )
     }
 }

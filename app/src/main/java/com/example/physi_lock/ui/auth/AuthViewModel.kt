@@ -15,6 +15,14 @@ import com.example.physi_lock.data.auth.HybridAccountRepository
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
 
+data class AuthFormState(
+    val username: String = "",
+    val fullName: String = "",
+    val identifier: String = "", // login: username or email · register: email
+    val password: String = "",
+    val confirmPassword: String = ""
+)
+
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
     // Google sign-in is inherently online-only (Credential Manager needs the network),
     // so it talks to Firebase directly rather than through the offline-fallback wrapper.
