@@ -1,5 +1,7 @@
 package com.example.physi_lock.sensor
 
+import com.example.physi_lock.ml.RiskLevel
+
 // Mirrors UserConfiguration.motionLockSensitivity ("LOW"/"MEDIUM"/"HIGH") — the
 // single source of truth for how the setting maps to detector behavior, shared
 // between the actual challenges (RotationalArmDetector/StepChallengeDetector)
@@ -20,6 +22,16 @@ enum class ChallengeSensitivity(
             "LOW" -> LOW
             "HIGH" -> HIGH
             else -> MEDIUM
+        }
+
+        // Trigger Adaptive Lock (Module 3, unblocked by Module 2's real risk score):
+        // a higher behavioral risk level makes the unlock challenge harder, rather
+        // than difficulty being a static Settings choice. Used for AppLockRules with
+        // lockType == "ADAPTIVE" — see LockScreen.kt.
+        fun fromRiskLevel(level: RiskLevel): ChallengeSensitivity = when (level) {
+            RiskLevel.LOW -> LOW
+            RiskLevel.MODERATE -> MEDIUM
+            RiskLevel.HIGH -> HIGH
         }
     }
 }

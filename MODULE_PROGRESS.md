@@ -10,8 +10,8 @@ Tracks progress against the module-based development lifecycle in `PROJECT_DOCUM
 
 | Status | Modules |
 |--------|---------|
-| ✅ **Done** | Admin Governance Layer, 4. Smart Intervention System |
-| 🟢 **Most Advanced** (built, may need polish) | 0. Foundation, 1. Core Monitoring & Usage Awareness, 2. AI-Based Behavior Analysis, 3. Motion-Responsive Locking |
+| ✅ **Done** | Admin Governance Layer, 3. Motion-Responsive Locking, 4. Smart Intervention System |
+| 🟢 **Most Advanced** (built, may need polish) | 0. Foundation, 1. Core Monitoring & Usage Awareness, 2. AI-Based Behavior Analysis |
 | 🟡 **Partial / In Progress** | 6. Personalization & User Control, 8. Integration & QA (ongoing by nature) |
 | 🔴 **Not Started** | 5. Mental Health & Awareness, 7. Context-Aware AI |
 
@@ -66,7 +66,6 @@ New shared theme tokens added to `Color.kt` to support the above and future port
 - [ ] Notifications UI — `NotificationsPanel.kt` ported 2026-08-23 (`NotificationsOverlay` composable in `ui/components/`) but unwired — nothing calls it yet, no real notification-log data source feeds it.
 - [ ] Focus Mode screens (Module 6) — `FocusModeScreen`/`EndFocusSessionSheet` ported 2026-08-23 to `ui/focus/`, wired into `NavGraph` (same-day follow-up) via `FocusModeRoute`'s local ticking timer, but still UI-only — no real session/timer/app-blocking backend exists (see Module 6 below).
 - [ ] Reflection Prompts, Context Alerts screens (Modules 5/7) — still nothing to port or build.
-- [ ] Real risk-score display (currently a placeholder value in `HomeScreen`, blocked on Module 2)
 
 ---
 
@@ -111,12 +110,12 @@ Not one of modules 0–8 (those map to User-facing feature groups); Admin is a s
 
 **Bug found + fixed (2026-08-10): displayed screen time didn't match real device usage.** Root cause: `HomeViewModel`'s "today's screen time" and `ReportsViewModel`'s weekly chart/top-apps were entirely sourced from `AppUsageLog` — rows `AppMonitorService` (the AccessibilityService) only writes when it observes a foreground-app *switch* while actively running. That has no way to reflect usage from before the service started watching, so it structurally couldn't match the phone's real total; it'd read low or zero. The fix: `UsageStatsRepository` (already built, already gated by the "Usage Access" permission already requested in onboarding, but never actually called for this) wraps Android's real `UsageStatsManager` — the same source Digital Wellbeing/Settings' screen-time page reads. `HomeViewModel` now sums `getTodayUsage()` on every `ON_RESUME`. `ReportsViewModel` now queries one day at a time via the new `getUsageForRange(startMillis, endMillis)` (folds 7 single-day queries into the weekly chart + a client-side top-apps aggregate) rather than a single 7-day range query, since `UsageStatsManager`'s multi-day bucket-aggregation behavior isn't reliable enough to trust — see kdoc on that method. `AppUsageLog`/`AppMonitorService` are untouched and still needed for real-time, event-driven behavior (lock-triggering, per-session data, future scroll-event/doomscroll counting) — this fix only changes where the *displayed totals* come from. Also found and left alone: `UsageSync.kt`'s `syncTodayUsage()` was a half-built earlier attempt at this exact fix — dead code (never called), and even if wired up it writes to the legacy `UsageSession` table, not the one either ViewModel reads. Verified with `gradlew compileDebugKotlin`; not yet runtime-tested against real device usage.
 
-## 🟢 Module 3: Motion-Responsive Locking
+## ✅ Module 3: Motion-Responsive Locking (Done — 2026-08-24)
 
 - [x] Perform Move-to-Unlock (`MoveScreen`, `LockScreen` — via `RotationalArmDetector`/`StepChallengeDetector`, see Module 4's Activity Challenges entry; `ShakeDetector` was replaced, not extended)
 - [x] Customize Lock Rules — per-app lock on/off (`AppLockRulesScreen`)
 - [x] Motion Lock Sensitivity setting wired to the 3 challenge types (`SettingsScreen`, `ChallengeSensitivity`)
-- [ ] Trigger Adaptive Lock — `AppLockRule.lockType` has an `ADAPTIVE` option in the schema, but difficulty doesn't yet scale off a real risk score (blocked on Module 2)
+- [x] Trigger Adaptive Lock (2026-08-24) — `lockType` was always hardcoded to `"CUSTOM"` on write and never read anywhere (dead schema field, not actually a "not built" gap so much as a "never wired" one). Now real: `AppLockRulesScreen` gained a per-app "Adaptive difficulty" toggle (shown only when that app is locked), backed by `AppLockViewModel.setAdaptive`/`adaptivePackages`. `LockScreen.kt` checks the triggered app's `AppLockRule.lockType` — if `"ADAPTIVE"`, computes the challenge sensitivity from the real Module 2 risk score (`ChallengeSensitivity.fromRiskLevel`: LOW risk → LOW sensitivity, MODERATE → MEDIUM, HIGH → HIGH) instead of the static Motion Lock Sensitivity setting, falling back to that static setting if risk scoring throws for any reason. Shows "Difficulty adapted to your current risk level" on the lock screen when active. Deliberately scoped to the actual lock-trigger path only — `MoveViewModel`'s voluntary challenge hub still uses the static setting uniformly, since adaptive-per-specific-app doesn't map cleanly onto "pick which locked app to unlock voluntarily." `gradlew assembleDebug` verified. **Not yet runtime-verified.**
 
 ## ✅ Module 4: Smart Intervention System (Done — 2026-08-22)
 

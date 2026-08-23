@@ -13,6 +13,9 @@ interface AppLockRuleDao {
     @Query("SELECT * FROM app_lock_rules WHERE packageName = :packageName")
     fun getRule(packageName: String): Flow<AppLockRule?>
 
+    @Query("SELECT * FROM app_lock_rules WHERE packageName = :packageName")
+    suspend fun getRuleOnce(packageName: String): AppLockRule?
+
     @Query("SELECT * FROM app_lock_rules")
     fun getAllRules(): Flow<List<AppLockRule>>
 }

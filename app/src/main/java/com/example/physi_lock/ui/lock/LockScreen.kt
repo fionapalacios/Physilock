@@ -24,6 +24,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.physi_lock.data.MotionInterventionLog
 import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.ml.RiskFeatureExtractor
+import com.example.physi_lock.ml.RiskScoringEngine
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.sensor.ChallengeType
 import com.example.physi_lock.sensor.isActivityRecognitionGranted
@@ -44,9 +46,29 @@ fun LockScreen(packageName: String, onUnlocked: () -> Unit) {
     val db = remember { PhysiLockDatabase.getInstance(context) }
 
     var sensitivity by remember { mutableStateOf<ChallengeSensitivity?>(null) }
+    var isAdaptive by remember { mutableStateOf(false) }
     LaunchedEffect(Unit) {
         val cfg = try { db.userConfigurationDao().getActiveConfigurationOnce() } catch (e: Exception) { null }
-        sensitivity = ChallengeSensitivity.fromLabel(cfg?.motionLockSensitivity)
+        val rule = try { db.appLockRuleDao().getRuleOnce(packageName) } catch (e: Exception) { null }
+
+        // Trigger Adaptive Lock: apps flagged ADAPTIVE in App Lock Rules scale
+        // challenge difficulty off the real Module 2 risk score instead of the
+        // static Motion Lock Sensitivity setting. Falls back to that static
+        // setting if risk scoring fails for any reason (e.g. no usage logged yet).
+        val adaptiveSensitivity = if (rule?.lockType == "ADAPTIVE") {
+            try {
+                val features = RiskFeatureExtractor(context).extractTodayFeatures()
+                val level = RiskScoringEngine.score(features).level
+                ChallengeSensitivity.fromRiskLevel(level)
+            } catch (e: Exception) {
+                null
+            }
+        } else {
+            null
+        }
+
+        isAdaptive = adaptiveSensitivity != null
+        sensitivity = adaptiveSensitivity ?: ChallengeSensitivity.fromLabel(cfg?.motionLockSensitivity)
     }
 
     // One random challenge per lock event; rememberSaveable so a rotation or
@@ -87,6 +109,14 @@ fun LockScreen(packageName: String, onUnlocked: () -> Unit) {
             color = Color.LightGray,
             fontSize = 14.sp
         )
+        if (isAdaptive) {
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Difficulty adapted to your current risk level",
+                color = Color.LightGray.copy(alpha = 0.7f),
+                fontSize = 12.sp
+            )
+        }
         Spacer(modifier = Modifier.height(40.dp))
 
         if (activeSensitivity != null) {

@@ -28,6 +28,13 @@ class AppLockViewModel(application: Application) : AndroidViewModel(application)
         .map { rules -> rules.filter { it.isLocked }.map { it.packageName }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
+    // Trigger Adaptive Lock: apps in this set scale their unlock-challenge difficulty
+    // off the real Module 2 risk score (see LockScreen.kt) instead of the static
+    // Motion Lock Sensitivity setting.
+    val adaptivePackages: StateFlow<Set<String>> = appLockRuleDao.getAllRules()
+        .map { rules -> rules.filter { it.lockType == "ADAPTIVE" }.map { it.packageName }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val pm = application.packageManager
@@ -47,8 +54,22 @@ class AppLockViewModel(application: Application) : AndroidViewModel(application)
 
     fun setLocked(app: InstalledAppInfo, locked: Boolean) {
         viewModelScope.launch {
+            val existingLockType = appLockRuleDao.getRuleOnce(app.packageName)?.lockType ?: "CUSTOM"
             appLockRuleDao.upsert(
-                AppLockRule(packageName = app.packageName, isLocked = locked, lockType = "CUSTOM")
+                AppLockRule(packageName = app.packageName, isLocked = locked, lockType = existingLockType)
+            )
+        }
+    }
+
+    fun setAdaptive(app: InstalledAppInfo, adaptive: Boolean) {
+        viewModelScope.launch {
+            val existing = appLockRuleDao.getRuleOnce(app.packageName)
+            appLockRuleDao.upsert(
+                AppLockRule(
+                    packageName = app.packageName,
+                    isLocked = existing?.isLocked ?: true,
+                    lockType = if (adaptive) "ADAPTIVE" else "CUSTOM"
+                )
             )
         }
     }

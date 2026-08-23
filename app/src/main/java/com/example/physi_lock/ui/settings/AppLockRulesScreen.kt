@@ -38,6 +38,7 @@ fun AppLockRulesScreen(
 ) {
     val apps by viewModel.installedApps.collectAsState()
     val lockedPackages by viewModel.lockedPackages.collectAsState()
+    val adaptivePackages by viewModel.adaptivePackages.collectAsState()
 
     Column(modifier = Modifier.fillMaxSize()) {
         Row(
@@ -70,41 +71,65 @@ fun AppLockRulesScreen(
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(apps, key = { it.packageName }) { app ->
                     val isLocked = app.packageName in lockedPackages
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 16.dp, vertical = 12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
+                    val isAdaptive = app.packageName in adaptivePackages
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
                             modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(if (isLocked) SageAccent else DeepOlive.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = app.appName.take(1).uppercase(),
-                                color = if (isLocked) DeepOlive else DeepOlive.copy(alpha = 0.6f),
-                                fontWeight = FontWeight.Bold
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .background(if (isLocked) SageAccent else DeepOlive.copy(alpha = 0.12f)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = app.appName.take(1).uppercase(),
+                                    color = if (isLocked) DeepOlive else DeepOlive.copy(alpha = 0.6f),
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
+                            Column(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(horizontal = 12.dp)
+                            ) {
+                                Text(text = app.appName, fontWeight = FontWeight.SemiBold)
+                                Text(
+                                    text = app.packageName,
+                                    style = MaterialTheme.typography.labelSmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                            Switch(
+                                checked = isLocked,
+                                onCheckedChange = { checked -> viewModel.setLocked(app, checked) }
                             )
                         }
-                        Column(
-                            modifier = Modifier
-                                .weight(1f)
-                                .padding(horizontal = 12.dp)
-                        ) {
-                            Text(text = app.appName, fontWeight = FontWeight.SemiBold)
-                            Text(
-                                text = app.packageName,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
+                        if (isLocked) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 68.dp, end = 16.dp, bottom = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(text = "Adaptive difficulty", style = MaterialTheme.typography.labelLarge)
+                                    Text(
+                                        text = "Scale the unlock challenge with your current risk level, instead of a fixed difficulty",
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                                Switch(
+                                    checked = isAdaptive,
+                                    onCheckedChange = { checked -> viewModel.setAdaptive(app, checked) }
+                                )
+                            }
                         }
-                        Switch(
-                            checked = isLocked,
-                            onCheckedChange = { checked -> viewModel.setLocked(app, checked) }
-                        )
                     }
                     HorizontalDivider()
                 }

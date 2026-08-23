@@ -74,7 +74,7 @@ Development is organized into self-contained **modules** — one per feature/sub
 | 0. Foundation | — (cross-cutting) | Database schema, DAOs, permissions, AccessibilityService, navigation shell, onboarding | Established |
 | 1. Core Monitoring & Usage Awareness | Core Monitoring/Usage Awareness | Foreground tracking, usage aggregation, scroll detection, dashboard/reports UI | Most advanced |
 | 2. AI-Based Behavior Analysis | AI-Based Behavior Analysis | Random Forest risk scoring, m2cgen transpilation, doomscroll & hourly-excessive classifiers | All 3 models live (2026-08-23/24); Receive Overuse Predictions UI still pending |
-| 3. Motion-Responsive Locking | Motion-Responsive Locking | Accelerometer integration, motion thresholds, lock overlay, shake calibration | Most advanced |
+| 3. Motion-Responsive Locking | Motion-Responsive Locking | Accelerometer integration, motion thresholds, lock overlay, shake calibration | Done (2026-08-24) |
 | 4. Smart Intervention System | Smart Intervention System | Context-aware nudges, adaptive thresholds, break reminders | Partial |
 | 5. Mental Health & Awareness | Mental Health & Awareness | Reflection prompts, wellbeing check-ins | Not started |
 | 6. Personalization & User Control | Personalization & User Control | Usage profiles, custom lock rules, usage limits | Partial |
