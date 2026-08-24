@@ -47,6 +47,14 @@ class FirebaseAccountRepository(
             return null
         }
 
+        // Best-effort — a failed send shouldn't fail registration itself; VerifyEmailScreen's
+        // "Resend email" gives the user another chance.
+        try {
+            authResult.user?.sendEmailVerification()?.await()
+        } catch (e: Exception) {
+            // Ignored — see kdoc above.
+        }
+
         val account = Account(
             id = uid,
             username = form.username,
@@ -81,6 +89,27 @@ class FirebaseAccountRepository(
     }
 
     override fun logout() = auth.signOut()
+
+    /**
+     * Firebase's native link-based reset flow — the user gets an email with a link to
+     * Firebase's own hosted reset page, no in-app code entry needed. Throws on failure
+     * (e.g. malformed email, network error); the caller decides what to show.
+     */
+    suspend fun sendPasswordResetEmail(email: String) {
+        auth.sendPasswordResetEmail(email).await()
+    }
+
+    /** Sends Firebase's native link-based verification email to the just-registered user. */
+    suspend fun sendEmailVerification() {
+        auth.currentUser?.sendEmailVerification()?.await()
+    }
+
+    /** Refreshes [auth]'s cached user so [isCurrentUserEmailVerified] reflects a just-clicked link. */
+    suspend fun reloadCurrentUser() {
+        auth.currentUser?.reload()?.await()
+    }
+
+    fun isCurrentUserEmailVerified(): Boolean = auth.currentUser?.isEmailVerified ?: false
 
     override suspend fun updateAccount(account: Account): Account? {
         val conflict = usersCollection

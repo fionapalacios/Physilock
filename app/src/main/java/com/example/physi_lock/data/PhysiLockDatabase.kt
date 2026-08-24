@@ -15,9 +15,10 @@ import androidx.room.RoomDatabase
         AppCategory::class,
         DefaultSettings::class,
         CachedAccount::class,
-        ExcessiveUsagePredictionLog::class
+        ExcessiveUsagePredictionLog::class,
+        NotificationLog::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {
@@ -30,6 +31,7 @@ abstract class PhysiLockDatabase : RoomDatabase() {
     abstract fun defaultSettingsDao(): DefaultSettingsDao
     abstract fun cachedAccountDao(): CachedAccountDao
     abstract fun excessiveUsagePredictionLogDao(): ExcessiveUsagePredictionLogDao
+    abstract fun notificationLogDao(): NotificationLogDao
 
     companion object {
         @Volatile private var INSTANCE: PhysiLockDatabase? = null

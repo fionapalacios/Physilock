@@ -10,15 +10,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.text.BasicTextField
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -27,28 +23,13 @@ import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.mutableStateListOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.SolidColor
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.physi_lock.ui.components.AuthInputFieldBackground
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.ErrorRed
@@ -57,29 +38,23 @@ import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
 
 /**
- * Ported from the teammate's sprint-2-ui-navigation branch. UI only — there is no
- * verification-code backend yet (see MODULE_PROGRESS.md). [onVerified] only fires once
- * the entered code passes the client-side 6-digit format check; a real check against a
- * sent code needs to be wired in once that backend exists.
+ * Ported from the teammate's sprint-2-ui-navigation branch, then adapted from a custom
+ * in-app 6-digit code entry to Firebase Auth's native link-based verification — Firebase
+ * emails a link, so there's no code to type here. [onCheckVerified] fires when the user
+ * taps "I've verified"; the caller re-checks Firebase's `isEmailVerified` flag (a link
+ * click doesn't push a signal into the app, so this has to be a manual recheck) and
+ * reports failure back via [verificationError].
  */
-private const val CODE_LENGTH = 6
-
 @Composable
 fun VerifyEmailScreen(
     email: String,
     onBackClick: () -> Unit,
-    onVerified: () -> Unit,
+    onCheckVerified: () -> Unit,
     onResendCode: () -> Unit = {},
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    checking: Boolean = false,
+    verificationError: String? = null
 ) {
-    val code = remember { mutableStateListOf(*Array(CODE_LENGTH) { "" }) }
-    val focusRequesters = remember { List(CODE_LENGTH) { FocusRequester() } }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(Unit) {
-        focusRequesters.first().requestFocus()
-    }
-
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -145,7 +120,7 @@ fun VerifyEmailScreen(
                 }
 
                 Text(
-                    text = "We sent a 6-digit code to",
+                    text = "We sent a verification link to",
                     textAlign = TextAlign.Center,
                     fontFamily = Nunito,
                     fontSize = 14.sp,
@@ -163,61 +138,23 @@ fun VerifyEmailScreen(
                     fontWeight = FontWeight.ExtraBold,
                     lineHeight = 22.5.sp,
                     color = DeepOlive,
+                    modifier = Modifier.padding(bottom = 15.dp)
+                )
+
+                Text(
+                    text = "Open the email on this device and tap the link, then come back " +
+                        "and tap the button below to continue.",
+                    textAlign = TextAlign.Center,
+                    fontFamily = Nunito,
+                    fontSize = 13.sp,
+                    lineHeight = 20.sp,
+                    color = DeepOlive,
                     modifier = Modifier.padding(bottom = 22.5.dp)
                 )
 
-                Row(
-                    modifier = Modifier.padding(bottom = 15.dp),
-                    horizontalArrangement = Arrangement.spacedBy(7.5.dp)
-                ) {
-                    code.indices.forEach { index ->
-                        Box(
-                            modifier = Modifier
-                                .width(44.dp)
-                                .height(52.dp)
-                                .background(AuthInputFieldBackground, RoundedCornerShape(12.dp))
-                                .border(1.98.dp, DeepOlive.copy(alpha = 0.20f), RoundedCornerShape(12.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            BasicTextField(
-                                value = code[index],
-                                onValueChange = { newValue ->
-                                    val digit = newValue.filter { it.isDigit() }.takeLast(1)
-                                    code[index] = digit
-                                    errorMessage = null
-                                    if (digit.isNotEmpty() && index < CODE_LENGTH - 1) {
-                                        focusRequesters[index + 1].requestFocus()
-                                    }
-                                },
-                                singleLine = true,
-                                textStyle = TextStyle(
-                                    fontFamily = Nunito,
-                                    fontSize = 20.sp,
-                                    fontWeight = FontWeight.Bold,
-                                    textAlign = TextAlign.Center,
-                                    color = DeepOlive
-                                ),
-                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                                cursorBrush = SolidColor(DeepOlive),
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .focusRequester(focusRequesters[index])
-                                    .onKeyEvent { event ->
-                                        if (event.key == Key.Backspace && code[index].isEmpty() && index > 0) {
-                                            focusRequesters[index - 1].requestFocus()
-                                            true
-                                        } else {
-                                            false
-                                        }
-                                    }
-                            )
-                        }
-                    }
-                }
-
-                if (errorMessage != null) {
+                if (verificationError != null) {
                     Text(
-                        text = errorMessage.orEmpty(),
+                        text = verificationError,
                         fontFamily = Nunito,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
@@ -241,20 +178,12 @@ fun VerifyEmailScreen(
                             spotColor = DeepOlive.copy(alpha = 0.25f)
                         )
                         .background(DeepOlive, RoundedCornerShape(15.dp))
-                        .clickable {
-                            val enteredCode = code.joinToString("")
-                            if (enteredCode.length != CODE_LENGTH || enteredCode.any { !it.isDigit() }) {
-                                errorMessage = "Enter the 6-digit code we sent to your email."
-                            } else {
-                                errorMessage = null
-                                onVerified()
-                            }
-                        }
+                        .clickable(enabled = !checking, onClick = onCheckVerified)
                         .padding(vertical = 15.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Verify Email",
+                        text = if (checking) "Checking..." else "I've verified — Continue",
                         textAlign = TextAlign.Center,
                         fontFamily = Nunito,
                         fontSize = 15.sp,
@@ -267,12 +196,7 @@ fun VerifyEmailScreen(
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(5.63.dp),
-                    modifier = Modifier.clickable {
-                        code.indices.forEach { code[it] = "" }
-                        errorMessage = null
-                        onResendCode()
-                        focusRequesters.first().requestFocus()
-                    }
+                    modifier = Modifier.clickable(onClick = onResendCode)
                 ) {
                     Icon(
                         imageVector = Icons.Default.Refresh,
@@ -281,7 +205,7 @@ fun VerifyEmailScreen(
                         modifier = Modifier.size(14.dp)
                     )
                     Text(
-                        text = "Resend code",
+                        text = "Resend email",
                         textAlign = TextAlign.Center,
                         fontFamily = Nunito,
                         fontSize = 14.sp,
@@ -292,7 +216,7 @@ fun VerifyEmailScreen(
                 }
 
                 Text(
-                    text = "Didn't receive anything? Check your spam folder or tap Resend.",
+                    text = "Didn't receive anything? Check your spam folder or tap Resend email.",
                     textAlign = TextAlign.Center,
                     fontFamily = Nunito,
                     fontSize = 12.sp,

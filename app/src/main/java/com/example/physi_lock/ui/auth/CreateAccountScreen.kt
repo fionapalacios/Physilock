@@ -2,8 +2,10 @@ package com.example.physi_lock.ui.auth
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -45,6 +47,7 @@ import com.example.physi_lock.ui.components.AuthModeTabs
 import com.example.physi_lock.ui.components.AuthOrDivider
 import com.example.physi_lock.ui.components.AuthRememberMeCheckbox
 import com.example.physi_lock.ui.components.AuthTab
+import com.example.physi_lock.ui.components.AuthTabsBackground
 import com.example.physi_lock.ui.components.AuthTextField
 import com.example.physi_lock.ui.components.PasswordRequirementsChecklist
 import com.example.physi_lock.ui.theme.BackgroundLight
@@ -53,12 +56,18 @@ import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
 
+private enum class UsageMode(val emoji: String, val label: String, val configValue: String) {
+    STUDENT("📚", "Student", "STUDENT_MODE"),
+    WORK("💼", "Work", "WORK_MODE")
+}
+
 /**
  * Ported from the teammate's sprint-2-ui-navigation branch. Unlike the original (which called
  * an in-memory AuthRepository mock directly), this takes [onCreateAccount] with the shared
  * [AuthFormState] so the caller can wire it to the real HybridAccountRepository via
- * AuthViewModel once nav-wiring is approved. The teammate's non-functional Usage Mode picker
- * (never actually passed into registration) was dropped rather than ported as dead UI.
+ * AuthViewModel once nav-wiring is approved. Unlike the teammate's version — where the Usage
+ * Mode picker was cosmetic, never actually passed into registration — [AuthFormState.usageMode]
+ * here is real: MainActivity saves it to UserConfiguration right after a successful registration.
  */
 @Composable
 fun CreateAccountScreen(
@@ -77,6 +86,7 @@ fun CreateAccountScreen(
     var passwordFieldFocused by remember { mutableStateOf(false) }
     var passwordVisible by remember { mutableStateOf(false) }
     var confirmPasswordVisible by remember { mutableStateOf(false) }
+    var usageMode by remember { mutableStateOf(UsageMode.STUDENT) }
     var rememberMe by remember { mutableStateOf(false) }
     var validationError by remember { mutableStateOf<String?>(null) }
 
@@ -209,6 +219,25 @@ fun CreateAccountScreen(
                 onCheckedChange = { rememberMe = it }
             )
 
+            AuthFieldLabel(
+                text = "Usage Mode",
+                modifier = Modifier.padding(top = 15.dp)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(7.5.dp)
+            ) {
+                UsageMode.entries.forEach { mode ->
+                    UsageModePill(
+                        mode = mode,
+                        isSelected = usageMode == mode,
+                        onClick = { usageMode = mode },
+                        modifier = Modifier.weight(1f)
+                    )
+                }
+            }
+
             val displayedError = validationError ?: errorMessage
             if (displayedError != null) {
                 Spacer(modifier = Modifier.height(11.25.dp))
@@ -250,7 +279,8 @@ fun CreateAccountScreen(
                                     fullName = name,
                                     identifier = email,
                                     password = password,
-                                    confirmPassword = confirmPassword
+                                    confirmPassword = confirmPassword,
+                                    usageMode = usageMode.configValue
                                 )
                             )
                         }
@@ -280,5 +310,43 @@ fun CreateAccountScreen(
                 modifier = Modifier.padding(bottom = 24.dp)
             )
         }
+    }
+}
+
+@Composable
+private fun UsageModePill(
+    mode: UsageMode,
+    isSelected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Column(
+        modifier = modifier
+            .clickable(onClick = onClick)
+            .background(
+                color = if (isSelected) DeepOlive else AuthTabsBackground,
+                shape = RoundedCornerShape(19.dp)
+            )
+            .padding(vertical = 11.25.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(3.75.dp)
+    ) {
+        Text(
+            text = mode.emoji,
+            textAlign = TextAlign.Center,
+            fontSize = 18.sp,
+            lineHeight = 27.sp,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Text(
+            text = mode.label,
+            textAlign = TextAlign.Center,
+            fontFamily = Nunito,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            lineHeight = 18.sp,
+            color = if (isSelected) BackgroundLight else DeepOlive,
+            modifier = Modifier.fillMaxWidth()
+        )
     }
 }

@@ -20,7 +20,8 @@ data class AuthFormState(
     val fullName: String = "",
     val identifier: String = "", // login: username or email · register: email
     val password: String = "",
-    val confirmPassword: String = ""
+    val confirmPassword: String = "",
+    val usageMode: String = "STUDENT_MODE" // "STUDENT_MODE" or "WORK_MODE" — see UserConfiguration
 )
 
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
@@ -37,6 +38,17 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
 
     suspend fun register(form: AuthFormState): Account? =
         repository.register(form)
+
+    /** Firebase's native link-based reset flow — throws on failure (network/invalid email). */
+    suspend fun sendPasswordReset(email: String) = firebaseRepository.sendPasswordResetEmail(email)
+
+    suspend fun resendVerificationEmail() = firebaseRepository.sendEmailVerification()
+
+    /** Re-checks the current Firebase user's verified state against the server (post link-click). */
+    suspend fun checkEmailVerified(): Boolean {
+        firebaseRepository.reloadCurrentUser()
+        return firebaseRepository.isCurrentUserEmailVerified()
+    }
 
     /**
      * Ends the Firebase session. [context] is optional — pass it (an Activity context)

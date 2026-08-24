@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -35,7 +36,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -54,6 +57,9 @@ import android.content.Intent
 import android.provider.Settings
 import com.example.physi_lock.data.openUsageAccessSettings
 import com.example.physi_lock.ui.components.CircularProgressRing
+import com.example.physi_lock.ui.components.NotificationsOverlay
+import com.example.physi_lock.ui.components.NotificationsViewModel
+import com.example.physi_lock.ui.components.toEntry
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.MutedText
@@ -75,6 +81,7 @@ private val AuthTabsBackground = SoftSand
 @Composable
 fun HomeScreen(
     homeViewModel: HomeViewModel = viewModel(),
+    notificationsViewModel: NotificationsViewModel = viewModel(),
     displayName: String = "Alex",
     onManageAppLock: () -> Unit = {},
     onNavigateToFocus: () -> Unit = {},
@@ -82,6 +89,8 @@ fun HomeScreen(
 ) {
     val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
+    val notificationLogs by notificationsViewModel.notifications.collectAsState()
+    var showNotifications by remember { mutableStateOf(false) }
     val todayMinutes by homeViewModel.todayScreenTimeMinutes.collectAsState(initial = 0)
     val dailyLimitMinutes by homeViewModel.dailyLimitMinutes.collectAsState(initial = 480)
     val riskLevel by homeViewModel.riskLevel.collectAsState(initial = "Moderate")
@@ -102,6 +111,7 @@ fun HomeScreen(
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
 
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -109,7 +119,11 @@ fun HomeScreen(
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 15.dp, vertical = 12.dp)
     ) {
-        HomeHeader(displayName = displayName)
+        HomeHeader(
+            displayName = displayName,
+            unreadNotificationCount = notificationLogs.count { !it.isRead },
+            onNotificationsClick = { showNotifications = true }
+        )
         Spacer(modifier = Modifier.height(12.dp))
         PermissionStatusBanner(
             hasUsageAccess = hasUsageAccess,
@@ -138,6 +152,15 @@ fun HomeScreen(
             dailyLimitMinutes = dailyLimitMinutes,
             onUsageGoalsClick = onNavigateToGoals
         )
+    }
+
+    if (showNotifications) {
+        NotificationsOverlay(
+            notifications = notificationLogs.map { it.toEntry() },
+            onDismiss = { showNotifications = false },
+            onMarkAllRead = { notificationsViewModel.markAllRead() }
+        )
+    }
     }
 }
 
@@ -274,7 +297,11 @@ private fun openAccessibilitySettings(context: android.content.Context) {
 }
 
 @Composable
-private fun HomeHeader(displayName: String) {
+private fun HomeHeader(
+    displayName: String,
+    unreadNotificationCount: Int = 0,
+    onNotificationsClick: () -> Unit = {}
+) {
     val dayLabel = remember {
         Calendar.getInstance().time.let {
             java.text.SimpleDateFormat("EEE, MMM d", Locale.getDefault()).format(it).uppercase(Locale.getDefault())
@@ -310,15 +337,25 @@ private fun HomeHeader(displayName: String) {
             modifier = Modifier
                 .size(38.dp)
                 .background(AuthTabsBackground, RoundedCornerShape(12.dp))
-                .border(1.dp, PrimaryDark.copy(alpha = 0.10f), RoundedCornerShape(12.dp)),
+                .border(1.dp, PrimaryDark.copy(alpha = 0.10f), RoundedCornerShape(12.dp))
+                .clickable(onClick = onNotificationsClick),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Default.Notifications,
-                contentDescription = null,
+                contentDescription = "Notifications",
                 tint = PrimaryDark,
                 modifier = Modifier.size(18.dp)
             )
+            if (unreadNotificationCount > 0) {
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .offset(x = 3.dp, y = (-3).dp)
+                        .size(8.dp)
+                        .background(Orchid, RoundedCornerShape(50))
+                )
+            }
         }
     }
 }

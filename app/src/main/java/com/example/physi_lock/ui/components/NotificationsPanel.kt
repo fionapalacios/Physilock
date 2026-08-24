@@ -19,8 +19,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.TrendingUp
+import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -34,12 +37,47 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.physi_lock.data.NotificationLog
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
+import java.util.concurrent.TimeUnit
+
+/** Maps a real logged [NotificationLog] row (see AppMonitorService) to the display entry below. */
+fun NotificationLog.toEntry(): NotificationEntry {
+    val (icon, color) = when (type) {
+        "BREAK_REMINDER" -> Icons.Default.Bedtime to SageAccent
+        "OVERUSE_ALERT" -> Icons.Default.WarningAmber to ErrorRed
+        "DOOMSCROLL_ALERT" -> Icons.Default.WarningAmber to Orchid
+        "EXCESSIVE_USAGE_PREDICTION" -> Icons.Default.TrendingUp to DeepOlive
+        else -> Icons.Default.Notifications to DeepOlive
+    }
+    return NotificationEntry(
+        icon = icon,
+        accentColor = color,
+        title = title,
+        description = description,
+        timestamp = formatRelativeTime(timestamp),
+        isUnread = !isRead
+    )
+}
+
+private fun formatRelativeTime(timestamp: Long): String {
+    val elapsedMs = (System.currentTimeMillis() - timestamp).coerceAtLeast(0)
+    val minutes = TimeUnit.MILLISECONDS.toMinutes(elapsedMs)
+    val hours = TimeUnit.MILLISECONDS.toHours(elapsedMs)
+    val days = TimeUnit.MILLISECONDS.toDays(elapsedMs)
+    return when {
+        minutes < 1 -> "Just now"
+        minutes < 60 -> "${minutes}m ago"
+        hours < 24 -> "${hours}h ago"
+        else -> "${days}d ago"
+    }
+}
 
 /** Ported from the teammate's sprint-2-ui-navigation branch, unchanged aside from theme tokens. */
 data class NotificationEntry(

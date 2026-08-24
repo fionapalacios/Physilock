@@ -17,6 +17,7 @@ import com.example.physi_lock.R
 import com.example.physi_lock.data.AppUsageLog
 import com.example.physi_lock.data.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.MotionInterventionLog
+import com.example.physi_lock.data.NotificationLog
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
 import com.example.physi_lock.ml.DoomscrollDetector
@@ -356,6 +357,11 @@ class AppMonitorService : AccessibilityService() {
             .build()
 
         NotificationManagerCompat.from(this).notify(BREAK_REMINDER_NOTIFICATION_ID, notification)
+        logNotification(
+            type = "BREAK_REMINDER",
+            title = "Break reminder",
+            description = "You've been active for $elapsedMinutes min — stretch or take a walk"
+        )
     }
 
     // Overuse Alert (Module 4/1): a passive, at-most-once-per-day notification when
@@ -411,6 +417,11 @@ class AppMonitorService : AccessibilityService() {
             .build()
 
         NotificationManagerCompat.from(this).notify(OVERUSE_ALERT_NOTIFICATION_ID, notification)
+        logNotification(
+            type = "OVERUSE_ALERT",
+            title = "Daily limit exceeded",
+            description = "You've used your device $overMinutes min over your daily limit today"
+        )
     }
 
     // Doomscroll Detection (Module 2): checks the live, in-progress session's scroll
@@ -489,6 +500,11 @@ class AppMonitorService : AccessibilityService() {
             .build()
 
         NotificationManagerCompat.from(this).notify(DOOMSCROLL_ALERT_NOTIFICATION_ID, notification)
+        logNotification(
+            type = "DOOMSCROLL_ALERT",
+            title = "Doomscrolling detected",
+            description = "Your scrolling pattern looks like a doomscroll — maybe take a break?"
+        )
     }
 
     private fun postExcessiveUsagePredictionNotification() {
@@ -517,6 +533,28 @@ class AppMonitorService : AccessibilityService() {
             .build()
 
         NotificationManagerCompat.from(this).notify(EXCESSIVE_USAGE_PREDICTION_NOTIFICATION_ID, notification)
+        logNotification(
+            type = "EXCESSIVE_USAGE_PREDICTION",
+            title = "This hour looks like a heavy usage hour",
+            description = "Your usual pattern suggests you're about to use your device a lot this hour"
+        )
+    }
+
+    private fun logNotification(type: String, title: String, description: String) {
+        serviceScope.launch {
+            try {
+                database.notificationLogDao().insert(
+                    NotificationLog(
+                        type = type,
+                        title = title,
+                        description = description,
+                        timestamp = System.currentTimeMillis()
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
     }
 
     private fun handleWindowStateChange(packageName: String, currentTime: Long) {

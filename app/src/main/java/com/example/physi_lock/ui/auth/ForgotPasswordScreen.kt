@@ -20,6 +20,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.MarkEmailRead
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,25 +41,36 @@ import com.example.physi_lock.ui.components.AuthFieldLabel
 import com.example.physi_lock.ui.components.AuthTextField
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
+import com.example.physi_lock.ui.theme.SecondarySage
 import com.example.physi_lock.ui.theme.TertiaryTan
 
 /**
- * Ported from the teammate's sprint-2-ui-navigation branch. UI only — there is no
- * reset-code backend yet (see MODULE_PROGRESS.md), so [onSendCode] is a hook for
- * whatever verification-code service gets built later, not a real send.
+ * Ported from the teammate's sprint-2-ui-navigation branch, then adapted from a custom
+ * in-app 6-digit code flow to Firebase Auth's native link-based reset — Firebase emails
+ * the user a link to its own hosted reset page, so there's nothing left for this screen
+ * to do after [onSendCode] fires except show a confirmation.
  */
-private val forgotPasswordSteps = listOf("Email", "Verify", "Reset", "Done")
+private val forgotPasswordSteps = listOf("Email", "Sent")
 private const val EMAIL_STEP_INDEX = 0
 
 @Composable
 fun ForgotPasswordScreen(
     onBackClick: () -> Unit,
     onSendCode: (email: String) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    sending: Boolean = false,
+    sent: Boolean = false,
+    errorMessage: String? = null
 ) {
     var email by remember { mutableStateOf("") }
+
+    if (sent) {
+        ForgotPasswordSentConfirmation(email = email, onBackClick = onBackClick, modifier = modifier)
+        return
+    }
 
     Column(
         modifier = modifier
@@ -115,7 +127,7 @@ fun ForgotPasswordScreen(
             ) {
                 Text(
                     text = "Enter the email address linked to your Physi-Lock account. " +
-                        "We'll send a 6-digit verification code.",
+                        "We'll email you a link to reset your password.",
                     fontFamily = Nunito,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Normal,
@@ -136,6 +148,18 @@ fun ForgotPasswordScreen(
                     modifier = Modifier.padding(bottom = 15.dp)
                 )
 
+                if (errorMessage != null) {
+                    Text(
+                        text = errorMessage,
+                        fontFamily = Nunito,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 18.85.sp,
+                        color = ErrorRed,
+                        modifier = Modifier.padding(bottom = 15.dp)
+                    )
+                }
+
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -147,12 +171,12 @@ fun ForgotPasswordScreen(
                             spotColor = DeepOlive.copy(alpha = 0.25f)
                         )
                         .background(DeepOlive, RoundedCornerShape(15.dp))
-                        .clickable { if (email.isNotBlank()) onSendCode(email) }
+                        .clickable(enabled = !sending) { if (email.isNotBlank()) onSendCode(email) }
                         .padding(vertical = 15.dp),
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Send Verification Code",
+                        text = if (sending) "Sending..." else "Send Reset Link",
                         textAlign = TextAlign.Center,
                         fontFamily = Nunito,
                         fontSize = 15.sp,
@@ -161,6 +185,91 @@ fun ForgotPasswordScreen(
                         color = BackgroundLight
                     )
                 }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ForgotPasswordSentConfirmation(
+    email: String,
+    onBackClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        modifier = modifier
+            .fillMaxSize()
+            .background(BackgroundLight),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .widthIn(max = 480.dp)
+                .padding(horizontal = 22.5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Box(
+                modifier = Modifier
+                    .padding(bottom = 18.75.dp)
+                    .size(72.dp)
+                    .background(SecondarySage.copy(alpha = 0.13f), RoundedCornerShape(22.dp))
+                    .border(1.98.dp, SecondarySage.copy(alpha = 0.40f), RoundedCornerShape(22.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Default.MarkEmailRead,
+                    contentDescription = null,
+                    tint = SageAccent,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+
+            Text(
+                text = "Check your email",
+                textAlign = TextAlign.Center,
+                fontFamily = Nunito,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.ExtraBold,
+                lineHeight = 22.5.sp,
+                color = DeepOlive,
+                modifier = Modifier.padding(bottom = 7.5.dp)
+            )
+
+            Text(
+                text = "We sent a password reset link to $email. Open it on this device to " +
+                    "choose a new password, then come back and sign in.",
+                textAlign = TextAlign.Center,
+                fontFamily = Nunito,
+                fontSize = 14.sp,
+                lineHeight = 22.4.sp,
+                color = DeepOlive,
+                modifier = Modifier.padding(bottom = 22.5.dp)
+            )
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .shadow(
+                        elevation = 6.dp,
+                        shape = RoundedCornerShape(15.dp),
+                        ambientColor = DeepOlive.copy(alpha = 0.25f),
+                        spotColor = DeepOlive.copy(alpha = 0.25f)
+                    )
+                    .background(DeepOlive, RoundedCornerShape(15.dp))
+                    .clickable(onClick = onBackClick)
+                    .padding(vertical = 15.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Back to Login",
+                    textAlign = TextAlign.Center,
+                    fontFamily = Nunito,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.Bold,
+                    lineHeight = 22.5.sp,
+                    color = BackgroundLight
+                )
             }
         }
     }

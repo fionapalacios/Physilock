@@ -15,17 +15,23 @@ import com.example.physi_lock.ui.admin.AdminHomeScreen
 import com.example.physi_lock.ui.auth.AuthFormState
 import com.example.physi_lock.ui.auth.AuthViewModel
 import com.example.physi_lock.ui.auth.CreateAccountScreen
+import com.example.physi_lock.ui.auth.ForgotPasswordScreen
 import com.example.physi_lock.ui.auth.LoginScreen
+import com.example.physi_lock.ui.auth.VerifyEmailScreen
 import com.example.physi_lock.ui.landing.LandingScreen
 import com.example.physi_lock.ui.navigation.NavGraph
 import com.example.physi_lock.ui.onboarding.OnboardingScreen
+import com.example.physi_lock.ui.settings.SettingsViewModel
 import com.example.physi_lock.ui.theme.PhysiLockTheme
 import kotlinx.coroutines.launch
 
-// Prototype-testing flow: Landing -> Auth (Login/Register) -> Onboarding (User only) ->
-// Home/AdminHome, skipping email verification / mode picker for now (see project memory
-// "project-auth-screens" for the full intended flow to wire in later).
-private enum class AppStage { LANDING, AUTH_LOGIN, AUTH_REGISTER, ONBOARDING, HOME, ADMIN_HOME }
+// Prototype-testing flow: Landing -> Auth (Login/Register, Register includes a real Student/Work
+// Usage Mode picker) -> [Verify Email, register-only] -> Onboarding -> Home/AdminHome. Verify
+// Email only runs on a fresh email/password registration (see project memory
+// "project-auth-screens"); login and Google sign-in skip straight from Onboarding to Home.
+private enum class AppStage {
+    LANDING, AUTH_LOGIN, AUTH_REGISTER, FORGOT_PASSWORD, VERIFY_EMAIL, ONBOARDING, HOME, ADMIN_HOME
+}
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -36,12 +42,29 @@ class MainActivity : ComponentActivity() {
             var authError by remember { mutableStateOf<String?>(null) }
             var currentAccount by remember { mutableStateOf<Account?>(null) }
             val authViewModel: AuthViewModel = viewModel()
+            val settingsViewModel: SettingsViewModel = viewModel()
             val coroutineScope = rememberCoroutineScope()
             val context = LocalContext.current
 
+            var pendingVerificationEmail by remember { mutableStateOf("") }
+            var verifyEmailChecking by remember { mutableStateOf(false) }
+            var verifyEmailError by remember { mutableStateOf<String?>(null) }
+            var passwordResetSending by remember { mutableStateOf(false) }
+            var passwordResetSent by remember { mutableStateOf(false) }
+            var passwordResetError by remember { mutableStateOf<String?>(null) }
+
             PhysiLockTheme {
                 when (stage) {
-                    AppStage.LANDING -> LandingScreen(onGetStarted = { stage = AppStage.AUTH_LOGIN })
+                    AppStage.LANDING -> LandingScreen(
+                        onGetStarted = {
+                            authError = null
+                            stage = AppStage.AUTH_REGISTER
+                        },
+                        onSignIn = {
+                            authError = null
+                            stage = AppStage.AUTH_LOGIN
+                        }
+                    )
                     AppStage.AUTH_LOGIN -> LoginScreen(
                         errorMessage = authError,
                         onLogin = { identifier, password ->
@@ -60,7 +83,11 @@ class MainActivity : ComponentActivity() {
                                 }
                             }
                         },
-                        onNavigateToForgotPassword = { /* not wired yet */ },
+                        onNavigateToForgotPassword = {
+                            passwordResetSent = false
+                            passwordResetError = null
+                            stage = AppStage.FORGOT_PASSWORD
+                        },
                         onGoogleSignIn = {
                             coroutineScope.launch {
                                 try {
@@ -101,7 +128,10 @@ class MainActivity : ComponentActivity() {
                                     } else {
                                         authError = null
                                         currentAccount = account
-                                        stage = AppStage.ONBOARDING
+                                        settingsViewModel.setUserMode(form.usageMode)
+                                        pendingVerificationEmail = account.email
+                                        verifyEmailError = null
+                                        stage = AppStage.VERIFY_EMAIL
                                     }
                                 } catch (e: Exception) {
                                     authError = e.message ?: "Registration failed."
@@ -134,7 +164,70 @@ class MainActivity : ComponentActivity() {
                         },
                         onBackClick = {
                             authError = null
+                            stage = AppStage.LANDING
+                        }
+                    )
+                    AppStage.FORGOT_PASSWORD -> ForgotPasswordScreen(
+                        sending = passwordResetSending,
+                        sent = passwordResetSent,
+                        errorMessage = passwordResetError,
+                        onSendCode = { email ->
+                            coroutineScope.launch {
+                                passwordResetSending = true
+                                passwordResetError = null
+                                try {
+                                    authViewModel.sendPasswordReset(email)
+                                    passwordResetSent = true
+                                } catch (e: Exception) {
+                                    passwordResetError = e.message ?: "Couldn't send reset email."
+                                } finally {
+                                    passwordResetSending = false
+                                }
+                            }
+                        },
+                        onBackClick = {
+                            passwordResetSent = false
+                            passwordResetError = null
                             stage = AppStage.AUTH_LOGIN
+                        }
+                    )
+                    AppStage.VERIFY_EMAIL -> VerifyEmailScreen(
+                        email = pendingVerificationEmail,
+                        checking = verifyEmailChecking,
+                        verificationError = verifyEmailError,
+                        onCheckVerified = {
+                            coroutineScope.launch {
+                                verifyEmailChecking = true
+                                verifyEmailError = null
+                                try {
+                                    if (authViewModel.checkEmailVerified()) {
+                                        stage = AppStage.ONBOARDING
+                                    } else {
+                                        verifyEmailError = "Still not verified — open the email and tap the link, then try again."
+                                    }
+                                } catch (e: Exception) {
+                                    verifyEmailError = e.message ?: "Couldn't check verification status."
+                                } finally {
+                                    verifyEmailChecking = false
+                                }
+                            }
+                        },
+                        onResendCode = {
+                            coroutineScope.launch {
+                                try {
+                                    authViewModel.resendVerificationEmail()
+                                } catch (e: Exception) {
+                                    verifyEmailError = e.message ?: "Couldn't resend the email."
+                                }
+                            }
+                        },
+                        onBackClick = {
+                            coroutineScope.launch {
+                                authViewModel.logout(context)
+                                currentAccount = null
+                                verifyEmailError = null
+                                stage = AppStage.AUTH_LOGIN
+                            }
                         }
                     )
                     AppStage.ONBOARDING -> OnboardingScreen(onFinished = { stage = AppStage.HOME })
