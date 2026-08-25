@@ -44,7 +44,6 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -257,14 +256,6 @@ fun LandingScreen(onGetStarted: () -> Unit, onSignIn: () -> Unit = onGetStarted)
                                             modifier = Modifier.size(24.dp)
                                         )
                                     }
-                                    Text(
-                                        text = "${page + 1} / ${onboardingSlides.size}",
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 13.sp,
-                                        fontWeight = FontWeight.Medium,
-                                        lineHeight = 19.5.sp,
-                                        color = SageAccent
-                                    )
                                 }
                                 Spacer(modifier = Modifier.height(15.dp))
                                 Text(

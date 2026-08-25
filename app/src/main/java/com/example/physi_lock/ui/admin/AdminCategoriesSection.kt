@@ -56,11 +56,6 @@ fun AdminCategoriesSection(
             ) {
                 Column(modifier = Modifier.weight(1f)) {
                     Text(app.appName, fontWeight = FontWeight.SemiBold)
-                    Text(
-                        text = app.packageName,
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
                 }
                 Box {
                     Row(

@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import java.util.Calendar
 
 data class LockedAppInfo(val packageName: String, val appName: String)
 
@@ -38,6 +39,12 @@ class MoveViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    // Move hub's per-card "Completed" badge — which challenge types were already
+    // finished today, so the hub doesn't just show 3 always-open cards.
+    val completedToday: StateFlow<Set<ChallengeType>> = motionDao.getCompletedChallengeTypesAfter(startOfTodayMillis())
+        .map { names -> names.mapNotNull { name -> runCatching { ChallengeType.valueOf(name) }.getOrNull() }.toSet() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
     var sensitivity: ChallengeSensitivity = ChallengeSensitivity.MEDIUM
         private set
@@ -76,4 +83,14 @@ class MoveViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+}
+
+private fun startOfTodayMillis(): Long {
+    val calendar = Calendar.getInstance().apply {
+        set(Calendar.HOUR_OF_DAY, 0)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
+    return calendar.timeInMillis
 }

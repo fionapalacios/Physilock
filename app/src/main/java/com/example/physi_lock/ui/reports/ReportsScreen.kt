@@ -2,6 +2,7 @@ package com.example.physi_lock.ui.reports
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,6 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
@@ -29,12 +33,15 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.physi_lock.data.AppCategoryType
 import com.example.physi_lock.data.AppUsageTotal
 import com.example.physi_lock.data.ExcessiveUsagePredictionLog
+import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
+import com.example.physi_lock.ui.theme.SecondarySage
 import com.example.physi_lock.ui.theme.SoftSand
 import com.example.physi_lock.ui.theme.TertiaryTan
 import kotlin.math.roundToInt
@@ -44,10 +51,18 @@ private val PrimaryGreen = SageAccent
 private val AccentLavender = Orchid
 private val AuthTabsBackground = SoftSand
 
+/** UI-only for now, per teammate's ReportsScreen design — This Month has no real
+ *  monthly aggregation behind it yet (would need a new multi-week query path), so
+ *  it shows an honest placeholder rather than inventing numbers the way the
+ *  teammate's own mock version did. */
+private enum class ReportPeriod { WEEK, MONTH }
+
 @Composable
 fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
+    var period by remember { mutableStateOf(ReportPeriod.WEEK) }
     val weeklyUsage by reportsViewModel.weeklyUsage.collectAsState(initial = emptyList())
     val topApps by reportsViewModel.topApps.collectAsState(initial = emptyList())
+    val categoryBreakdown by reportsViewModel.categoryBreakdown.collectAsState(initial = emptyList())
     val insights by reportsViewModel.insights.collectAsState(initial = emptyList())
     val dailyLimitMinutes by reportsViewModel.dailyLimitMinutes.collectAsState(initial = 480)
     val todaysPredictions by reportsViewModel.todaysPredictions.collectAsState(initial = emptyList())
@@ -76,6 +91,15 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
         )
 
         Spacer(modifier = Modifier.height(15.dp))
+
+        PeriodTabs(selected = period, onSelected = { period = it })
+
+        Spacer(modifier = Modifier.height(15.dp))
+
+        if (period == ReportPeriod.MONTH) {
+            MonthPlaceholder()
+            return@Column
+        }
 
         val todayMinutes = weeklyUsage.lastOrNull { it.isToday }?.minutes ?: 0
         val avgMinutes = weeklyUsage.map { it.minutes }.average().takeIf { !it.isNaN() } ?: 0.0
@@ -143,6 +167,83 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
                 .padding(15.dp)
         ) {
             Text(
+                text = "Category Breakdown",
+                fontFamily = Nunito,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PrimaryDark
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            if (categoryBreakdown.isEmpty()) {
+                Text(
+                    text = "Categorize apps in Admin to see a usage breakdown by category.",
+                    fontFamily = Nunito,
+                    fontSize = 13.sp,
+                    color = DeepOlive
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
+                    categoryBreakdown.forEach { category -> CategoryRow(category) }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(15.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AuthTabsBackground, RoundedCornerShape(22.dp))
+                .border(1.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(22.dp))
+                .padding(15.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "AI Insights",
+                    fontFamily = Nunito,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = PrimaryDark
+                )
+                Box(
+                    modifier = Modifier
+                        .background(AccentLavender.copy(alpha = 0.13f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "AI-POWERED",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AccentLavender
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            if (todaysPredictions.isEmpty()) {
+                Text(
+                    text = "Predictions appear here throughout the day as they're generated.",
+                    fontFamily = Nunito,
+                    fontSize = 13.sp,
+                    color = DeepOlive
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    todaysPredictions.sortedBy { it.hour }.forEach { prediction -> PredictionRow(prediction) }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(15.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AuthTabsBackground, RoundedCornerShape(22.dp))
+                .border(1.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(22.dp))
+                .padding(15.dp)
+        ) {
+            Text(
                 text = "Top Apps This Week",
                 fontFamily = Nunito,
                 fontSize = 14.sp,
@@ -160,45 +261,6 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(11.dp)) {
                     topApps.forEach { app -> TopAppRow(app, topApps) }
-                }
-            }
-        }
-
-        Spacer(modifier = Modifier.height(15.dp))
-
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(AuthTabsBackground, RoundedCornerShape(22.dp))
-                .border(1.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(22.dp))
-                .padding(15.dp)
-        ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(
-                    text = "Today's Usage Predictions",
-                    fontFamily = Nunito,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = PrimaryDark
-                )
-                Text(
-                    text = "AI",
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    color = PrimaryGreen
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-            if (todaysPredictions.isEmpty()) {
-                Text(
-                    text = "Predictions appear here throughout the day as they're generated.",
-                    fontFamily = Nunito,
-                    fontSize = 13.sp,
-                    color = DeepOlive
-                )
-            } else {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    todaysPredictions.sortedBy { it.hour }.forEach { prediction -> PredictionRow(prediction) }
                 }
             }
         }
@@ -240,6 +302,60 @@ private fun formatMinutes(minutes: Int): String {
     val hours = minutes / 60
     val mins = minutes % 60
     return if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
+}
+
+/** Ported from the teammate's sprint-2-ui-navigation branch ReportsScreen (`PeriodTabs`),
+ *  remapped to this repo's theme tokens. */
+@Composable
+private fun PeriodTabs(selected: ReportPeriod, onSelected: (ReportPeriod) -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(AuthTabsBackground, RoundedCornerShape(19.dp))
+            .padding(4.dp)
+    ) {
+        ReportPeriod.entries.forEach { entry ->
+            val isActive = entry == selected
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .then(
+                        if (isActive) Modifier.background(PrimaryDark, RoundedCornerShape(15.dp)) else Modifier
+                    )
+                    .clickable { onSelected(entry) }
+                    .padding(vertical = 8.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (entry == ReportPeriod.WEEK) "Daily" else "Weekly",
+                    fontFamily = Nunito,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = if (isActive) BackgroundLight else DeepOlive
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun MonthPlaceholder() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(AuthTabsBackground, RoundedCornerShape(22.dp))
+            .border(1.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(22.dp))
+            .padding(24.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        Text(
+            text = "Weekly view coming soon",
+            fontFamily = Nunito,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = PrimaryDark
+        )
+    }
 }
 
 @Composable
@@ -360,7 +476,7 @@ private fun LegendDot(color: androidx.compose.ui.graphics.Color, label: String) 
 @Composable
 private fun TopAppRow(app: AppUsageTotal, allApps: List<AppUsageTotal>) {
     val maxMs = (allApps.maxOfOrNull { it.totalDurationMs } ?: 0L).coerceAtLeast(1L)
-    val minutes = app.totalDurationMs / 60_000L
+    val minutes = (app.totalDurationMs / 60_000L).toInt()
     val progress = (app.totalDurationMs.toFloat() / maxMs.toFloat()).coerceIn(0f, 1f)
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -377,7 +493,7 @@ private fun TopAppRow(app: AppUsageTotal, allApps: List<AppUsageTotal>) {
                 color = PrimaryDark
             )
             Text(
-                text = "${minutes}m",
+                text = formatMinutes(minutes),
                 fontFamily = FontFamily.Monospace,
                 fontSize = 12.sp,
                 color = DeepOlive
@@ -395,6 +511,59 @@ private fun TopAppRow(app: AppUsageTotal, allApps: List<AppUsageTotal>) {
                     .fillMaxWidth(progress)
                     .fillMaxHeight()
                     .background(PrimaryGreen, RoundedCornerShape(50))
+            )
+        }
+    }
+}
+
+private fun colorForCategory(category: String): androidx.compose.ui.graphics.Color = when (category) {
+    AppCategoryType.SOCIAL_MEDIA -> AccentLavender
+    AppCategoryType.ENTERTAINMENT -> PrimaryGreen
+    AppCategoryType.PRODUCTIVITY -> PrimaryDark
+    AppCategoryType.GAMES -> TertiaryTan
+    else -> SecondarySage
+}
+
+/** Ported visual layout from the teammate's ReportsScreen `CategoryRow` — real data behind
+ *  it here (see [ReportsViewModel.buildCategoryBreakdown]), not their static mock. */
+@Composable
+private fun CategoryRow(category: CategoryUsage) {
+    val color = colorForCategory(category.category)
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(text = category.emoji, fontSize = 16.sp)
+                Text(
+                    text = category.label,
+                    fontFamily = Nunito,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryDark
+                )
+            }
+            Text(
+                text = "${formatMinutes((category.durationMs / 60_000L).toInt())} · ${category.percent}%",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                color = DeepOlive
+            )
+        }
+        Spacer(modifier = Modifier.height(6.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(5.dp)
+                .background(TertiaryTan, RoundedCornerShape(50))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth((category.percent / 100f).coerceIn(0f, 1f))
+                    .fillMaxHeight()
+                    .background(color, RoundedCornerShape(50))
             )
         }
     }

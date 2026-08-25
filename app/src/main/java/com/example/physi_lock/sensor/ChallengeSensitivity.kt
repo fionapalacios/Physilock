@@ -33,5 +33,13 @@ enum class ChallengeSensitivity(
             RiskLevel.MODERATE -> MEDIUM
             RiskLevel.HIGH -> HIGH
         }
+
+        // Display-only rename (MEDIUM's stored/label value is unchanged — UserConfiguration
+        // rows, AdminDefaultsSection, etc. all still persist/compare "MEDIUM") — every screen
+        // showing this to the user should call this instead of title-casing the raw label.
+        fun displayLabel(label: String): String = when (label) {
+            "MEDIUM" -> "Moderate"
+            else -> label.lowercase().replaceFirstChar { it.uppercase() }
+        }
     }
 }

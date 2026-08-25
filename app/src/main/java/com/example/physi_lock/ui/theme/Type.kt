@@ -47,26 +47,99 @@ val DmMono = FontFamily(
     Font(R.font.dm_mono_medium, FontWeight.Medium)
 )
 
+// Full Material typography scale ported from the teammate's sprint-2-ui-navigation branch
+// (Type.kt, 2026-08-22 rework) — same TextStyle values, remapped to this repo's Nunito font
+// token. The 5 styles this repo had already defined (displayLarge/headlineMedium/titleLarge/
+// bodyLarge/labelSmall) keep their existing values unchanged so no already-visible text shifts;
+// only the previously-missing slots are filled in, purely additive. Default Material3
+// components this repo already uses (AlertDialog, Switch/Slider labels in the not-yet-restyled
+// Settings screens, Admin sections) pick these up automatically via MaterialTheme.typography.
 val Typography = Typography(
     displayLarge = TextStyle(
         fontFamily = Nunito,
         fontWeight = FontWeight.ExtraBold,
         fontSize = 34.sp
     ),
+    displayMedium = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.Bold,
+        fontSize = 45.sp,
+        lineHeight = 52.sp
+    ),
+    displaySmall = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.Bold,
+        fontSize = 36.sp,
+        lineHeight = 44.sp
+    ),
+    headlineLarge = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 32.sp,
+        lineHeight = 40.sp
+    ),
     headlineMedium = TextStyle(
         fontFamily = Nunito,
         fontWeight = FontWeight.Bold,
         fontSize = 22.sp
+    ),
+    headlineSmall = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.ExtraBold,
+        fontSize = 24.sp,
+        lineHeight = 32.sp
     ),
     titleLarge = TextStyle(
         fontFamily = Nunito,
         fontWeight = FontWeight.SemiBold,
         fontSize = 18.sp
     ),
+    titleMedium = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 16.sp,
+        lineHeight = 24.sp,
+        letterSpacing = 0.15.sp
+    ),
+    titleSmall = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.1.sp
+    ),
     bodyLarge = TextStyle(
         fontFamily = Nunito,
         fontWeight = FontWeight.Normal,
         fontSize = 16.sp
+    ),
+    bodyMedium = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.Normal,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.25.sp
+    ),
+    bodySmall = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.Normal,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.4.sp
+    ),
+    labelLarge = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
+        letterSpacing = 0.1.sp
+    ),
+    labelMedium = TextStyle(
+        fontFamily = Nunito,
+        fontWeight = FontWeight.SemiBold,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+        letterSpacing = 0.5.sp
     ),
     labelSmall = TextStyle(
         fontFamily = DmMono,

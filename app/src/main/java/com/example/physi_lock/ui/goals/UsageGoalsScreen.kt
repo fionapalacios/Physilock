@@ -40,6 +40,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.physi_lock.data.AppCategoryType
 import com.example.physi_lock.ui.components.AuthTabsBackground
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
@@ -53,14 +54,17 @@ import java.util.Locale
 import kotlin.math.abs
 
 /**
- * Ported from the teammate's sprint-2-ui-navigation branch. Only the total daily-screen-time
- * goal is backed by real data (via [UsageGoalsViewModel]); per-category goals (Social Media,
- * Entertainment, Gaming) and the weekly goal card are still UI-local demo values, same as the
- * teammate's original — no category-aware usage schema exists yet to back them for real.
+ * Ported from the teammate's sprint-2-ui-navigation branch. As of 2026-08-25, every "current
+ * usage" number is real (via [UsageGoalsViewModel] — today's usage bucketed by each app's
+ * Admin-curated category, same approach as ReportsViewModel's Category Breakdown card). Goal
+ * *targets* (the slider/preset values) still aren't persisted anywhere — no schema field
+ * exists for a per-category target, only for the total daily limit — so those stay session-
+ * local, same as the teammate's original.
  */
 private data class CategoryGoalItem(
     val emoji: String,
     val name: String,
+    val categoryType: String?,
     val currentHours: Float,
     val initialGoalHours: Float,
     val maxRange: Float,
@@ -68,21 +72,23 @@ private data class CategoryGoalItem(
     val accentColor: Color
 )
 
-private val totalScreenTimeGoal = CategoryGoalItem(
+private val totalScreenTimeGoalTemplate = CategoryGoalItem(
     emoji = "📱",
     name = "Total Daily Screen Time",
-    currentHours = 5.55f,
+    categoryType = null,
+    currentHours = 0f,
     initialGoalHours = 5f,
     maxRange = 8f,
     presets = listOf(0.5f, 1f, 1.5f, 2f, 2.5f),
     accentColor = DeepOlive
 )
 
-private val localCategoryGoals = listOf(
+private val categoryGoalTemplates = listOf(
     CategoryGoalItem(
         emoji = "💬",
         name = "Social Media",
-        currentHours = 3.23f,
+        categoryType = AppCategoryType.SOCIAL_MEDIA,
+        currentHours = 0f,
         initialGoalHours = 2f,
         maxRange = 4f,
         presets = listOf(0.5f, 1f, 1.5f, 2f, 2.5f),
@@ -91,7 +97,8 @@ private val localCategoryGoals = listOf(
     CategoryGoalItem(
         emoji = "🎬",
         name = "Entertainment",
-        currentHours = 1.87f,
+        categoryType = AppCategoryType.ENTERTAINMENT,
+        currentHours = 0f,
         initialGoalHours = 1.5f,
         maxRange = 3f,
         presets = listOf(0.5f, 1f, 1.5f, 2f, 2.5f),
@@ -100,7 +107,8 @@ private val localCategoryGoals = listOf(
     CategoryGoalItem(
         emoji = "🎮",
         name = "Gaming",
-        currentHours = 0.57f,
+        categoryType = AppCategoryType.GAMES,
+        currentHours = 0f,
         initialGoalHours = 0.5f,
         maxRange = 2f,
         presets = listOf(0.5f, 1f, 1.5f, 2f, 2.5f),
@@ -121,8 +129,10 @@ fun UsageGoalsScreen(
     usageGoalsViewModel: UsageGoalsViewModel = viewModel()
 ) {
     var weeklyGoal by remember { mutableFloatStateOf(35f) }
-    val weeklyCurrent = 41.2f
+    val weeklyCurrent by usageGoalsViewModel.weeklyTotalHours.collectAsState()
     val dailyLimitHours by usageGoalsViewModel.dailyLimitHours.collectAsState()
+    val todayTotalHours by usageGoalsViewModel.todayTotalHours.collectAsState()
+    val todayCategoryHours by usageGoalsViewModel.todayCategoryHours.collectAsState()
 
     Column(modifier = modifier.fillMaxSize().background(BackgroundLight)) {
         Row(
@@ -200,11 +210,14 @@ fun UsageGoalsScreen(
 
             Column(verticalArrangement = Arrangement.spacedBy(11.25.dp)) {
                 CategoryGoalCard(
-                    item = totalScreenTimeGoal,
+                    item = totalScreenTimeGoalTemplate.copy(currentHours = todayTotalHours),
                     goal = dailyLimitHours,
                     onGoalChange = { usageGoalsViewModel.setDailyLimitHours(it) }
                 )
-                localCategoryGoals.forEach { item -> LocalCategoryGoalCard(item) }
+                categoryGoalTemplates.forEach { template ->
+                    val current = todayCategoryHours[template.categoryType] ?: 0f
+                    LocalCategoryGoalCard(template.copy(currentHours = current))
+                }
             }
         }
     }

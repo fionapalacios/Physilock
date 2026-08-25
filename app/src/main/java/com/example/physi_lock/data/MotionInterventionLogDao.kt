@@ -33,6 +33,15 @@ interface MotionInterventionLogDao {
     @Query("SELECT COUNT(*) FROM motion_intervention_logs WHERE triggerType = 'DOOMSCROLL_ALERT' AND interventionTimestamp > :afterTimestamp")
     suspend fun countDoomscrollAlertsAfter(afterTimestamp: Long): Int
 
+    // Home's Doomscrolling banner (ported from the teammate's DashboardScreen, real data
+    // instead of their static mock) — most recent real alert, so the banner can name which
+    // app it fired on and how long ago.
+    @Query(
+        "SELECT * FROM motion_intervention_logs WHERE triggerType = 'DOOMSCROLL_ALERT' " +
+        "AND interventionTimestamp > :afterTimestamp ORDER BY interventionTimestamp DESC LIMIT 1"
+    )
+    suspend fun getMostRecentDoomscrollAlertAfter(afterTimestamp: Long): MotionInterventionLog?
+
     @Query("SELECT AVG(riskScore) FROM motion_intervention_logs WHERE interventionTimestamp > :afterTimestamp")
     fun getAverageRiskScore(afterTimestamp: Long): Flow<Double?>
 
@@ -44,6 +53,11 @@ interface MotionInterventionLogDao {
 
     @Query("SELECT COALESCE(SUM(xpEarned), 0) FROM motion_intervention_logs WHERE userResponse = 'UNLOCKED'")
     fun getTotalXp(): Flow<Int>
+
+    // Move hub's per-challenge "Completed" badge (see MoveScreen/MoveViewModel) —
+    // which of today's voluntary challenges are already done.
+    @Query("SELECT DISTINCT challengeType FROM motion_intervention_logs WHERE triggerType = 'VOLUNTARY_CHALLENGE' AND userResponse = 'UNLOCKED' AND interventionTimestamp > :afterTimestamp AND challengeType IS NOT NULL")
+    fun getCompletedChallengeTypesAfter(afterTimestamp: Long): Flow<List<String>>
 
     @Query("DELETE FROM motion_intervention_logs WHERE julianday(datetime(interventionTimestamp / 1000, 'unixepoch')) < julianday('now', '-90 days')")
     suspend fun deleteOldInterventions()

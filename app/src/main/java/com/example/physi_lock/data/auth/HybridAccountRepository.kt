@@ -42,6 +42,25 @@ class HybridAccountRepository(
     // Purely local (clears the Firebase SDK's session token) — no offline handling needed.
     override fun logout() = remote.logout()
 
+    override fun currentUserId(): String? = remote.currentUserId()
+
+    /**
+     * Auto-resume-session lookup (app relaunch with no re-login) — same offline-fallback
+     * shape as [login]: try Firestore first, fall back to the local cache (keyed by uid,
+     * since that's all a locally-persisted Firebase Auth session gives us with no network)
+     * if that throws.
+     */
+    override suspend fun getCurrentAccount(): Account? {
+        return try {
+            remote.getCurrentAccount()
+        } catch (e: Exception) {
+            val uid = remote.currentUserId() ?: return null
+            val cached = cache.findById(uid) ?: return null
+            if (!cached.isActive) return null
+            cached.toAccount()
+        }
+    }
+
     private suspend fun loginOffline(identifier: String, password: String): Account? {
         val cached = cache.findByIdentifier(identifier) ?: return null
         if (!cached.isActive) return null

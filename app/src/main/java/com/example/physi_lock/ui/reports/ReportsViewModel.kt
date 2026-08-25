@@ -3,10 +3,12 @@ package com.example.physi_lock.ui.reports
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.physi_lock.data.AppCategoryType
 import com.example.physi_lock.data.AppUsageTotal
 import com.example.physi_lock.data.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
+import com.example.physi_lock.data.categoryTotals
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle
@@ -20,6 +22,19 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class DayUsage(val dayLabel: String, val minutes: Int, val isToday: Boolean)
+
+/** Ported concept from the teammate's ReportsScreen "Category Breakdown" card — real data
+ *  here, not their static mock: durations come from the same 7-day UsageStatsManager totals
+ *  as [ReportsViewModel.topApps], bucketed by each app's Admin-curated category (see
+ *  AdminCategoriesSection). Apps never categorized by Admin fall into "Other", same as
+ *  AppCategoryType's own default — not fabricated, just uncategorized. */
+data class CategoryUsage(
+    val category: String,
+    val label: String,
+    val emoji: String,
+    val durationMs: Long,
+    val percent: Int
+)
 
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
     private val db = PhysiLockDatabase.getInstance(application)
@@ -38,6 +53,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
 
     private val _topApps = MutableStateFlow<List<AppUsageTotal>>(emptyList())
     val topApps: StateFlow<List<AppUsageTotal>> = _topApps.asStateFlow()
+
+    private val _categoryBreakdown = MutableStateFlow<List<CategoryUsage>>(emptyList())
+    val categoryBreakdown: StateFlow<List<CategoryUsage>> = _categoryBreakdown.asStateFlow()
 
     private val _insights = MutableStateFlow<List<String>>(emptyList())
     val insights: StateFlow<List<String>> = _insights.asStateFlow()
@@ -66,7 +84,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 }
                 usage.forEach { packageTotals[it.packageName] = (packageTotals[it.packageName] ?: 0L) + it.totalTimeMs }
                 DayUsage(
-                    dayLabel = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()).take(1),
+                    dayLabel = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
                     minutes = (usage.sumOf { it.totalTimeMs } / 60_000L).toInt(),
                     isToday = date == today
                 )
@@ -84,7 +102,36 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                         totalDurationMs = totalMs
                     )
                 }
+
+            _categoryBreakdown.value = buildCategoryBreakdown(packageTotals)
         }
+    }
+
+    private suspend fun buildCategoryBreakdown(packageTotals: Map<String, Long>): List<CategoryUsage> {
+        val totalsByCategory = categoryTotals(packageTotals, db.appCategoryDao())
+        val grandTotal = totalsByCategory.values.sum()
+        if (grandTotal <= 0) return emptyList()
+
+        return totalsByCategory.entries
+            .filter { it.value > 0 }
+            .sortedByDescending { it.value }
+            .map { (category, ms) ->
+                CategoryUsage(
+                    category = category,
+                    label = AppCategoryType.label(category),
+                    emoji = emojiForCategory(category),
+                    durationMs = ms,
+                    percent = ((ms.toFloat() / grandTotal) * 100).roundToInt()
+                )
+            }
+    }
+
+    private fun emojiForCategory(category: String): String = when (category) {
+        AppCategoryType.SOCIAL_MEDIA -> "📱"
+        AppCategoryType.ENTERTAINMENT -> "🎬"
+        AppCategoryType.GAMES -> "🎮"
+        AppCategoryType.PRODUCTIVITY -> "📋"
+        else -> "📦"
     }
 
     /** Midnight-to-midnight for past days; midnight-to-now for today. */

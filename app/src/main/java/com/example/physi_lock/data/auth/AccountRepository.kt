@@ -20,4 +20,10 @@ interface AccountRepository {
 
     /** Ends the current Firebase Auth session. Purely local — works offline. */
     fun logout()
+
+    /** Firebase Auth's locally-persisted current session uid, or null if none — purely local, no network. */
+    fun currentUserId(): String?
+
+    /** Resolves the account for the current persisted session (app relaunch, no re-login), or null if none/inactive. */
+    suspend fun getCurrentAccount(): Account?
 }

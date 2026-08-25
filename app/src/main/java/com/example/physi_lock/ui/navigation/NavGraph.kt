@@ -13,6 +13,7 @@ import com.example.physi_lock.ui.goals.UsageGoalsScreen
 import com.example.physi_lock.ui.home.HomeScreen
 import com.example.physi_lock.ui.reports.ReportsScreen
 import com.example.physi_lock.ui.move.MoveScreen
+import com.example.physi_lock.ui.settings.AppLockRulesScreen
 import com.example.physi_lock.ui.settings.SettingsScreen
 
 sealed class Screen(val route: String) {
@@ -22,6 +23,7 @@ sealed class Screen(val route: String) {
     object Settings : Screen("settings")
     object Focus : Screen("focus")
     object Goals : Screen("goals")
+    object AppLockRules : Screen("app_lock_rules")
 }
 
 @Composable
@@ -45,14 +47,11 @@ fun NavGraph(
                 HomeScreen(
                     displayName = currentAccount?.fullName ?: "Alex",
                     onManageAppLock = {
-                        navController.navigate(Screen.Settings.route) {
-                            popUpTo(navController.graph.startDestinationId) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navController.navigate(Screen.AppLockRules.route)
                     },
                     onNavigateToFocus = { navController.navigate(Screen.Focus.route) },
-                    onNavigateToGoals = { navController.navigate(Screen.Goals.route) }
+                    onNavigateToGoals = { navController.navigate(Screen.Goals.route) },
+                    onNavigateToMove = { navController.navigate(Screen.Move.route) }
                 )
             }
             composable(Screen.Reports.route) { ReportsScreen() }
@@ -72,6 +71,9 @@ fun NavGraph(
                     onBackClick = { navController.popBackStack() },
                     onSaveClick = { navController.popBackStack() }
                 )
+            }
+            composable(Screen.AppLockRules.route) {
+                AppLockRulesScreen(onBack = { navController.popBackStack() })
             }
         }
     }

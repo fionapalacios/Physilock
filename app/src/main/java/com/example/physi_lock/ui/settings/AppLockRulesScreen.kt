@@ -98,11 +98,6 @@ fun AppLockRulesScreen(
                                     .padding(horizontal = 12.dp)
                             ) {
                                 Text(text = app.appName, fontWeight = FontWeight.SemiBold)
-                                Text(
-                                    text = app.packageName,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
                             }
                             Switch(
                                 checked = isLocked,

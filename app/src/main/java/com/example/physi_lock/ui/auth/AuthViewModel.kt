@@ -36,6 +36,9 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     suspend fun login(identifier: String, password: String): Account? =
         repository.login(identifier, password)
 
+    /** Resolves an already-signed-in session on app launch, so returning users skip Login entirely. */
+    suspend fun getCurrentAccount(): Account? = repository.getCurrentAccount()
+
     suspend fun register(form: AuthFormState): Account? =
         repository.register(form)
 

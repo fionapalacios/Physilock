@@ -25,9 +25,9 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
+import androidx.compose.material.icons.filled.Psychology
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.WarningAmber
-import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
@@ -45,17 +45,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
-import android.content.Intent
-import android.provider.Settings
-import com.example.physi_lock.data.openUsageAccessSettings
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.components.NotificationsOverlay
 import com.example.physi_lock.ui.components.NotificationsViewModel
@@ -85,9 +85,9 @@ fun HomeScreen(
     displayName: String = "Alex",
     onManageAppLock: () -> Unit = {},
     onNavigateToFocus: () -> Unit = {},
-    onNavigateToGoals: () -> Unit = {}
+    onNavigateToGoals: () -> Unit = {},
+    onNavigateToMove: () -> Unit = {}
 ) {
-    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val notificationLogs by notificationsViewModel.notifications.collectAsState()
     var showNotifications by remember { mutableStateOf(false) }
@@ -95,16 +95,14 @@ fun HomeScreen(
     val dailyLimitMinutes by homeViewModel.dailyLimitMinutes.collectAsState(initial = 480)
     val riskLevel by homeViewModel.riskLevel.collectAsState(initial = "Moderate")
     val riskScorePercent by homeViewModel.riskScorePercent.collectAsState(initial = 0.5f)
-    val lockedAppsToday by homeViewModel.lockedAppsToday.collectAsState(initial = emptyList())
-    val hasUsageAccess by homeViewModel.hasUsageAccess.collectAsState(initial = false)
-    val notificationsEnabled by homeViewModel.notificationsEnabled.collectAsState(initial = false)
-    val hasOverlayPermission by homeViewModel.hasOverlayPermission.collectAsState(initial = false)
-    val hasAccessibilityAccess by homeViewModel.hasAccessibilityAccess.collectAsState(initial = false)
+    val appUsageToday by homeViewModel.appUsageToday.collectAsState(initial = emptyList())
+    val predictiveOveruse by homeViewModel.predictiveOveruse.collectAsState(initial = null)
+    val doomscrollAlert by homeViewModel.doomscrollAlert.collectAsState(initial = null)
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_RESUME) {
-                homeViewModel.refreshPermissionState()
+                homeViewModel.refreshOnResume()
             }
         }
         lifecycleOwner.lifecycle.addObserver(observer)
@@ -124,19 +122,12 @@ fun HomeScreen(
             unreadNotificationCount = notificationLogs.count { !it.isRead },
             onNotificationsClick = { showNotifications = true }
         )
-        Spacer(modifier = Modifier.height(12.dp))
-        PermissionStatusBanner(
-            hasUsageAccess = hasUsageAccess,
-            notificationsEnabled = notificationsEnabled,
-            hasOverlayPermission = hasOverlayPermission,
-            hasAccessibilityAccess = hasAccessibilityAccess,
-            onGrantUsageAccessClick = { openUsageAccessSettings(context) },
-            onOpenNotificationSettingsClick = { openAppNotificationSettings(context) },
-            onOpenOverlaySettingsClick = { openOverlayPermissionSettings(context) },
-            onOpenAccessibilitySettingsClick = { openAccessibilitySettings(context) }
-        )
         Spacer(modifier = Modifier.height(16.dp))
         ScreenTimeCard(todayMinutes = todayMinutes, dailyLimitMinutes = dailyLimitMinutes)
+        predictiveOveruse?.let { prediction ->
+            Spacer(modifier = Modifier.height(12.dp))
+            PredictiveOveruseBanner(prediction = prediction, onFocusClick = onNavigateToFocus)
+        }
         Spacer(modifier = Modifier.height(12.dp))
         RiskAndActionsRow(
             riskLevel = riskLevel,
@@ -145,7 +136,11 @@ fun HomeScreen(
             onNavigateToFocus = onNavigateToFocus
         )
         Spacer(modifier = Modifier.height(12.dp))
-        LockedAppsCard(lockedAppsToday = lockedAppsToday, onManageAppLock = onManageAppLock)
+        AppUsageCard(appUsageToday = appUsageToday)
+        doomscrollAlert?.let { alert ->
+            Spacer(modifier = Modifier.height(12.dp))
+            DoomscrollAlertBanner(alert = alert, onClick = onNavigateToMove)
+        }
         Spacer(modifier = Modifier.height(12.dp))
         GoalsRow(
             todayMinutes = todayMinutes,
@@ -162,138 +157,6 @@ fun HomeScreen(
         )
     }
     }
-}
-
-@Composable
-private fun PermissionStatusBanner(
-    hasUsageAccess: Boolean,
-    notificationsEnabled: Boolean,
-    hasOverlayPermission: Boolean,
-    hasAccessibilityAccess: Boolean,
-    onGrantUsageAccessClick: () -> Unit,
-    onOpenNotificationSettingsClick: () -> Unit,
-    onOpenOverlaySettingsClick: () -> Unit,
-    onOpenAccessibilitySettingsClick: () -> Unit
-) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .background(AuthTabsBackground, RoundedCornerShape(18.dp))
-            .border(1.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(18.dp))
-            .padding(14.dp)
-    ) {
-        Text(
-            text = "Permission status",
-            fontFamily = Nunito,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = PrimaryDark
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        PermissionRow(
-            label = "Usage access",
-            isEnabled = hasUsageAccess,
-            enabledText = "Granted",
-            disabledText = "Needed for live screen-time stats",
-            onActionClick = onGrantUsageAccessClick,
-            actionLabel = if (hasUsageAccess) null else "Grant access"
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        PermissionRow(
-            label = "Notifications",
-            isEnabled = notificationsEnabled,
-            enabledText = "Enabled",
-            disabledText = "Needed for break alerts and overuse prompts",
-            onActionClick = onOpenNotificationSettingsClick,
-            actionLabel = if (notificationsEnabled) null else "Enable"
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        PermissionRow(
-            label = "Overlay permission",
-            isEnabled = hasOverlayPermission,
-            enabledText = "Enabled",
-            disabledText = "Needed to show lock overlays above other apps",
-            onActionClick = onOpenOverlaySettingsClick,
-            actionLabel = if (hasOverlayPermission) null else "Enable"
-        )
-        Spacer(modifier = Modifier.height(10.dp))
-        PermissionRow(
-            label = "Accessibility service",
-            isEnabled = hasAccessibilityAccess,
-            enabledText = "Enabled",
-            disabledText = "Needed to detect the foreground app for locking",
-            onActionClick = onOpenAccessibilitySettingsClick,
-            actionLabel = if (hasAccessibilityAccess) null else "Enable"
-        )
-    }
-}
-
-@Composable
-private fun PermissionRow(
-    label: String,
-    isEnabled: Boolean,
-    enabledText: String,
-    disabledText: String,
-    onActionClick: () -> Unit,
-    actionLabel: String?
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = label,
-                fontFamily = Nunito,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Bold,
-                color = PrimaryDark
-            )
-            Text(
-                text = if (isEnabled) enabledText else disabledText,
-                fontFamily = Nunito,
-                fontSize = 12.sp,
-                color = if (isEnabled) PrimaryGreen else DeepOlive
-            )
-        }
-        if (actionLabel != null) {
-            Box(
-                modifier = Modifier
-                    .background(PrimaryDark, RoundedCornerShape(999.dp))
-                    .clickable(onClick = onActionClick)
-                    .padding(horizontal = 12.dp, vertical = 8.dp)
-            ) {
-                Text(
-                    text = actionLabel,
-                    fontFamily = Nunito,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = BackgroundLight
-                )
-            }
-        }
-    }
-}
-
-private fun openAppNotificationSettings(context: android.content.Context) {
-    val intent = android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
-        putExtra(android.provider.Settings.EXTRA_APP_PACKAGE, context.packageName)
-    }
-    context.startActivity(intent)
-}
-
-private fun openOverlayPermissionSettings(context: android.content.Context) {
-    context.startActivity(
-        Intent(
-            Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-            android.net.Uri.parse("package:${context.packageName}")
-        )
-    )
-}
-
-private fun openAccessibilitySettings(context: android.content.Context) {
-    context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
 }
 
 @Composable
@@ -425,6 +288,141 @@ private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int) {
     }
 }
 
+private fun formatHour(hour: Int): String {
+    val period = if (hour < 12) "AM" else "PM"
+    val displayHour = when {
+        hour == 0 -> 12
+        hour > 12 -> hour - 12
+        else -> hour
+    }
+    return "$displayHour $period"
+}
+
+/** Ported from the teammate's DashboardScreen "Predictive Overuse" banner — real data
+ *  (see [PredictiveOveruseUi] kdoc), only ever rendered when a real prediction exists. */
+@Composable
+private fun PredictiveOveruseBanner(prediction: PredictiveOveruseUi, onFocusClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(AccentLavender.copy(alpha = 0.09f), RoundedCornerShape(15.dp))
+            .border(1.dp, AccentLavender.copy(alpha = 0.40f), RoundedCornerShape(15.dp))
+            .padding(horizontal = 15.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.Top,
+        horizontalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Psychology,
+            contentDescription = null,
+            tint = AccentLavender,
+            modifier = Modifier.size(20.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                Text(
+                    text = "Predictive Overuse",
+                    fontFamily = Nunito,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = PrimaryDark
+                )
+                Box(
+                    modifier = Modifier
+                        .background(AccentLavender.copy(alpha = 0.20f), RoundedCornerShape(4.dp))
+                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                ) {
+                    Text(
+                        text = "AI",
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = AccentLavender
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(2.dp))
+            Text(
+                text = buildAnnotatedString {
+                    append("The model predicts excessive use around ")
+                    withStyle(SpanStyle(color = AccentLavender, fontWeight = FontWeight.Bold)) {
+                        append(formatHour(prediction.hour))
+                    }
+                    append(" (~${prediction.predictedMinutes.toInt()} min that hour). Consider a focus session now.")
+                },
+                fontFamily = Nunito,
+                fontSize = 13.sp,
+                color = DeepOlive
+            )
+        }
+        Box(
+            modifier = Modifier
+                .background(AccentLavender, RoundedCornerShape(19.dp))
+                .clickable(onClick = onFocusClick)
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = "Focus",
+                fontFamily = Nunito,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = BackgroundLight
+            )
+        }
+    }
+}
+
+/** Ported from the teammate's DashboardScreen "Doomscrolling detected" banner — real data
+ *  (see [DoomscrollAlertUi] kdoc), only ever rendered while the alert is still fresh. */
+@Composable
+private fun DoomscrollAlertBanner(alert: DoomscrollAlertUi, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(AccentLavender.copy(alpha = 0.09f), RoundedCornerShape(15.dp))
+            .border(1.dp, AccentLavender.copy(alpha = 0.27f), RoundedCornerShape(15.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 15.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .background(AccentLavender.copy(alpha = 0.13f), RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.PhoneAndroid,
+                contentDescription = null,
+                tint = AccentLavender,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "Doomscrolling detected on ${alert.appName}",
+                fontFamily = Nunito,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = PrimaryDark
+            )
+            Text(
+                text = if (alert.minutesAgo <= 0) "Just now · Tap to intervene" else "${alert.minutesAgo} min ago · Tap to intervene",
+                fontFamily = Nunito,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = DeepOlive
+            )
+        }
+        Icon(
+            imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+            contentDescription = null,
+            tint = AccentLavender,
+            modifier = Modifier.size(14.dp)
+        )
+    }
+}
+
 @Composable
 private fun RiskAndActionsRow(
     riskLevel: String,
@@ -531,11 +529,12 @@ private fun ActionTile(
     }
 }
 
+/** Ported from the teammate's sprint-2-ui-navigation branch DashboardScreen's "App Usage
+ *  Today" card — general top-apps-by-usage rather than locked-apps-only (that filtered
+ *  version was redundant with the "Lock Apps" tile above, which already opens App Lock
+ *  Rules directly, so its own "Manage Locks" CTA was dropped). */
 @Composable
-private fun LockedAppsCard(
-    lockedAppsToday: List<com.example.physi_lock.data.AppUsageTotal>,
-    onManageAppLock: () -> Unit
-) {
+private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.AppUsageTotal>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -545,14 +544,14 @@ private fun LockedAppsCard(
     ) {
         Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
             Text(
-                text = "Locked Apps Today",
+                text = "App Usage Today",
                 fontFamily = Nunito,
                 fontSize = 15.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = PrimaryDark
             )
             Text(
-                text = "${lockedAppsToday.size} apps",
+                text = "${appUsageToday.size} apps",
                 fontFamily = FontFamily.Monospace,
                 fontSize = 12.sp,
                 color = PrimaryGreen
@@ -560,20 +559,16 @@ private fun LockedAppsCard(
         }
         Spacer(modifier = Modifier.height(12.dp))
 
-        if (lockedAppsToday.isEmpty()) {
+        if (appUsageToday.isEmpty()) {
             Text(
-                text = "No apps locked yet. Tap Manage to choose apps that require a shake challenge.",
+                text = "No app usage recorded yet today.",
                 fontFamily = Nunito,
                 fontSize = 13.sp,
                 color = DeepOlive
             )
-            Spacer(modifier = Modifier.height(10.dp))
-            Button(onClick = onManageAppLock) {
-                Text(text = "Manage Locks")
-            }
         } else {
-            lockedAppsToday.forEach { item ->
-                LockedAppRow(
+            appUsageToday.forEach { item ->
+                AppUsageRow(
                     appName = item.appName,
                     durationMs = item.totalDurationMs,
                     isOverLimit = item.totalDurationMs > TimeUnit.HOURS.toMillis(3)
@@ -584,7 +579,7 @@ private fun LockedAppsCard(
 }
 
 @Composable
-private fun LockedAppRow(
+private fun AppUsageRow(
     appName: String,
     durationMs: Long,
     isOverLimit: Boolean
@@ -627,7 +622,7 @@ private fun LockedAppRow(
                 }
             }
             Text(
-                text = "${TimeUnit.MILLISECONDS.toMinutes(durationMs)}m today",
+                text = "${formatMinutes(TimeUnit.MILLISECONDS.toMinutes(durationMs).toInt())} today",
                 fontFamily = FontFamily.Monospace,
                 fontSize = 12.sp,
                 color = DeepOlive

@@ -40,7 +40,8 @@ fun AdminDefaultsSection(
             .verticalScroll(rememberScrollState())
     ) {
         Text(
-            text = "Applied to new accounts on registration. Users can still override these in their own Settings.",
+            text = "Applied to new accounts on registration. Motion Lock Sensitivity and Doomscrolling " +
+                "Detection are Admin-controlled — users can view these in their own Settings but cannot change them.",
             style = MaterialTheme.typography.bodySmall,
             color = MutedText,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -119,7 +120,7 @@ fun AdminDefaultsSection(
                                 onClick = { onSetMotionSensitivity(level) },
                                 shape = SegmentedButtonDefaults.itemShape(index = index, count = sensitivityLevels.size)
                             ) {
-                                Text(level.lowercase().replaceFirstChar { it.uppercase() })
+                                Text(ChallengeSensitivity.displayLabel(level))
                             }
                         }
                     }

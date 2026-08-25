@@ -1,9 +1,6 @@
 package com.example.physi_lock.ui.home
 
 import android.app.Application
-import android.accessibilityservice.AccessibilityServiceInfo
-import android.app.AppOpsManager
-import android.content.Context
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.physi_lock.data.AppUsageTotal
@@ -11,26 +8,32 @@ import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
 import com.example.physi_lock.ml.RiskFeatureExtractor
 import com.example.physi_lock.ml.RiskScoringEngine
-import androidx.core.app.NotificationManagerCompat
+import java.time.LocalDate
+import java.time.LocalTime
+import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import android.provider.Settings
-import android.view.accessibility.AccessibilityManager
+
+/** Ported from the teammate's DashboardScreen "Doomscrolling detected" banner — real data
+ *  instead of their hardcoded "23 min continuous session on TikTok": which app the most
+ *  recent real DOOMSCROLL_ALERT fired on today, and how long ago. Only surfaced while still
+ *  fresh (see [HomeViewModel.refreshBanners]) so it doesn't sit stale all day. */
+data class DoomscrollAlertUi(val appName: String, val minutesAgo: Int)
+
+/** Ported from the teammate's DashboardScreen "Predictive Overuse" banner — real data instead
+ *  of their hardcoded "you'll hit your 7h limit by 8:22 PM": the next upcoming hour today
+ *  Module 2's Logistic Regression II has already flagged excessive (see
+ *  AppMonitorService.checkExcessiveUsagePrediction), not a fabricated clock-time projection. */
+data class PredictiveOveruseUi(val hour: Int, val predictedMinutes: Double)
 
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val db = PhysiLockDatabase.getInstance(application)
-    private val appUsageDao = db.appUsageLogDao()
     private val userConfigDao = db.userConfigurationDao()
-    private val appLockRuleDao = db.appLockRuleDao()
     private val usageStatsRepository = UsageStatsRepository(application)
-    private val notificationManager = NotificationManagerCompat.from(application)
     private val riskFeatureExtractor = RiskFeatureExtractor(application)
-    private val today = java.time.LocalDate.now().toString()
 
     private val _todayScreenTimeMinutes = MutableStateFlow(0)
     val todayScreenTimeMinutes: StateFlow<Int> = _todayScreenTimeMinutes.asStateFlow()
@@ -48,28 +51,21 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _riskScorePercent = MutableStateFlow(0.5f)
     val riskScorePercent: StateFlow<Float> = _riskScorePercent.asStateFlow()
 
-    private val _hasUsageAccess = MutableStateFlow(false)
-    val hasUsageAccess: StateFlow<Boolean> = _hasUsageAccess.asStateFlow()
+    // Ported concept from the teammate's DashboardScreen "App Usage Today" card — general
+    // top-apps-by-usage, not filtered to locked apps (that's redundant with the "Lock Apps"
+    // tile above, which already opens App Lock Rules directly). Same UsageStatsManager source
+    // as ReportsViewModel's topApps, not AppUsageLog (see refreshTodayScreenTime kdoc).
+    private val _appUsageToday = MutableStateFlow<List<AppUsageTotal>>(emptyList())
+    val appUsageToday: StateFlow<List<AppUsageTotal>> = _appUsageToday.asStateFlow()
 
-    private val _notificationsEnabled = MutableStateFlow(false)
-    val notificationsEnabled: StateFlow<Boolean> = _notificationsEnabled.asStateFlow()
+    private val _doomscrollAlert = MutableStateFlow<DoomscrollAlertUi?>(null)
+    val doomscrollAlert: StateFlow<DoomscrollAlertUi?> = _doomscrollAlert.asStateFlow()
 
-    private val _hasOverlayPermission = MutableStateFlow(false)
-    val hasOverlayPermission: StateFlow<Boolean> = _hasOverlayPermission.asStateFlow()
-
-    private val _hasAccessibilityAccess = MutableStateFlow(false)
-    val hasAccessibilityAccess: StateFlow<Boolean> = _hasAccessibilityAccess.asStateFlow()
-
-    val lockedAppsToday: StateFlow<List<AppUsageTotal>> = combine(
-        appLockRuleDao.getAllRules(),
-        appUsageDao.getAppTotalsByDate(today)
-    ) { rules, totals ->
-        val locked = rules.filter { it.isLocked }.map { it.packageName }.toSet()
-        totals.filter { it.packageName in locked }
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val _predictiveOveruse = MutableStateFlow<PredictiveOveruseUi?>(null)
+    val predictiveOveruse: StateFlow<PredictiveOveruseUi?> = _predictiveOveruse.asStateFlow()
 
     init {
-        refreshPermissionState()
+        refreshOnResume()
 
         viewModelScope.launch {
             val cfg = try { userConfigDao.getActiveConfigurationOnce() } catch (e: Exception) { null }
@@ -90,35 +86,67 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun refreshPermissionState() {
-        _hasUsageAccess.value = usageStatsRepository.hasUsageAccessPermission()
-        _notificationsEnabled.value = notificationManager.areNotificationsEnabled()
-        _hasOverlayPermission.value = Settings.canDrawOverlays(getApplication())
-        _hasAccessibilityAccess.value = isAccessibilityServiceEnabled(getApplication())
+    // Home's permission-status banner was dropped (Onboarding already gates all of
+    // these before a user reaches Home) — this keeps the same on-resume refresh hook
+    // for screen time + risk score alone, no longer also tracking permission state.
+    fun refreshOnResume() {
         refreshTodayScreenTime()
         refreshRiskScore()
+        refreshBanners()
+    }
+
+    /** Real data behind both of the teammate's Home banners — only set (and thus only
+     *  rendered) when a real signal actually exists today, never an empty/fabricated
+     *  placeholder state. See [DoomscrollAlertUi]/[PredictiveOveruseUi] kdoc. */
+    private fun refreshBanners() {
+        viewModelScope.launch {
+            val todayStartMillis = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
+            val recentAlert = try {
+                db.motionInterventionLogDao().getMostRecentDoomscrollAlertAfter(todayStartMillis)
+            } catch (e: Exception) {
+                null
+            }
+            _doomscrollAlert.value = recentAlert
+                ?.takeIf { System.currentTimeMillis() - it.interventionTimestamp <= 30 * 60_000L }
+                ?.let {
+                    DoomscrollAlertUi(
+                        appName = usageStatsRepository.getAppLabel(it.packageName),
+                        minutesAgo = ((System.currentTimeMillis() - it.interventionTimestamp) / 60_000L).toInt()
+                    )
+                }
+
+            val currentHour = LocalTime.now().hour
+            val predictions = try {
+                db.excessiveUsagePredictionLogDao().getPredictionsByDate(LocalDate.now().toString()).first()
+            } catch (e: Exception) {
+                emptyList()
+            }
+            _predictiveOveruse.value = predictions
+                .filter { it.hour > currentHour && it.isExcessive }
+                .minByOrNull { it.hour }
+                ?.let { PredictiveOveruseUi(hour = it.hour, predictedMinutes = it.predictedUsageMinutes) }
+        }
     }
 
     // Today's screen time comes from Android's own UsageStatsManager (same source
     // Settings/Digital Wellbeing use), not AppMonitorService's AccessibilityService
     // logs — those only start accumulating once the service is actively running, so
     // they'd read 0 (or far under actual usage) rather than the real full-day total.
-    // Refreshed on every ON_RESUME via refreshPermissionState() rather than a live
-    // Flow, since UsageStatsManager only offers a point-in-time query.
+    // Refreshed on every ON_RESUME via refreshOnResume() rather than a live Flow,
+    // since UsageStatsManager only offers a point-in-time query.
     private fun refreshTodayScreenTime() {
         viewModelScope.launch {
-            val totalMs = try {
-                usageStatsRepository.getTodayUsage().sumOf { it.totalTimeMs }
+            val usage = try {
+                usageStatsRepository.getTodayUsage()
             } catch (e: Exception) {
-                0L
+                emptyList()
             }
-            _todayScreenTimeMinutes.value = (totalMs / 60_000L).toInt()
+            _todayScreenTimeMinutes.value = (usage.sumOf { it.totalTimeMs } / 60_000L).toInt()
+            _appUsageToday.value = usage
+                .sortedByDescending { it.totalTimeMs }
+                .take(5)
+                .map { AppUsageTotal(it.packageName, usageStatsRepository.getAppLabel(it.packageName), it.totalTimeMs) }
         }
-    }
-
-    private fun isAccessibilityServiceEnabled(context: Context): Boolean {
-        val am = context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager
-        return am.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
-            .any { it.resolveInfo.serviceInfo.packageName == context.packageName }
     }
 }

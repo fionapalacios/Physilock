@@ -90,6 +90,18 @@ class FirebaseAccountRepository(
 
     override fun logout() = auth.signOut()
 
+    override fun currentUserId(): String? = auth.currentUser?.uid
+
+    override suspend fun getCurrentAccount(): Account? {
+        val uid = currentUserId() ?: return null
+        val account = fetchAccount(uid) ?: return null
+        if (!account.isActive) {
+            auth.signOut()
+            return null
+        }
+        return account
+    }
+
     /**
      * Firebase's native link-based reset flow — the user gets an email with a link to
      * Firebase's own hosted reset page, no in-app code entry needed. Throws on failure

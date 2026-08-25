@@ -3,9 +3,18 @@ package com.example.physi_lock
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -41,10 +50,31 @@ class MainActivity : ComponentActivity() {
             var stage by rememberSaveable { mutableStateOf(AppStage.LANDING) }
             var authError by remember { mutableStateOf<String?>(null) }
             var currentAccount by remember { mutableStateOf<Account?>(null) }
+            var sessionChecked by rememberSaveable { mutableStateOf(false) }
             val authViewModel: AuthViewModel = viewModel()
             val settingsViewModel: SettingsViewModel = viewModel()
             val coroutineScope = rememberCoroutineScope()
             val context = LocalContext.current
+
+            // Persistent login: Firebase Auth keeps its session on disk independently of this
+            // screen's own (rememberSaveable) stage — closing/swiping away the app and
+            // reopening it otherwise always restarted at Landing, forcing a re-login every
+            // time. Runs once per cold start; only redirects if nothing else has already
+            // navigated (stage still LANDING) so it can't hijack an in-progress flow.
+            LaunchedEffect(Unit) {
+                if (!sessionChecked && stage == AppStage.LANDING) {
+                    val account = try {
+                        authViewModel.getCurrentAccount()
+                    } catch (e: Exception) {
+                        null
+                    }
+                    if (account != null && stage == AppStage.LANDING) {
+                        currentAccount = account
+                        stage = if (account.role == Role.ADMIN) AppStage.ADMIN_HOME else AppStage.HOME
+                    }
+                }
+                sessionChecked = true
+            }
 
             var pendingVerificationEmail by remember { mutableStateOf("") }
             var verifyEmailChecking by remember { mutableStateOf(false) }
@@ -54,6 +84,10 @@ class MainActivity : ComponentActivity() {
             var passwordResetError by remember { mutableStateOf<String?>(null) }
 
             PhysiLockTheme {
+                if (!sessionChecked) {
+                    SessionCheckSplash()
+                    return@PhysiLockTheme
+                }
                 when (stage) {
                     AppStage.LANDING -> LandingScreen(
                         onGetStarted = {
@@ -247,5 +281,22 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+}
+
+/** Shown only while the persistent-login check (see the LaunchedEffect above) is in flight. */
+@Composable
+private fun SessionCheckSplash() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(com.example.physi_lock.ui.theme.BackgroundLight),
+        contentAlignment = Alignment.Center
+    ) {
+        Image(
+            painter = painterResource(id = R.drawable.logo),
+            contentDescription = "Physi-Lock logo",
+            modifier = Modifier.size(96.dp)
+        )
     }
 }
