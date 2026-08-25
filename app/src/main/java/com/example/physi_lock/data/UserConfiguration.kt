@@ -15,5 +15,11 @@ data class UserConfiguration(
     val breakReminderIntervalMs: Long = 30 * 60 * 1000, // 30 minutes default
     val overuseAlertsEnabled: Boolean = true,
     val weeklyScreenTimeGoalMs: Long = 35 * 3_600_000L, // 35 hours default (Usage Goals screen)
+    // Module 7 (Context-Aware AI): a Wi-Fi-network-name-matched "Context Alert" (not GPS
+    // geofencing -- the manuscript itself lists real location-based locking as a Future
+    // Enhancement, out of MVP scope). contextAlertWifiSsid null means no network configured
+    // yet even if the toggle is on.
+    val contextAlertsEnabled: Boolean = false,
+    val contextAlertWifiSsid: String? = null,
     val lastUpdatedTime: Long = System.currentTimeMillis()
 )

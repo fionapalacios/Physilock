@@ -87,11 +87,14 @@ import kotlinx.coroutines.launch
  * existed briefly (real functionality this repo had that their design doesn't cover) but was
  * removed per instruction to strictly follow their UI; Motion Lock Sensitivity's current value
  * is still visible read-only in StudentModeScreen/WorkModeScreen, just no longer editable from
- * here. Rows with no real backend yet (Location Context, Bedtime Mode, Wellness Nudges,
- * Whitelist Manager, Permissions, Location & Context AI, Delete Account) are kept visible with a
- * plain "Coming soon" subtitle rather than dropped, per the instruction not to skip ported UI
- * just because the logic behind it isn't built. About/Reset-to-Default (easy to make real, so
- * made real rather than left as dead taps) are additions beyond their row list.
+ * here. Rows with no real backend yet (Bedtime Mode, Wellness Nudges, Whitelist Manager,
+ * Permissions, Delete Account) are kept visible with a plain "Coming soon" subtitle rather
+ * than dropped, per the instruction not to skip ported UI just because the logic behind it
+ * isn't built. About/Reset-to-Default (easy to make real, so made real rather than left as
+ * dead taps) are additions beyond their row list. "Location Context" became real 2026-08-25
+ * (Module 7, see ContextAlertsScreen.kt) — it's now also the sole entry point for this
+ * feature, so the separate "Location & Context AI" placeholder row (ACCOUNT section) was
+ * removed as a literal duplicate rather than wired to the same screen twice.
  */
 private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student")
 
@@ -131,11 +134,11 @@ fun SettingsScreen(
     var showWorkMode by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
+    var showContextAlerts by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
 
     // Rows with no real backend — local-only state, exactly as unpersisted as the
     // teammate's own version of these same toggles.
-    var locationContextEnabled by remember { mutableStateOf(false) }
     var wellnessNudgesEnabled by remember { mutableStateOf(true) }
 
     if (showAppLockRules) {
@@ -186,6 +189,16 @@ fun SettingsScreen(
             isActive = config.userMode == "WORK_MODE",
             onSwitchToThisMode = { settingsViewModel.setUserMode("WORK_MODE") },
             onBackClick = { showWorkMode = false }
+        )
+        return
+    }
+
+    if (showContextAlerts) {
+        ContextAlertsScreen(
+            config = config,
+            onToggleEnabled = { settingsViewModel.setContextAlertsEnabled(it) },
+            onSaveSsid = { settingsViewModel.setContextAlertWifiSsid(it) },
+            onBackClick = { showContextAlerts = false }
         )
         return
     }
@@ -270,8 +283,15 @@ fun SettingsScreen(
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
                     title = "Location Context",
-                    subtitle = "Coming soon",
-                    trailing = SettingsTrailing.Toggle(locationContextEnabled) { locationContextEnabled = it }
+                    subtitle = when {
+                        !config.contextAlertsEnabled -> "Off"
+                        config.contextAlertWifiSsid.isNullOrBlank() -> "On — set your Wi-Fi network below"
+                        else -> "Alerts on \"${config.contextAlertWifiSsid}\" Wi-Fi"
+                    },
+                    trailing = SettingsTrailing.Toggle(config.contextAlertsEnabled) {
+                        settingsViewModel.setContextAlertsEnabled(it)
+                    },
+                    onClick = { showContextAlerts = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Bedtime,
@@ -316,13 +336,6 @@ fun SettingsScreen(
                     iconBackground = SageAccent.copy(alpha = 0.13f),
                     iconTint = SageAccent,
                     title = "Permissions",
-                    subtitle = "Coming soon"
-                ),
-                SettingsRow(
-                    icon = Icons.Default.Room,
-                    iconBackground = Orchid.copy(alpha = 0.13f),
-                    iconTint = Orchid,
-                    title = "Location & Context AI",
                     subtitle = "Coming soon"
                 ),
                 SettingsRow(

@@ -57,6 +57,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setOveruseAlertsEnabled(enabled: Boolean) =
         update { it.copy(overuseAlertsEnabled = enabled) }
 
+    fun setContextAlertsEnabled(enabled: Boolean) =
+        update { it.copy(contextAlertsEnabled = enabled) }
+
+    fun setContextAlertWifiSsid(ssid: String?) =
+        update { it.copy(contextAlertWifiSsid = ssid?.takeIf { s -> s.isNotBlank() }) }
+
     /** Settings > Reset to Default Settings — overwrites every threshold/toggle back to
      * [UserConfiguration]'s built-in defaults, keeping only the account's chosen usage mode. */
     fun resetToDefaults() {

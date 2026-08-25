@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.DoneAll
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Room
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
@@ -57,6 +58,7 @@ fun NotificationLog.toEntry(): NotificationEntry {
         "DOOMSCROLL_ALERT" -> Icons.Default.WarningAmber to Orchid
         "EXCESSIVE_USAGE_PREDICTION" -> Icons.Default.TrendingUp to DeepOlive
         "FOCUS_BLOCK" -> Icons.Default.Lock to SecondarySage
+        "CONTEXT_ALERT" -> Icons.Default.Room to Orchid
         else -> Icons.Default.Notifications to DeepOlive
     }
     return NotificationEntry(

@@ -21,7 +21,7 @@ import androidx.room.RoomDatabase
         CategoryGoal::class,
         ReflectionEntry::class
     ],
-    version = 15,
+    version = 16,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {

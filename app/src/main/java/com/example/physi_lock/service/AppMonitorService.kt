@@ -21,6 +21,7 @@ import com.example.physi_lock.data.MotionInterventionLog
 import com.example.physi_lock.data.NotificationLog
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
+import com.example.physi_lock.data.currentWifiSsid
 import com.example.physi_lock.ml.DoomscrollDetector
 import com.example.physi_lock.ml.DoomscrollInputs
 import com.example.physi_lock.ml.ExcessiveUsageDetector
@@ -107,6 +108,17 @@ class AppMonitorService : AccessibilityService() {
         // this throttles the notification/log spam without affecting the actual block,
         // which always fires on every attempt.
         private const val FOCUS_BLOCK_NOTIFICATION_THROTTLE_MS = 60 * 1000L
+
+        private const val CONTEXT_ALERT_CHANNEL_ID = "context_alert_channel"
+        private const val CONTEXT_ALERT_NOTIFICATION_ID = 1006
+        // Context Alerts are informational only (no block), so a longer cooldown than
+        // Focus Mode's block notification is appropriate -- no need to re-alert every
+        // minute while the user stays connected to the same watched network.
+        private const val CONTEXT_ALERT_NOTIFICATION_THROTTLE_MS = 5 * 60 * 1000L
+        // WifiManager reads are cheap (local, no IPC), but there's no reason to call it
+        // on every accessibility event either -- a cached value refreshed this often is
+        // fresh enough for a "which network am I on" check.
+        private const val WIFI_SSID_REFRESH_INTERVAL_MS = 30 * 1000L
     }
 
     @Volatile private var lockedPackages: Set<String> = emptySet()
@@ -128,6 +140,16 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var focusModeActive: Boolean = false
     @Volatile private var focusBlockedPackages: Set<String> = emptySet()
     private var lastFocusBlockNotifyTime: Long = 0L
+    // Module 7 (Context-Aware AI): Wi-Fi-network-matched Context Alerts. Not GPS
+    // geofencing -- real location-based locking is a Future Enhancement per the
+    // manuscript, out of MVP scope; this matches by Wi-Fi network name instead, which
+    // needs no new location SDK dependency. Reuses focusBlockedPackages (Admin-curated
+    // Social Media / Entertainment categories) as the same "distracting apps" set Focus
+    // Mode blocks -- alerting here is passive (a notification), not an enforced block.
+    @Volatile private var contextAlertsEnabled: Boolean = false
+    @Volatile private var contextAlertWifiSsid: String? = null
+    @Volatile private var cachedWifiSsid: String? = null
+    private var lastContextAlertNotifyTime: Long = 0L
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private lateinit var database: PhysiLockDatabase
     private lateinit var usageStatsRepository: UsageStatsRepository
@@ -161,6 +183,7 @@ class AppMonitorService : AccessibilityService() {
         createDoomscrollAlertNotificationChannel()
         createExcessiveUsagePredictionNotificationChannel()
         createFocusBlockNotificationChannel()
+        createContextAlertNotificationChannel()
 
         // Live-reload the locked app set from Settings > App Lock Rules; Room's
         // Flow re-emits automatically whenever the table changes, so toggles
@@ -179,6 +202,8 @@ class AppMonitorService : AccessibilityService() {
                 overuseAlertsEnabled = config?.overuseAlertsEnabled ?: true
                 dailyScreenTimeThresholdMs = config?.dailyScreenTimeThresholdMs ?: (480 * 60 * 1000L)
                 doomscrollingDetectionEnabled = config?.doomscrollingDetectionEnabled ?: true
+                contextAlertsEnabled = config?.contextAlertsEnabled ?: false
+                contextAlertWifiSsid = config?.contextAlertWifiSsid
             }
         }
 
@@ -200,6 +225,25 @@ class AppMonitorService : AccessibilityService() {
 
         startRiskRefreshLoop()
         startExcessiveUsagePredictionLoop()
+        startWifiSsidRefreshLoop()
+    }
+
+    // Module 7 (Context-Aware AI): periodically caches the connected Wi-Fi SSID (see
+    // WifiSsidReader.kt) so the per-event Context Alert check below is a cheap in-memory
+    // comparison instead of hitting WifiManager on every accessibility event. Runs
+    // unconditionally (the read itself is cheap, local, no IPC) rather than gating it on
+    // contextAlertsEnabled, avoiding extra start/stop lifecycle complexity.
+    private fun startWifiSsidRefreshLoop() {
+        serviceScope.launch {
+            while (true) {
+                try {
+                    cachedWifiSsid = currentWifiSsid(this@AppMonitorService)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+                delay(WIFI_SSID_REFRESH_INTERVAL_MS)
+            }
+        }
     }
 
     // Module 2 (AI-Based Behavior Analysis): periodically runs Logistic Regression II
@@ -321,6 +365,17 @@ class AppMonitorService : AccessibilityService() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Notifies when an app is blocked during an active Focus Mode session"
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    private fun createContextAlertNotificationChannel() {
+        val channel = NotificationChannel(
+            CONTEXT_ALERT_CHANNEL_ID,
+            "Context Alerts",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Alerts when you open a distracting app on your watched Wi-Fi network"
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -629,7 +684,59 @@ class AppMonitorService : AccessibilityService() {
             startActivity(intent)
         } else if (focusModeActive && packageName in focusBlockedPackages) {
             handleFocusBlock(packageName, currentTime)
+        } else if (contextAlertsEnabled && packageName in focusBlockedPackages && isOnWatchedWifi()) {
+            handleContextAlert(packageName, currentTime)
         }
+    }
+
+    // Context Alert (Module 7): unlike Focus Mode's block, this never redirects the user
+    // away -- it's a passive notification ("Receive Context Alerts"), matching a network
+    // the user has flagged as a context worth being mindful in (e.g. a study space), not
+    // an enforced restriction.
+    private fun isOnWatchedWifi(): Boolean {
+        val watched = contextAlertWifiSsid ?: return false
+        return cachedWifiSsid != null && cachedWifiSsid == watched
+    }
+
+    private fun handleContextAlert(packageName: String, currentTime: Long) {
+        if (currentTime - lastContextAlertNotifyTime < CONTEXT_ALERT_NOTIFICATION_THROTTLE_MS) return
+        lastContextAlertNotifyTime = currentTime
+        postContextAlertNotification(packageName)
+    }
+
+    private fun postContextAlertNotification(packageName: String) {
+        if (ActivityCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val appName = getAppName(packageName)
+        val ssid = contextAlertWifiSsid ?: return
+        val contentIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, CONTEXT_ALERT_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setContentTitle("Context Alert")
+            .setContentText("You opened $appName while connected to $ssid")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(this).notify(CONTEXT_ALERT_NOTIFICATION_ID, notification)
+        logNotification(
+            type = "CONTEXT_ALERT",
+            title = "Context Alert",
+            description = "You opened $appName while connected to $ssid"
+        )
     }
 
     // Focus Mode (Module 6): unlike Adaptive/App Lock's challenge-to-unlock, an app
