@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.physi_lock.data.MotionInterventionLog
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
+import com.example.physi_lock.data.UserConfiguration
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.sensor.ChallengeType
 import com.example.physi_lock.service.AppMonitorService
@@ -30,6 +31,13 @@ class MoveViewModel(application: Application) : AndroidViewModel(application) {
     val streakDays: StateFlow<Int> = _streakDays.asStateFlow()
 
     val totalXp: StateFlow<Int> = motionDao.getTotalXp()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
+
+    // Focus Mode's earned screen credit (Module 6), redeemable here for a real per-app
+    // timed unlock -- the same currency-into-unlock-minutes shape Activity Challenges'
+    // XP already has, just earned by focusing instead of moving.
+    val focusCreditMinutes: StateFlow<Int> = db.userConfigurationDao().getActiveConfiguration()
+        .map { it?.focusCreditBalanceMinutes ?: 0 }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
     val lockedApps: StateFlow<List<LockedAppInfo>> = appLockRuleDao.getAllRules()
@@ -61,6 +69,28 @@ class MoveViewModel(application: Application) : AndroidViewModel(application) {
 
             val cfg = try { db.userConfigurationDao().getActiveConfigurationOnce() } catch (e: Exception) { null }
             sensitivity = ChallengeSensitivity.fromLabel(cfg?.motionLockSensitivity)
+        }
+    }
+
+    /** Spends the entire current credit balance at once (simplest exchange -- no partial-
+     *  amount picker) to unlock [packageName] for that many minutes, reusing the same real
+     *  AppMonitorService.grantTemporaryUnlock mechanism Activity Challenges use. */
+    fun redeemFocusCredit(packageName: String) {
+        viewModelScope.launch {
+            val minutes = focusCreditMinutes.value
+            if (minutes <= 0) return@launch
+            AppMonitorService.grantTemporaryUnlock(packageName, minutes * 60_000L)
+            try {
+                val current = db.userConfigurationDao().getActiveConfigurationOnce() ?: UserConfiguration()
+                db.userConfigurationDao().upsert(
+                    current.copy(
+                        focusCreditBalanceMinutes = (current.focusCreditBalanceMinutes - minutes).coerceAtLeast(0),
+                        lastUpdatedTime = System.currentTimeMillis()
+                    )
+                )
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
         }
     }
 

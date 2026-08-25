@@ -106,12 +106,14 @@ fun MoveScreen(moveViewModel: MoveViewModel = viewModel()) {
     val context = LocalContext.current
     val streakDays by moveViewModel.streakDays.collectAsState()
     val totalXp by moveViewModel.totalXp.collectAsState()
+    val focusCreditMinutes by moveViewModel.focusCreditMinutes.collectAsState()
     val lockedApps by moveViewModel.lockedApps.collectAsState()
     val completedToday by moveViewModel.completedToday.collectAsState()
 
     var inProgressChallenge by remember { mutableStateOf<ChallengeType?>(null) }
     var pickedApp by remember { mutableStateOf<LockedAppInfo?>(null) }
     var appPickerFor by remember { mutableStateOf<ChallengeType?>(null) }
+    var showCreditPicker by remember { mutableStateOf(false) }
     var pendingPermissionType by remember { mutableStateOf<ChallengeType?>(null) }
     var permissionDeniedMessage by remember { mutableStateOf<String?>(null) }
 
@@ -190,6 +192,15 @@ fun MoveScreen(moveViewModel: MoveViewModel = viewModel()) {
         Spacer(modifier = Modifier.height(18.75.dp))
 
         XpStreakCard(totalXp = totalXp, streakDays = streakDays)
+
+        if (focusCreditMinutes > 0) {
+            Spacer(modifier = Modifier.height(15.dp))
+            ScreenCreditCard(
+                creditMinutes = focusCreditMinutes,
+                hasLockedApps = lockedApps.isNotEmpty(),
+                onRedeemClick = { showCreditPicker = true }
+            )
+        }
 
         Spacer(modifier = Modifier.height(15.dp))
 
@@ -275,6 +286,35 @@ fun MoveScreen(moveViewModel: MoveViewModel = viewModel()) {
             },
             confirmButton = {
                 Button(onClick = { appPickerFor = null }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showCreditPicker) {
+        AlertDialog(
+            onDismissRequest = { showCreditPicker = false },
+            title = { Text("Redeem $focusCreditMinutes min credit") },
+            text = {
+                Column {
+                    Text("Pick an app to unlock for $focusCreditMinutes minutes:")
+                    Spacer(modifier = Modifier.height(8.dp))
+                    lockedApps.forEach { app ->
+                        Box(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    moveViewModel.redeemFocusCredit(app.packageName)
+                                    showCreditPicker = false
+                                }
+                                .padding(vertical = 12.dp)
+                        ) {
+                            Text(text = app.appName)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                Button(onClick = { showCreditPicker = false }) { Text("Cancel") }
             }
         )
     }
@@ -389,6 +429,66 @@ private fun XpStreakCard(totalXp: Int, streakDays: Int) {
                     )
                 }
             }
+        }
+    }
+}
+
+/** Focus Mode's earned "screen credit" (Module 6), redeemable here for a real per-app
+ *  timed unlock via [MoveViewModel.redeemFocusCredit] -- only rendered when the balance is
+ *  positive, and the Redeem button only enabled when there's a locked app to spend it on. */
+@Composable
+private fun ScreenCreditCard(creditMinutes: Int, hasLockedApps: Boolean, onRedeemClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(BackgroundLight, RoundedCornerShape(18.dp))
+            .border(1.06.dp, SageAccent.copy(alpha = 0.30f), RoundedCornerShape(18.dp))
+            .padding(15.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.SpaceBetween
+    ) {
+        Column {
+            Text(
+                text = "SCREEN CREDIT",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                lineHeight = 18.sp,
+                color = SageAccent
+            )
+            Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(3.75.dp)) {
+                Text(
+                    text = "$creditMinutes",
+                    fontFamily = Nunito,
+                    fontSize = 24.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    lineHeight = 24.sp,
+                    color = DeepOlive
+                )
+                Text(
+                    text = "min · earned from Focus Mode",
+                    fontFamily = Nunito,
+                    fontSize = 12.sp,
+                    lineHeight = 18.sp,
+                    color = com.example.physi_lock.ui.theme.MutedText
+                )
+            }
+        }
+        Box(
+            modifier = Modifier
+                .background(
+                    if (hasLockedApps) DeepOlive else DeepOlive.copy(alpha = 0.35f),
+                    RoundedCornerShape(15.dp)
+                )
+                .clickable(enabled = hasLockedApps, onClick = onRedeemClick)
+                .padding(horizontal = 15.dp, vertical = 10.dp)
+        ) {
+            Text(
+                text = if (hasLockedApps) "Redeem" else "No locked apps",
+                fontFamily = Nunito,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = BackgroundLight
+            )
         }
     }
 }

@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.physi_lock.data.AppCategoryType
 import com.example.physi_lock.data.FocusSession
 import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.UserConfiguration
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,6 +26,7 @@ import kotlinx.coroutines.launch
 class FocusModeViewModel(application: Application) : AndroidViewModel(application) {
     private val focusSessionDao = PhysiLockDatabase.getInstance(application).focusSessionDao()
     private val appCategoryDao = PhysiLockDatabase.getInstance(application).appCategoryDao()
+    private val userConfigDao = PhysiLockDatabase.getInstance(application).userConfigurationDao()
 
     val activeSession: StateFlow<FocusSession?> = focusSessionDao.getActiveSession()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
@@ -77,12 +79,32 @@ class FocusModeViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
+    /**
+     * Ends the session and credits [UserConfiguration.focusCreditBalanceMinutes] by the
+     * amount earned -- previously this number was only ever stored on the FocusSession row
+     * and shown once in EndFocusSessionSheet, with no way to actually spend it. Redeeming
+     * happens from the Move hub (see MoveViewModel.redeemFocusCredit), the same real
+     * per-app timed-unlock mechanism Activity Challenges already use.
+     */
     fun endSession() {
         val session = activeSession.value ?: return
         viewModelScope.launch {
             val endTime = System.currentTimeMillis()
             val creditMinutes = ((endTime - session.startTimeMillis) / 300_000L).toInt()
             focusSessionDao.endSession(session.id, endTime, creditMinutes)
+            if (creditMinutes > 0) {
+                try {
+                    val current = userConfigDao.getActiveConfigurationOnce() ?: UserConfiguration()
+                    userConfigDao.upsert(
+                        current.copy(
+                            focusCreditBalanceMinutes = current.focusCreditBalanceMinutes + creditMinutes,
+                            lastUpdatedTime = System.currentTimeMillis()
+                        )
+                    )
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
         }
     }
 }
