@@ -3,6 +3,7 @@ package com.example.physi_lock.ui.goals
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.physi_lock.data.CategoryGoal
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
 import com.example.physi_lock.data.UserConfiguration
@@ -20,23 +21,37 @@ import kotlinx.coroutines.launch
 private const val MS_PER_HOUR = 3_600_000L
 
 /**
- * Ported from the teammate's sprint-2-ui-navigation branch. Only "Total Daily Screen Time"'s
- * goal maps onto a real column (UserConfiguration.dailyScreenTimeThresholdMs); per-category
- * goal targets (Social Media, Entertainment, Gaming) still have no schema field to persist a
- * user-chosen target, so those stay UI-local (same as the total goal's slider-only presets
- * before a target is saved). What changed 2026-08-25: the "current usage" numbers next to
- * every goal — previously hardcoded (5.55h, 3.23h, 41.2h/week, etc.) — are now real, computed
- * the same way ReportsViewModel's Category Breakdown card is (7-day UsageStatsManager totals
- * bucketed by each app's Admin-curated category, see [categoryTotals]).
+ * Ported from the teammate's sprint-2-ui-navigation branch. As of 2026-08-25, every goal
+ * *target* is real and persisted, not just "current usage": "Total Daily Screen Time" maps
+ * onto UserConfiguration.dailyScreenTimeThresholdMs (already existed), the weekly goal maps
+ * onto the new UserConfiguration.weeklyScreenTimeGoalMs column, and the 3 per-category goals
+ * (Social Media, Entertainment, Gaming) map onto the new CategoryGoal table, keyed by
+ * AppCategoryType. A missing CategoryGoal row just means the user hasn't customized that
+ * category's goal yet -- [categoryGoalHours] falls back to the same preset defaults the
+ * ported UI originally hardcoded. "Current usage" numbers are computed the same way
+ * ReportsViewModel's Category Breakdown card is (7-day UsageStatsManager totals bucketed by
+ * each app's Admin-curated category, see [categoryTotals]).
  */
 class UsageGoalsViewModel(application: Application) : AndroidViewModel(application) {
     private val userConfigDao = PhysiLockDatabase.getInstance(application).userConfigurationDao()
     private val appCategoryDao = PhysiLockDatabase.getInstance(application).appCategoryDao()
+    private val categoryGoalDao = PhysiLockDatabase.getInstance(application).categoryGoalDao()
     private val usageStatsRepository = UsageStatsRepository(application)
 
     val dailyLimitHours: StateFlow<Float> = userConfigDao.getActiveConfiguration()
         .map { (it?.dailyScreenTimeThresholdMs ?: (7 * MS_PER_HOUR)) / MS_PER_HOUR.toFloat() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 7f)
+
+    val weeklyGoalHours: StateFlow<Float> = userConfigDao.getActiveConfiguration()
+        .map { (it?.weeklyScreenTimeGoalMs ?: (35 * MS_PER_HOUR)) / MS_PER_HOUR.toFloat() }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), 35f)
+
+    // Real persisted per-category targets, keyed by AppCategoryType. A category missing
+    // from this map hasn't been customized yet -- callers should fall back to their own
+    // preset default (see CategoryGoalItem.initialGoalHours in UsageGoalsScreen).
+    val categoryGoalHours: StateFlow<Map<String, Float>> = categoryGoalDao.getAll()
+        .map { goals -> goals.associate { it.categoryType to it.targetMs / MS_PER_HOUR.toFloat() } }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyMap())
 
     // Weekly Screen Time Goal card — real 7-day total.
     private val _weeklyTotalHours = MutableStateFlow(0f)
@@ -93,6 +108,24 @@ class UsageGoalsViewModel(application: Application) : AndroidViewModel(applicati
                     lastUpdatedTime = System.currentTimeMillis()
                 )
             )
+        }
+    }
+
+    fun setWeeklyGoalHours(hours: Float) {
+        viewModelScope.launch {
+            val current = userConfigDao.getActiveConfigurationOnce() ?: UserConfiguration()
+            userConfigDao.upsert(
+                current.copy(
+                    weeklyScreenTimeGoalMs = (hours * MS_PER_HOUR).toLong(),
+                    lastUpdatedTime = System.currentTimeMillis()
+                )
+            )
+        }
+    }
+
+    fun setCategoryGoalHours(categoryType: String, hours: Float) {
+        viewModelScope.launch {
+            categoryGoalDao.upsert(CategoryGoal(categoryType = categoryType, targetMs = (hours * MS_PER_HOUR).toLong()))
         }
     }
 }

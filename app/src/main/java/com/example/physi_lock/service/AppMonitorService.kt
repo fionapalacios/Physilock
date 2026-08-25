@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.physi_lock.MainActivity
 import com.example.physi_lock.R
+import com.example.physi_lock.data.AppCategoryType
 import com.example.physi_lock.data.AppUsageLog
 import com.example.physi_lock.data.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.MotionInterventionLog
@@ -99,6 +100,13 @@ class AppMonitorService : AccessibilityService() {
         // One EXCESSIVE_USAGE_PREDICTION row per hour is enough — checking more
         // often than this wouldn't change the hour-bucketed prediction anyway.
         private const val EXCESSIVE_USAGE_CHECK_INTERVAL_MS = 15 * 60 * 1000L
+
+        private const val FOCUS_BLOCK_CHANNEL_ID = "focus_block_channel"
+        private const val FOCUS_BLOCK_NOTIFICATION_ID = 1005
+        // A blocked app can be repeatedly relaunched (e.g. from a home-screen widget);
+        // this throttles the notification/log spam without affecting the actual block,
+        // which always fires on every attempt.
+        private const val FOCUS_BLOCK_NOTIFICATION_THROTTLE_MS = 60 * 1000L
     }
 
     @Volatile private var lockedPackages: Set<String> = emptySet()
@@ -112,6 +120,14 @@ class AppMonitorService : AccessibilityService() {
     // is NOT fed into DoomscrollModel as a feature (see DoomscrollDetector.kt).
     @Volatile private var cachedRiskLevel: RiskLevel = RiskLevel.MODERATE
     @Volatile private var cachedRiskScore: Double = 0.5
+    // Module 6 (Personalization & User Control): Focus Mode. focusModeActive mirrors
+    // whether a FocusSession row is currently open; focusBlockedPackages mirrors the
+    // Admin-curated Social Media / Entertainment categories (see FocusModeViewModel —
+    // same source of truth, so the UI's "blocked" chips and the actual enforcement here
+    // can never drift apart).
+    @Volatile private var focusModeActive: Boolean = false
+    @Volatile private var focusBlockedPackages: Set<String> = emptySet()
+    private var lastFocusBlockNotifyTime: Long = 0L
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private lateinit var database: PhysiLockDatabase
     private lateinit var usageStatsRepository: UsageStatsRepository
@@ -144,6 +160,7 @@ class AppMonitorService : AccessibilityService() {
         createOveruseAlertNotificationChannel()
         createDoomscrollAlertNotificationChannel()
         createExcessiveUsagePredictionNotificationChannel()
+        createFocusBlockNotificationChannel()
 
         // Live-reload the locked app set from Settings > App Lock Rules; Room's
         // Flow re-emits automatically whenever the table changes, so toggles
@@ -162,6 +179,22 @@ class AppMonitorService : AccessibilityService() {
                 overuseAlertsEnabled = config?.overuseAlertsEnabled ?: true
                 dailyScreenTimeThresholdMs = config?.dailyScreenTimeThresholdMs ?: (480 * 60 * 1000L)
                 doomscrollingDetectionEnabled = config?.doomscrollingDetectionEnabled ?: true
+            }
+        }
+
+        // Module 6 (Personalization & User Control): live-reload Focus Mode's active
+        // session and its real blocked-app set, same pattern as lockedPackages above.
+        serviceScope.launch {
+            database.focusSessionDao().getActiveSession().collect { session ->
+                focusModeActive = session != null
+            }
+        }
+        serviceScope.launch {
+            database.appCategoryDao().getAll().collect { categories ->
+                focusBlockedPackages = categories
+                    .filter { it.category == AppCategoryType.SOCIAL_MEDIA || it.category == AppCategoryType.ENTERTAINMENT }
+                    .map { it.packageName }
+                    .toSet()
             }
         }
 
@@ -277,6 +310,17 @@ class AppMonitorService : AccessibilityService() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Warns when this hour is predicted to be an excessive-usage hour"
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    private fun createFocusBlockNotificationChannel() {
+        val channel = NotificationChannel(
+            FOCUS_BLOCK_CHANNEL_ID,
+            "Focus Mode",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Notifies when an app is blocked during an active Focus Mode session"
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -575,14 +619,61 @@ class AppMonitorService : AccessibilityService() {
         currentSessionLastScrollTime = null
         currentSessionMaxScrollGapMs = 0
 
-        // Check if app should be locked
+        // Check if app should be locked (Module 3/4's challenge-based lock takes
+        // priority over Focus Mode's plain block for apps that are both).
         if (packageName in lockedPackages && !isTemporarilyUnlocked(packageName, currentTime)) {
             val intent = Intent(this, LockActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 putExtra(EXTRA_PACKAGE_NAME, packageName)
             }
             startActivity(intent)
+        } else if (focusModeActive && packageName in focusBlockedPackages) {
+            handleFocusBlock(packageName, currentTime)
         }
+    }
+
+    // Focus Mode (Module 6): unlike Adaptive/App Lock's challenge-to-unlock, an app
+    // blocked during Focus Mode is simply kicked back to the home screen — there's no
+    // "solve a challenge to get in" bypass, the only way in is ending the session.
+    private fun handleFocusBlock(packageName: String, currentTime: Long) {
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        if (currentTime - lastFocusBlockNotifyTime < FOCUS_BLOCK_NOTIFICATION_THROTTLE_MS) return
+        lastFocusBlockNotifyTime = currentTime
+        postFocusBlockNotification(packageName)
+    }
+
+    private fun postFocusBlockNotification(packageName: String) {
+        if (ActivityCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val appName = getAppName(packageName)
+        val contentIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, FOCUS_BLOCK_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setContentTitle("$appName blocked")
+            .setContentText("$appName is blocked while Focus Mode is active")
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(this).notify(FOCUS_BLOCK_NOTIFICATION_ID, notification)
+        logNotification(
+            type = "FOCUS_BLOCK",
+            title = "$appName blocked",
+            description = "$appName is blocked while Focus Mode is active"
+        )
     }
 
     private fun logAppSession(

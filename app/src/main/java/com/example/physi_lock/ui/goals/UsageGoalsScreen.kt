@@ -29,9 +29,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableFloatStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -56,10 +53,12 @@ import kotlin.math.abs
 /**
  * Ported from the teammate's sprint-2-ui-navigation branch. As of 2026-08-25, every "current
  * usage" number is real (via [UsageGoalsViewModel] — today's usage bucketed by each app's
- * Admin-curated category, same approach as ReportsViewModel's Category Breakdown card). Goal
- * *targets* (the slider/preset values) still aren't persisted anywhere — no schema field
- * exists for a per-category target, only for the total daily limit — so those stay session-
- * local, same as the teammate's original.
+ * Admin-curated category, same approach as ReportsViewModel's Category Breakdown card), and
+ * every goal *target* is now real and persisted too — total daily limit and the weekly goal
+ * live on UserConfiguration, per-category goals (Social Media/Entertainment/Gaming) live in
+ * the new CategoryGoal table, all via [UsageGoalsViewModel]. A category with no saved target
+ * yet falls back to [CategoryGoalItem.initialGoalHours], the same value the ported UI
+ * originally hardcoded as its slider's starting position.
  */
 private data class CategoryGoalItem(
     val emoji: String,
@@ -128,11 +127,12 @@ fun UsageGoalsScreen(
     modifier: Modifier = Modifier,
     usageGoalsViewModel: UsageGoalsViewModel = viewModel()
 ) {
-    var weeklyGoal by remember { mutableFloatStateOf(35f) }
+    val weeklyGoal by usageGoalsViewModel.weeklyGoalHours.collectAsState()
     val weeklyCurrent by usageGoalsViewModel.weeklyTotalHours.collectAsState()
     val dailyLimitHours by usageGoalsViewModel.dailyLimitHours.collectAsState()
     val todayTotalHours by usageGoalsViewModel.todayTotalHours.collectAsState()
     val todayCategoryHours by usageGoalsViewModel.todayCategoryHours.collectAsState()
+    val categoryGoalHours by usageGoalsViewModel.categoryGoalHours.collectAsState()
 
     Column(modifier = modifier.fillMaxSize().background(BackgroundLight)) {
         Row(
@@ -192,7 +192,7 @@ fun UsageGoalsScreen(
             WeeklyGoalCard(
                 current = weeklyCurrent,
                 goal = weeklyGoal,
-                onGoalChange = { weeklyGoal = it }
+                onGoalChange = { usageGoalsViewModel.setWeeklyGoalHours(it) }
             )
 
             Spacer(modifier = Modifier.height(18.75.dp))
@@ -216,7 +216,12 @@ fun UsageGoalsScreen(
                 )
                 categoryGoalTemplates.forEach { template ->
                     val current = todayCategoryHours[template.categoryType] ?: 0f
-                    LocalCategoryGoalCard(template.copy(currentHours = current))
+                    val goal = categoryGoalHours[template.categoryType] ?: template.initialGoalHours
+                    CategoryGoalCard(
+                        item = template.copy(currentHours = current),
+                        goal = goal,
+                        onGoalChange = { usageGoalsViewModel.setCategoryGoalHours(template.categoryType!!, it) }
+                    )
                 }
             }
         }
@@ -361,12 +366,6 @@ private fun WeeklyGoalCard(
             }
         }
     }
-}
-
-@Composable
-private fun LocalCategoryGoalCard(item: CategoryGoalItem) {
-    var goal by remember { mutableFloatStateOf(item.initialGoalHours) }
-    CategoryGoalCard(item = item, goal = goal, onGoalChange = { goal = it })
 }
 
 @Composable

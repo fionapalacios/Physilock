@@ -21,6 +21,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.DoneAll
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material.icons.filled.WarningAmber
@@ -45,6 +46,7 @@ import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
+import com.example.physi_lock.ui.theme.SecondarySage
 import java.util.concurrent.TimeUnit
 
 /** Maps a real logged [NotificationLog] row (see AppMonitorService) to the display entry below. */
@@ -54,6 +56,7 @@ fun NotificationLog.toEntry(): NotificationEntry {
         "OVERUSE_ALERT" -> Icons.Default.WarningAmber to ErrorRed
         "DOOMSCROLL_ALERT" -> Icons.Default.WarningAmber to Orchid
         "EXCESSIVE_USAGE_PREDICTION" -> Icons.Default.TrendingUp to DeepOlive
+        "FOCUS_BLOCK" -> Icons.Default.Lock to SecondarySage
         else -> Icons.Default.Notifications to DeepOlive
     }
     return NotificationEntry(

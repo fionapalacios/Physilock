@@ -14,5 +14,6 @@ data class UserConfiguration(
     val breakReminderEnabled: Boolean = true,
     val breakReminderIntervalMs: Long = 30 * 60 * 1000, // 30 minutes default
     val overuseAlertsEnabled: Boolean = true,
+    val weeklyScreenTimeGoalMs: Long = 35 * 3_600_000L, // 35 hours default (Usage Goals screen)
     val lastUpdatedTime: Long = System.currentTimeMillis()
 )

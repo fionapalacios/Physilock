@@ -21,11 +21,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import kotlinx.coroutines.delay
+import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -43,7 +44,8 @@ import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
 
-/** Ported from the teammate's sprint-2-ui-navigation branch. UI only — no Focus Mode session/timer backend exists yet (Module 6). */
+/** Ported from the teammate's sprint-2-ui-navigation branch; visuals only, session/timer/
+ *  blocking backend is real as of 2026-08-25 — see [FocusModeRoute] and [FocusModeViewModel]. */
 private val FocusTimerBackground = Color(0xFF2E3820)
 
 private val focusQuotes = listOf(
@@ -195,6 +197,18 @@ fun FocusModeScreen(
 
 @Composable
 private fun BlockedAppsCloud(blockedApps: List<Pair<String, String>>) {
+    if (blockedApps.isEmpty()) {
+        Text(
+            text = "No apps categorized as Social Media or Entertainment yet — ask your Admin to curate categories.",
+            fontFamily = Nunito,
+            fontSize = 12.sp,
+            lineHeight = 18.sp,
+            color = SecondarySage,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.padding(horizontal = 16.dp)
+        )
+        return
+    }
     Column(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(7.5.dp)
@@ -238,24 +252,44 @@ private fun BlockedAppChip(emoji: String, name: String) {
 }
 
 /**
- * Drives [FocusModeScreen] with a locally-ticking elapsed-time counter, since no real Focus
- * Mode session/timer backend exists yet (Module 6). The timer resets whenever this leaves
- * composition (e.g. navigating away ends the "session") — there's no persisted session state.
+ * Drives [FocusModeScreen] off a real, persisted [FocusModeViewModel] session — elapsed time
+ * survives navigation and process death (computed from FocusSession.startTimeMillis, not a
+ * counter). Entering this route starts a session if none is active; AppMonitorService reads
+ * the same table to actually block Social Media / Entertainment apps while one is active.
+ * "End Focus Session" surfaces the ported [EndFocusSessionSheet] confirmation instead of
+ * ending immediately.
  */
 @Composable
-fun FocusModeRoute(onEndFocusClick: () -> Unit, modifier: Modifier = Modifier) {
-    var elapsedSeconds by remember { mutableLongStateOf(0L) }
+fun FocusModeRoute(
+    onEndFocusClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    viewModel: FocusModeViewModel = viewModel()
+) {
+    val elapsedSeconds by viewModel.elapsedSeconds.collectAsState()
+    val blockedApps by viewModel.blockedApps.collectAsState()
+    var showEndSheet by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
-        while (true) {
-            delay(1000)
-            elapsedSeconds++
-        }
+        viewModel.startSessionIfNeeded()
     }
 
-    FocusModeScreen(
-        elapsedSeconds = elapsedSeconds,
-        onEndFocusClick = onEndFocusClick,
-        modifier = modifier
-    )
+    Box(modifier = modifier.fillMaxSize()) {
+        FocusModeScreen(
+            elapsedSeconds = elapsedSeconds,
+            onEndFocusClick = { showEndSheet = true },
+            blockedApps = blockedApps
+        )
+
+        if (showEndSheet) {
+            EndFocusSessionSheet(
+                elapsedSeconds = elapsedSeconds,
+                onEndSession = {
+                    viewModel.endSession()
+                    showEndSheet = false
+                    onEndFocusClick()
+                },
+                onKeepGoing = { showEndSheet = false }
+            )
+        }
+    }
 }
