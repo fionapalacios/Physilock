@@ -44,6 +44,7 @@ import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
 import com.example.physi_lock.ui.theme.SoftSand
 import com.example.physi_lock.ui.theme.TertiaryTan
+import kotlin.math.abs
 import kotlin.math.roundToInt
 
 private val PrimaryDark = DeepOlive
@@ -66,6 +67,7 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
     val insights by reportsViewModel.insights.collectAsState(initial = emptyList())
     val dailyLimitMinutes by reportsViewModel.dailyLimitMinutes.collectAsState(initial = 480)
     val todaysPredictions by reportsViewModel.todaysPredictions.collectAsState(initial = emptyList())
+    val usagePatterns by reportsViewModel.usagePatterns.collectAsState(initial = UsagePatterns())
 
     Column(
         modifier = Modifier
@@ -292,6 +294,63 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
             } else {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     insights.forEach { insight -> InsightRow(insight) }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(15.dp))
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AuthTabsBackground, RoundedCornerShape(22.dp))
+                .border(1.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(22.dp))
+                .padding(15.dp)
+        ) {
+            Text(
+                text = "Usage Patterns",
+                fontFamily = Nunito,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PrimaryDark
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Recurring habits across the last 7 days — not a single-day comparison like Insights above.",
+                fontFamily = Nunito,
+                fontSize = 12.sp,
+                color = DeepOlive.copy(alpha = 0.7f)
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+
+            val patternRows = buildList {
+                usagePatterns.peakHour?.let { hour ->
+                    add("You're most active around ${formatHour(hour)}.")
+                }
+                val weekday = usagePatterns.weekdayAvgMinutes
+                val weekend = usagePatterns.weekendAvgMinutes
+                if (weekday != null && weekend != null && weekday != weekend) {
+                    val diffPct = (abs(weekend - weekday).toFloat() / weekday.coerceAtLeast(1) * 100).roundToInt()
+                    add(
+                        if (weekend > weekday) {
+                            "You use your phone $diffPct% more on weekends than weekdays."
+                        } else {
+                            "You use your phone $diffPct% more on weekdays than weekends."
+                        }
+                    )
+                }
+            }
+
+            if (patternRows.isEmpty()) {
+                Text(
+                    text = "Patterns appear once a full week of usage has been logged.",
+                    fontFamily = Nunito,
+                    fontSize = 13.sp,
+                    color = DeepOlive
+                )
+            } else {
+                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    patternRows.forEach { pattern -> InsightRow(pattern) }
                 }
             }
         }

@@ -99,6 +99,13 @@ import kotlinx.coroutines.launch
  */
 private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student")
 
+// Break Reminders (2026-08-26 follow-up): the interval slider that shipped alongside this
+// toggle was dropped when the "Usage & Motion" card was removed to strictly match the
+// teammate's row list, leaving the interval with a toggle but no way to actually change it.
+// A preset picker (tap the row) restores that control without reintroducing the dropped
+// card. Presets are a proposed default, not manuscript-derived.
+private val breakReminderIntervalPresets = listOf(15, 30, 45, 60, 90)
+
 private data class SettingsRow(
     val icon: ImageVector,
     val iconBackground: Color,
@@ -136,6 +143,7 @@ fun SettingsScreen(
     var showAboutDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
     var showContextAlerts by remember { mutableStateOf(false) }
+    var showBreakIntervalPicker by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeSuccess by remember { mutableStateOf(false) }
@@ -275,11 +283,12 @@ fun SettingsScreen(
                     iconTint = SageAccent,
                     title = "Break Reminders",
                     subtitle = if (config.breakReminderEnabled) {
-                        "Every ${config.breakReminderIntervalMs / 60_000L} min of screen use"
+                        "Every ${config.breakReminderIntervalMs / 60_000L} min of screen use · tap to change"
                     } else "Off",
                     trailing = SettingsTrailing.Toggle(config.breakReminderEnabled) {
                         settingsViewModel.setBreakReminderEnabled(it)
-                    }
+                    },
+                    onClick = { showBreakIntervalPicker = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Shield,
@@ -442,6 +451,39 @@ fun SettingsScreen(
             },
             dismissButton = {
                 TextButton(onClick = { showResetConfirm = false }) { Text("Cancel") }
+            }
+        )
+    }
+
+    if (showBreakIntervalPicker) {
+        val currentMinutes = config.breakReminderIntervalMs / 60_000L
+        AlertDialog(
+            onDismissRequest = { showBreakIntervalPicker = false },
+            title = { Text("Break reminder interval") },
+            text = {
+                Column {
+                    breakReminderIntervalPresets.forEach { minutes ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable {
+                                    settingsViewModel.setBreakReminderIntervalMinutes(minutes)
+                                    showBreakIntervalPicker = false
+                                }
+                                .padding(vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(text = "Every $minutes min", fontFamily = Nunito, fontSize = 14.sp, color = DeepOlive)
+                            if (minutes.toLong() == currentMinutes) {
+                                Text(text = "Selected", fontFamily = Nunito, fontSize = 12.sp, fontWeight = FontWeight.Bold, color = SageAccent)
+                            }
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showBreakIntervalPicker = false }) { Text("Cancel") }
             }
         )
     }

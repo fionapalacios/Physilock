@@ -12,6 +12,8 @@ data class AppUsageTotal(
     val totalDurationMs: Long
 )
 
+data class HourlyUsage(val hour: Int, val totalDurationMs: Long)
+
 @Dao
 interface AppUsageLogDao {
     @Insert
@@ -81,4 +83,20 @@ interface AppUsageLogDao {
 
     @Query("DELETE FROM app_usage_logs WHERE julianday(datetime(sessionStartTime / 1000, 'unixepoch')) < julianday('now', '-90 days')")
     suspend fun deleteOldLogs()
+
+    // Module 1 (Core Monitoring & Usage Awareness) "View Usage Patterns": real hour-of-day
+    // usage distribution since sinceMillis, for finding which hour the user is typically
+    // most active in -- a genuine recurring pattern across days, distinct from
+    // ReportsViewModel's existing "Insights" (single-day rule-based observations). Uses
+    // AppUsageLog rather than UsageStatsManager since only AppUsageLog has per-session
+    // start-time granularity; this undercounts absolute totals (only reflects usage while
+    // AppMonitorService was actually running, same caveat as the rest of AppUsageLog's
+    // real-time uses) but that undercounting is roughly uniform across hours, so the
+    // *relative* hour-to-hour comparison this pattern needs stays meaningful.
+    @Query(
+        "SELECT CAST(strftime('%H', datetime(sessionStartTime / 1000, 'unixepoch', 'localtime')) AS INTEGER) as hour, " +
+        "SUM(foregroundDurationMs) as totalDurationMs FROM app_usage_logs " +
+        "WHERE sessionStartTime >= :sinceMillis GROUP BY hour"
+    )
+    suspend fun getDurationByHourOfDay(sinceMillis: Long): List<HourlyUsage>
 }

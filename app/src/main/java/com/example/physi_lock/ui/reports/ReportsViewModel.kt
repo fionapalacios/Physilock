@@ -9,6 +9,7 @@ import com.example.physi_lock.data.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
 import com.example.physi_lock.data.categoryTotals
+import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle
@@ -21,7 +22,18 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class DayUsage(val dayLabel: String, val minutes: Int, val isToday: Boolean)
+data class DayUsage(val dayLabel: String, val minutes: Int, val isToday: Boolean, val isWeekend: Boolean)
+
+/** Module 1 (Core Monitoring & Usage Awareness) "View Usage Patterns": real recurring-
+ *  behavior observations across multiple days, distinct from [ReportsViewModel.insights]'s
+ *  single-day rule-based comparisons (e.g. "today vs your average"). Null fields mean there
+ *  wasn't enough real data to say something honest, not a fabricated placeholder -- the
+ *  screen only renders the fields that are non-null. */
+data class UsagePatterns(
+    val peakHour: Int? = null,
+    val weekdayAvgMinutes: Int? = null,
+    val weekendAvgMinutes: Int? = null
+)
 
 /** Ported concept from the teammate's ReportsScreen "Category Breakdown" card — real data
  *  here, not their static mock: durations come from the same 7-day UsageStatsManager totals
@@ -60,6 +72,9 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val _insights = MutableStateFlow<List<String>>(emptyList())
     val insights: StateFlow<List<String>> = _insights.asStateFlow()
 
+    private val _usagePatterns = MutableStateFlow(UsagePatterns())
+    val usagePatterns: StateFlow<UsagePatterns> = _usagePatterns.asStateFlow()
+
     private val _dailyLimitMinutes = MutableStateFlow(480)
     val dailyLimitMinutes: StateFlow<Int> = _dailyLimitMinutes.asStateFlow()
 
@@ -86,11 +101,13 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 DayUsage(
                     dayLabel = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
                     minutes = (usage.sumOf { it.totalTimeMs } / 60_000L).toInt(),
-                    isToday = date == today
+                    isToday = date == today,
+                    isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
                 )
             }
             _weeklyUsage.value = days
             _insights.value = buildInsights(days)
+            _usagePatterns.value = buildUsagePatterns(days)
 
             _topApps.value = packageTotals.entries
                 .sortedByDescending { it.value }
@@ -181,5 +198,36 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         }
 
         return insights
+    }
+
+    // Module 1 (Core Monitoring & Usage Awareness) "View Usage Patterns" -- real recurring
+    // behavior across days, not a single-day comparison. Weekday/weekend split reuses the
+    // same 7-day `days` list `insights` already has; peak-hour needs a separate AppUsageLog
+    // query since UsageStatsManager (this ViewModel's other real-data source) has no
+    // per-session hour granularity. Either half can come back null if there wasn't enough
+    // real data to say something honest (e.g. no weekend day in the current 7-day window,
+    // or no logged sessions at all yet) -- the screen only renders what's non-null.
+    private suspend fun buildUsagePatterns(days: List<DayUsage>): UsagePatterns {
+        val weekdayMinutes = days.filter { !it.isWeekend }.map { it.minutes }
+        val weekendMinutes = days.filter { it.isWeekend }.map { it.minutes }
+        val weekdayAvg = weekdayMinutes.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+        val weekendAvg = weekendMinutes.takeIf { it.isNotEmpty() }?.average()?.roundToInt()
+
+        val sinceMillis = LocalDate.now().minusDays(6)
+            .atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+        val peakHour = try {
+            db.appUsageLogDao().getDurationByHourOfDay(sinceMillis)
+                .filter { it.totalDurationMs > 0 }
+                .maxByOrNull { it.totalDurationMs }
+                ?.hour
+        } catch (e: Exception) {
+            null
+        }
+
+        return UsagePatterns(
+            peakHour = peakHour,
+            weekdayAvgMinutes = weekdayAvg,
+            weekendAvgMinutes = weekendAvg
+        )
     }
 }
