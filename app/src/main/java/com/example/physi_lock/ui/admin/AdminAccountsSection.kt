@@ -3,8 +3,10 @@ package com.example.physi_lock.ui.admin
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -37,20 +39,34 @@ import com.example.physi_lock.ui.theme.SageAccent
 @Composable
 fun AdminAccountsSection(
     accounts: List<Account>,
+    errorMessage: String?,
+    onRetry: () -> Unit,
     onSetActive: (Account, Boolean) -> Unit,
     onDelete: (Account) -> Unit
 ) {
     var pendingDelete by remember { mutableStateOf<Account?>(null) }
 
-    if (accounts.isEmpty()) {
-        Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text("No accounts yet", style = MaterialTheme.typography.bodyMedium)
+    Column(modifier = Modifier.fillMaxSize()) {
+        // A real error doesn't blank the screen -- if accounts has stale cached data from
+        // before the listener failed, that list stays visible underneath this banner
+        // instead of the previous silent-forever-stale behavior with no indication at all.
+        errorMessage?.let { message ->
+            AdminErrorBanner(message = message, onRetry = onRetry)
+            Spacer(modifier = Modifier.height(8.dp))
         }
-        return
-    }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        items(accounts, key = { it.id }) { account ->
+        if (accounts.isEmpty()) {
+            Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Text(
+                    if (errorMessage != null) "Couldn't load accounts" else "No accounts yet",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+            }
+            return@Column
+        }
+
+        LazyColumn(modifier = Modifier.fillMaxSize()) {
+            items(accounts, key = { it.id }) { account ->
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -99,8 +115,9 @@ fun AdminAccountsSection(
                     }
                 }
             }
+            }
         }
-    }
+    } // end Column
 
     pendingDelete?.let { account ->
         AlertDialog(

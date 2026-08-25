@@ -39,6 +39,9 @@ enum class AdminTab(val label: String) {
 fun AdminHomeScreen(viewModel: AdminViewModel = viewModel()) {
     var tab by remember { mutableStateOf(AdminTab.ACCOUNTS) }
 
+    val isOnline by viewModel.isOnline.collectAsState()
+    val actionError by viewModel.actionError.collectAsState()
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -60,6 +63,15 @@ fun AdminHomeScreen(viewModel: AdminViewModel = viewModel()) {
             modifier = Modifier.padding(bottom = 16.dp)
         )
 
+        if (!isOnline) {
+            AdminOfflineBanner()
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+        actionError?.let { message ->
+            AdminErrorBanner(message = message, onDismiss = viewModel::dismissActionError)
+            Spacer(modifier = Modifier.height(8.dp))
+        }
+
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             AdminTab.entries.forEachIndexed { index, t ->
                 SegmentedButton(
@@ -77,8 +89,11 @@ fun AdminHomeScreen(viewModel: AdminViewModel = viewModel()) {
         when (tab) {
             AdminTab.ACCOUNTS -> {
                 val accounts by viewModel.accounts.collectAsState()
+                val accountsError by viewModel.accountsError.collectAsState()
                 AdminAccountsSection(
                     accounts = accounts,
+                    errorMessage = accountsError,
+                    onRetry = viewModel::retryAccounts,
                     onSetActive = viewModel::setAccountActive,
                     onDelete = viewModel::deleteAccount
                 )
@@ -104,8 +119,10 @@ fun AdminHomeScreen(viewModel: AdminViewModel = viewModel()) {
             }
             AdminTab.ANALYTICS -> {
                 val analytics by viewModel.analytics.collectAsState()
+                val analyticsError by viewModel.analyticsError.collectAsState()
                 AdminAnalyticsSection(
                     analytics = analytics,
+                    errorMessage = analyticsError,
                     onRefresh = viewModel::refreshAnalytics,
                     buildExportText = viewModel::buildResearchExport
                 )

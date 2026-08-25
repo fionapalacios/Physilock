@@ -9,6 +9,7 @@ import com.example.physi_lock.data.AppCategory
 import com.example.physi_lock.data.AppCategoryType
 import com.example.physi_lock.data.AppUsageTotal
 import com.example.physi_lock.data.DefaultSettings
+import com.example.physi_lock.data.NetworkConnectivityObserver
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.Role
 import com.example.physi_lock.ui.settings.InstalledAppInfo
@@ -22,6 +23,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -42,17 +44,52 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     private val defaultSettingsDao = db.defaultSettingsDao()
     private val appUsageLogDao = db.appUsageLogDao()
 
+    // Admin governance (known gap tracked since 2026-08-09): a shared "the last mutating
+    // action failed" signal every toggle/delete/category-save/settings-save action below
+    // now sets on failure instead of silently swallowing it (fire-and-forget with no
+    // try/catch, previously). UI shows this as a dismissible banner, not a retry -- retrying
+    // a specific failed mutation would need re-capturing its original arguments, which isn't
+    // worth the complexity here; the user just retaps the action.
+    private val _actionError = MutableStateFlow<String?>(null)
+    val actionError: StateFlow<String?> = _actionError.asStateFlow()
+    fun dismissActionError() {
+        _actionError.value = null
+    }
+
+    // Admin governance: a real connectivity signal backing an honest "you're offline"
+    // banner, replacing the previous complete absence of any offline affordance.
+    private val connectivityObserver = NetworkConnectivityObserver(application)
+    val isOnline: StateFlow<Boolean> = connectivityObserver.observe()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
+
     // 1. Manage User Accounts (real-time from Firestore)
-    val accounts: StateFlow<List<Account>> = accountsFlow()
+    private val _accountsError = MutableStateFlow<String?>(null)
+    val accountsError: StateFlow<String?> = _accountsError.asStateFlow()
+    private val accountsRetryTrigger = MutableStateFlow(0)
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val accounts: StateFlow<List<Account>> = accountsRetryTrigger
+        .flatMapLatest { accountsFlow() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    /** Re-establishes the Firestore listener — Admin's "couldn't load accounts, tap to
+     *  retry" action, in place of the previous silent-forever-stale behavior. */
+    fun retryAccounts() {
+        accountsRetryTrigger.value++
+    }
+
     private fun accountsFlow(): Flow<List<Account>> = callbackFlow {
+        _accountsError.value = null
         val registration = firestore.collection("users")
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
-                    close(error)
+                    // Don't close the channel -- keep the last-known accounts list visible
+                    // (via the outer StateFlow's cached value) rather than blanking the UI,
+                    // and surface the error so the screen can offer a real retry action.
+                    _accountsError.value = error.localizedMessage ?: "Couldn't load accounts"
                     return@addSnapshotListener
                 }
+                _accountsError.value = null
                 val accounts = snapshot?.documents?.mapNotNull { doc ->
                     doc.toObject(Account::class.java)?.copy(id = doc.id)
                 }.orEmpty()
@@ -63,17 +100,25 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setAccountActive(account: Account, active: Boolean) {
         viewModelScope.launch {
-            firestore.collection("users").document(account.id)
-                .update("isActive", active)
-                .await()
+            try {
+                firestore.collection("users").document(account.id)
+                    .update("isActive", active)
+                    .await()
+            } catch (e: Exception) {
+                _actionError.value = "Couldn't update ${account.fullName}'s status: ${e.localizedMessage ?: "unknown error"}"
+            }
         }
     }
 
     fun deleteAccount(account: Account) {
         viewModelScope.launch {
-            firestore.collection("users").document(account.id)
-                .delete()
-                .await()
+            try {
+                firestore.collection("users").document(account.id)
+                    .delete()
+                    .await()
+            } catch (e: Exception) {
+                _actionError.value = "Couldn't delete ${account.fullName}: ${e.localizedMessage ?: "unknown error"}"
+            }
         }
     }
 
@@ -105,9 +150,13 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setCategory(app: InstalledAppInfo, category: String) {
         viewModelScope.launch {
-            appCategoryDao.upsert(
-                AppCategory(packageName = app.packageName, appName = app.appName, category = category)
-            )
+            try {
+                appCategoryDao.upsert(
+                    AppCategory(packageName = app.packageName, appName = app.appName, category = category)
+                )
+            } catch (e: Exception) {
+                _actionError.value = "Couldn't save ${app.appName}'s category: ${e.localizedMessage ?: "unknown error"}"
+            }
         }
     }
 
@@ -129,8 +178,12 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun updateDefaults(transform: (DefaultSettings) -> DefaultSettings) {
         viewModelScope.launch {
-            val next = transform(defaultSettings.value).copy(lastUpdatedTime = System.currentTimeMillis())
-            defaultSettingsDao.upsert(next)
+            try {
+                val next = transform(defaultSettings.value).copy(lastUpdatedTime = System.currentTimeMillis())
+                defaultSettingsDao.upsert(next)
+            } catch (e: Exception) {
+                _actionError.value = "Couldn't save default settings: ${e.localizedMessage ?: "unknown error"}"
+            }
         }
     }
 
@@ -138,14 +191,23 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     private val _analytics = MutableStateFlow(AdminAnalytics())
     val analytics: StateFlow<AdminAnalytics> = _analytics.asStateFlow()
 
+    // Admin governance (known gap tracked since 2026-08-09): the two queries below always
+    // caught their own failures and silently fell back to 0/emptyList with nothing shown to
+    // the UI -- this keeps that same safe-fallback display behavior but now also surfaces
+    // that a failure actually happened, so AdminAnalyticsSection can offer a real retry.
+    private val _analyticsError = MutableStateFlow<String?>(null)
+    val analyticsError: StateFlow<String?> = _analyticsError.asStateFlow()
+
     private fun loadAnalytics() {
         viewModelScope.launch {
+            _analyticsError.value = null
             val today = LocalDate.now()
             val startDate = today.minusDays(6)
             val last7Dates = (6 downTo 0).map { today.minusDays(it.toLong()) }
             val totalMinutes = try {
                 (last7Dates.sumOf { date -> appUsageLogDao.getTotalDurationByDateOnce(date.toString()) ?: 0L } / 60_000L).toInt()
             } catch (e: Exception) {
+                _analyticsError.value = "Couldn't load usage totals: ${e.localizedMessage ?: "unknown error"}"
                 0
             }
             val topApps = try {
@@ -154,6 +216,7 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
                     .collect { latest = it.take(5) }
                 latest
             } catch (e: Exception) {
+                _analyticsError.value = "Couldn't load top apps: ${e.localizedMessage ?: "unknown error"}"
                 emptyList()
             }
             _analytics.value = AdminAnalytics(

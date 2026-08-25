@@ -28,6 +28,7 @@ import com.example.physi_lock.ui.theme.MutedText
 @Composable
 fun AdminAnalyticsSection(
     analytics: AdminAnalytics,
+    errorMessage: String?,
     onRefresh: () -> Unit,
     buildExportText: () -> String
 ) {
@@ -44,6 +45,17 @@ fun AdminAnalyticsSection(
             color = MutedText,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
         )
+
+        // Previously these query failures were caught and silently defaulted to 0/emptyList
+        // with nothing shown -- the stat cards below still show that same safe fallback, but
+        // now flagged as a real failure with a retry (reuses the existing Refresh action).
+        errorMessage?.let { message ->
+            AdminErrorBanner(
+                message = message,
+                onRetry = onRefresh,
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            )
+        }
 
         Row(modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)) {
             StatCard(label = "Total Accounts", value = analytics.totalAccounts.toString(), modifier = Modifier.weight(1f))
