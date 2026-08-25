@@ -8,13 +8,19 @@ import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
 import com.example.physi_lock.ml.RiskFeatureExtractor
 import com.example.physi_lock.ml.RiskScoringEngine
+import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalTime
 import java.time.ZoneId
+import java.util.Date
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 /** Ported from the teammate's DashboardScreen "Doomscrolling detected" banner — real data
@@ -63,6 +69,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _predictiveOveruse = MutableStateFlow<PredictiveOveruseUi?>(null)
     val predictiveOveruse: StateFlow<PredictiveOveruseUi?> = _predictiveOveruse.asStateFlow()
+
+    // Module 5 (Mental Health & Awareness): backs the "Daily Reflection" GoalCard's
+    // subtitle with a real answered/not-answered state instead of the old "Coming soon"
+    // placeholder, now that ReflectionScreen exists.
+    private val todayDateKey = SimpleDateFormat("yyyy-MM-dd", Locale.US).format(Date())
+    val hasReflectedToday: StateFlow<Boolean> = db.reflectionEntryDao().getForDate(todayDateKey)
+        .map { it != null }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), false)
 
     init {
         refreshOnResume()

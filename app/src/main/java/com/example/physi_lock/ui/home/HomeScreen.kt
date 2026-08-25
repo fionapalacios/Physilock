@@ -86,7 +86,8 @@ fun HomeScreen(
     onManageAppLock: () -> Unit = {},
     onNavigateToFocus: () -> Unit = {},
     onNavigateToGoals: () -> Unit = {},
-    onNavigateToMove: () -> Unit = {}
+    onNavigateToMove: () -> Unit = {},
+    onNavigateToReflection: () -> Unit = {}
 ) {
     val lifecycleOwner = LocalLifecycleOwner.current
     val notificationLogs by notificationsViewModel.notifications.collectAsState()
@@ -98,6 +99,7 @@ fun HomeScreen(
     val appUsageToday by homeViewModel.appUsageToday.collectAsState(initial = emptyList())
     val predictiveOveruse by homeViewModel.predictiveOveruse.collectAsState(initial = null)
     val doomscrollAlert by homeViewModel.doomscrollAlert.collectAsState(initial = null)
+    val hasReflectedToday by homeViewModel.hasReflectedToday.collectAsState(initial = false)
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -145,7 +147,9 @@ fun HomeScreen(
         GoalsRow(
             todayMinutes = todayMinutes,
             dailyLimitMinutes = dailyLimitMinutes,
-            onUsageGoalsClick = onNavigateToGoals
+            onUsageGoalsClick = onNavigateToGoals,
+            hasReflectedToday = hasReflectedToday,
+            onReflectionClick = onNavigateToReflection
         )
     }
 
@@ -646,12 +650,17 @@ private fun AppUsageRow(
     }
 }
 
-/** Ported from the teammate's sprint-2-ui-navigation branch (`DashboardScreen.kt`'s `GoalsRow`/`GoalCard`). */
+/** Ported from the teammate's sprint-2-ui-navigation branch (`DashboardScreen.kt`'s `GoalsRow`/`GoalCard`).
+ *  "Daily Reflection" was a non-clickable "Coming soon" placeholder until Module 5 shipped
+ *  (2026-08-25, see `ui/reflection/ReflectionScreen.kt`) — now real and clickable, with a
+ *  subtitle reflecting whether today's entry actually exists. */
 @Composable
 private fun GoalsRow(
     todayMinutes: Int,
     dailyLimitMinutes: Int,
-    onUsageGoalsClick: () -> Unit
+    onUsageGoalsClick: () -> Unit,
+    hasReflectedToday: Boolean,
+    onReflectionClick: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.25.dp)) {
         GoalCard(
@@ -669,8 +678,8 @@ private fun GoalsRow(
             icon = Icons.AutoMirrored.Filled.MenuBook,
             iconTint = AccentLavender,
             title = "Daily Reflection",
-            subtitle = "Coming soon",
-            onClick = {}
+            subtitle = if (hasReflectedToday) "Answered today" else "Tap to reflect",
+            onClick = onReflectionClick
         )
     }
 }
