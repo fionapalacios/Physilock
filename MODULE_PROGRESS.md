@@ -220,8 +220,13 @@ All 9 modules plus the Admin Governance Layer are now built (Module 8's testing/
 ## 🟡 Module 8: Integration & QA (Ongoing — cross-cutting)
 
 - [x] Manual build verification (`gradlew compileDebugKotlin`, `gradlew assembleDebug`) after each code change this session
-- [ ] Unit tests (entities, DAOs, AI inference, timestamp calculations)
-- [ ] Integration tests (DB persistence, AccessibilityService, sensor lifecycle, UI state)
-- [ ] End-to-end tests (lock → shake → unlock, risk-scoring difficulty, settings persistence, rotation)
-- [ ] Performance/battery profiling against `PROJECT_DOCUMENTATION.md`'s target metrics
+- [x] Unit tests, first pass (2026-08-25) — 20 tests across 6 files under `app/src/test/`, all pure-JVM (plain JUnit4 + `kotlinx.coroutines.runBlocking`, no Robolectric/device needed, no new dependencies added):
+  - `ml/RiskScoringEngineTest.kt`, `ml/DoomscrollDetectorTest.kt`, `ml/ExcessiveUsageDetectorTest.kt` — AI inference. These test the hand-written decision logic *around* each generated model (level selection, sigmoid + threshold, the doomscroll risk-level "recipe"'s monotonicity), not the models' own trained accuracy — expected values are derived from each real model's own output for the given sample inputs, so a test fails if the wrapper logic drifts from what its own comments claim, not if the model's training changes.
+  - `sensor/ChallengeSensitivityTest.kt` — `fromLabel`/`fromRiskLevel`/`displayLabel` mapping correctness, plus a monotonicity check (LOW < MEDIUM < HIGH effort).
+  - `data/CategoryUsageAggregatorTest.kt` — `categoryTotals()`'s bucketing/summing/uncategorized-falls-into-OTHER behavior, against a hand-written `FakeAppCategoryDao` (implements the real `AppCategoryDao` interface in-memory — no Room/SQLite needed since the function only takes the DAO interface, not a concrete Room instance).
+  - `ui/components/NotificationsPanelTest.kt` — timestamp calculations: `formatRelativeTime`'s minute/hour/day boundaries and the future-timestamp-never-negative clamp (visibility bumped `private`→`internal` to make it testable; behavior unchanged).
+  - Deliberately not attempted this pass: DAOs' actual SQL query behavior (Room needs either a real device/emulator or Robolectric — this machine has neither an AVD configured nor Robolectric added yet, and this toolchain's AGP 9.2.1/Kotlin 2.2.10 versions are new enough that Robolectric compatibility isn't verified; a candidate for a later session, ideally proven with a quick spike before committing to it broadly).
+- [ ] Integration tests (DB persistence, AccessibilityService, sensor lifecycle, UI state) — blocked on the same Room/Robolectric-or-device gap as DAO unit tests above; AccessibilityService/sensor lifecycle additionally need a real device (already known: no local emulator on this machine, see Module 4's Break Reminder entry).
+- [ ] End-to-end tests (lock → shake → unlock, risk-scoring difficulty, settings persistence, rotation) — needs a real device.
+- [ ] Performance/battery profiling against `PROJECT_DOCUMENTATION.md`'s target metrics — needs a real device.
 - [ ] ISO/IEC 25010 validation pass

@@ -71,7 +71,8 @@ fun NotificationLog.toEntry(): NotificationEntry {
     )
 }
 
-private fun formatRelativeTime(timestamp: Long): String {
+// internal (not private) so NotificationsPanelTest can exercise it directly.
+internal fun formatRelativeTime(timestamp: Long): String {
     val elapsedMs = (System.currentTimeMillis() - timestamp).coerceAtLeast(0)
     val minutes = TimeUnit.MILLISECONDS.toMinutes(elapsedMs)
     val hours = TimeUnit.MILLISECONDS.toHours(elapsedMs)
