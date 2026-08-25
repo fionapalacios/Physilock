@@ -20,10 +20,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -48,17 +50,25 @@ import com.example.physi_lock.ui.theme.SageAccent
  * Unlike the original — which read/wrote a local-only `UserConfiguration` row via `ProfileViewModel`,
  * a table this repo's account data doesn't actually live in — this takes [currentAccount]/[onSave]
  * so the caller can wire it to the real `FirebaseAccountRepository.updateAccount`, matching the
- * pattern the existing inline account editor already used. The password-change fields and avatar
- * picker were dropped: the teammate's version never wired them to anything (no password-change or
- * photo-storage backend exists), so keeping them would just be dead UI that looks functional.
+ * pattern the existing inline account editor already used. The avatar picker was dropped: no
+ * photo-storage backend exists, so it would just be dead UI that looks functional.
+ *
+ * Change Password (2026-08-25) — real as of this session, wired to
+ * `FirebaseAccountRepository.changePassword`'s real reauth-then-update flow. Only rendered
+ * for accounts that actually have a password to change ([canChangePassword] is false for
+ * Google-only accounts, which honestly explains why instead of showing a broken form).
  */
 @Composable
 fun EditProfileScreen(
     currentAccount: Account?,
     onBackClick: () -> Unit,
     onSave: (Account) -> Unit,
+    canChangePassword: Boolean,
+    onChangePassword: (currentPassword: String, newPassword: String) -> Unit,
     modifier: Modifier = Modifier,
-    errorMessage: String? = null
+    errorMessage: String? = null,
+    passwordChangeMessage: String? = null,
+    passwordChangeSuccess: Boolean = false
 ) {
     var username by remember(currentAccount) { mutableStateOf(currentAccount?.username.orEmpty()) }
     var fullName by remember(currentAccount) { mutableStateOf(currentAccount?.fullName.orEmpty()) }
@@ -186,6 +196,13 @@ fun EditProfileScreen(
                 )
             }
 
+            ChangePasswordSection(
+                canChangePassword = canChangePassword,
+                onChangePassword = onChangePassword,
+                resultMessage = passwordChangeMessage,
+                resultSuccess = passwordChangeSuccess
+            )
+
             if (errorMessage != null) {
                 Text(
                     text = errorMessage,
@@ -195,6 +212,106 @@ fun EditProfileScreen(
                     color = Color(0xFFC0392B)
                 )
             }
+        }
+    }
+}
+
+@Composable
+private fun ChangePasswordSection(
+    canChangePassword: Boolean,
+    onChangePassword: (currentPassword: String, newPassword: String) -> Unit,
+    resultMessage: String?,
+    resultSuccess: Boolean
+) {
+    Column {
+        AuthFieldLabel(text = "Change Password", fontSize = 14.sp, lineHeight = 21.sp)
+        Spacer(modifier = Modifier.height(5.63.dp))
+
+        if (!canChangePassword) {
+            Text(
+                text = "Your account signs in with Google, so there's no password here to change.",
+                fontFamily = Nunito,
+                fontSize = 12.sp,
+                color = SageAccent
+            )
+            return
+        }
+
+        var currentPassword by remember { mutableStateOf("") }
+        var newPassword by remember { mutableStateOf("") }
+        var confirmPassword by remember { mutableStateOf("") }
+        var validationError by remember { mutableStateOf<String?>(null) }
+
+        LaunchedEffect(resultSuccess, resultMessage) {
+            if (resultSuccess && resultMessage != null) {
+                currentPassword = ""
+                newPassword = ""
+                confirmPassword = ""
+            }
+        }
+
+        AuthTextField(
+            value = currentPassword,
+            onValueChange = { currentPassword = it },
+            placeholder = "Current password",
+            leadingIcon = Icons.Default.Lock,
+            isPassword = true
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        AuthTextField(
+            value = newPassword,
+            onValueChange = { newPassword = it },
+            placeholder = "New password (min 6 characters)",
+            leadingIcon = Icons.Default.Lock,
+            isPassword = true
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        AuthTextField(
+            value = confirmPassword,
+            onValueChange = { confirmPassword = it },
+            placeholder = "Confirm new password",
+            leadingIcon = Icons.Default.Lock,
+            isPassword = true
+        )
+
+        val message = validationError ?: resultMessage
+        if (message != null) {
+            Text(
+                text = message,
+                fontFamily = Nunito,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.SemiBold,
+                color = if (validationError == null && resultSuccess) SageAccent else Color(0xFFC0392B),
+                modifier = Modifier.padding(top = 6.dp)
+            )
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(DeepOlive, RoundedCornerShape(15.dp))
+                .clickable {
+                    validationError = when {
+                        currentPassword.isBlank() -> "Enter your current password."
+                        newPassword.length < 6 -> "New password must be at least 6 characters."
+                        newPassword != confirmPassword -> "New passwords don't match."
+                        else -> null
+                    }
+                    if (validationError == null) {
+                        onChangePassword(currentPassword, newPassword)
+                    }
+                }
+                .padding(vertical = 11.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = "Update Password",
+                fontFamily = Nunito,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                color = BackgroundLight
+            )
         }
     }
 }

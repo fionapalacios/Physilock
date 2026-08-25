@@ -8,6 +8,7 @@ import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.UsageStatsRepository
 import com.example.physi_lock.ml.RiskFeatureExtractor
 import com.example.physi_lock.ml.RiskScoringEngine
+import com.example.physi_lock.service.AppMonitorService
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.time.LocalTime
@@ -70,6 +71,16 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _predictiveOveruse = MutableStateFlow<PredictiveOveruseUi?>(null)
     val predictiveOveruse: StateFlow<PredictiveOveruseUi?> = _predictiveOveruse.asStateFlow()
 
+    // Ported concept from the teammate's DashboardScreen "You've been online 47 min" banner
+    // -- previously dropped as fake (2026-08-25 audit: no live-session-duration plumbing
+    // existed). Now real: AppMonitorService.getContinuousUsageStartTime() mirrors the same
+    // in-memory continuous-usage clock the real Break Reminder notification already fires
+    // off, read here at refresh time (point-in-time snapshot, same pattern as the other
+    // banners below -- not a live-ticking timer). A 5-minute floor avoids flashing this for
+    // trivial usage blips; not derived from the manuscript, a proposed default.
+    private val _continuousUsageMinutes = MutableStateFlow<Int?>(null)
+    val continuousUsageMinutes: StateFlow<Int?> = _continuousUsageMinutes.asStateFlow()
+
     // Module 5 (Mental Health & Awareness): backs the "Daily Reflection" GoalCard's
     // subtitle with a real answered/not-answered state instead of the old "Coming soon"
     // placeholder, now that ReflectionScreen exists.
@@ -114,6 +125,19 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
      *  placeholder state. See [DoomscrollAlertUi]/[PredictiveOveruseUi] kdoc. */
     private fun refreshBanners() {
         viewModelScope.launch {
+            val breakReminderEnabled = try {
+                userConfigDao.getActiveConfigurationOnce()?.breakReminderEnabled ?: true
+            } catch (e: Exception) {
+                true
+            }
+            val continuousStart = AppMonitorService.getContinuousUsageStartTime()
+            _continuousUsageMinutes.value = if (breakReminderEnabled && continuousStart != null) {
+                val minutes = ((System.currentTimeMillis() - continuousStart) / 60_000L).toInt()
+                minutes.takeIf { it >= 5 }
+            } else {
+                null
+            }
+
             val todayStartMillis = LocalDate.now().atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
 
             val recentAlert = try {

@@ -3,12 +3,24 @@ package com.example.physi_lock.data.auth
 import com.example.physi_lock.data.Account
 import com.example.physi_lock.data.Role
 import com.example.physi_lock.ui.auth.AuthFormState
+import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseAuthException
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
 import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.GoogleAuthProvider
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
+
+/** Change Password (Settings > Edit Profile): distinguishes the specific failure so
+ *  EditProfileScreen can show an accurate message instead of a generic "something went
+ *  wrong" -- see [FirebaseAccountRepository.changePassword]. */
+sealed class ChangePasswordResult {
+    data object Success : ChangePasswordResult()
+    data object WrongCurrentPassword : ChangePasswordResult()
+    data object NoPasswordProvider : ChangePasswordResult()
+    data class Error(val message: String) : ChangePasswordResult()
+}
 
 class FirebaseAccountRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
@@ -122,6 +134,33 @@ class FirebaseAccountRepository(
     }
 
     fun isCurrentUserEmailVerified(): Boolean = auth.currentUser?.isEmailVerified ?: false
+
+    /** True only for accounts that actually have a Firebase email/password credential --
+     *  Google-only accounts have nothing for "Change Password" to change. */
+    fun hasPasswordProvider(): Boolean =
+        auth.currentUser?.providerData?.any { it.providerId == EmailAuthProvider.PROVIDER_ID } ?: false
+
+    /**
+     * Real Firebase reauth flow (Settings > Edit Profile > Change Password): Firebase
+     * requires a recent sign-in before a sensitive operation like updatePassword(), so this
+     * reauthenticates with the current password first, then updates. Distinguishes a wrong
+     * current password from other failures so the UI can say which.
+     */
+    suspend fun changePassword(currentPassword: String, newPassword: String): ChangePasswordResult {
+        val user = auth.currentUser ?: return ChangePasswordResult.Error("Not signed in")
+        val email = user.email
+        if (email == null || !hasPasswordProvider()) return ChangePasswordResult.NoPasswordProvider
+
+        return try {
+            user.reauthenticate(EmailAuthProvider.getCredential(email, currentPassword)).await()
+            user.updatePassword(newPassword).await()
+            ChangePasswordResult.Success
+        } catch (e: FirebaseAuthInvalidCredentialsException) {
+            ChangePasswordResult.WrongCurrentPassword
+        } catch (e: Exception) {
+            ChangePasswordResult.Error(e.localizedMessage ?: "Couldn't change password")
+        }
+    }
 
     override suspend fun updateAccount(account: Account): Account? {
         val conflict = usersCollection

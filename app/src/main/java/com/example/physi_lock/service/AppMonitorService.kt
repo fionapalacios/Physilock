@@ -48,6 +48,15 @@ class AppMonitorService : AccessibilityService() {
             lastUnlockTime = System.currentTimeMillis()
         }
 
+        // Break Reminder (Module 4): mirrors the instance-level continuousUsageStartTime
+        // below so HomeViewModel can read the live in-progress session length for a real
+        // "you've been online N min" banner, without any IPC -- everything runs in the same
+        // process. Null means no continuous session is currently tracked (service not
+        // running yet, or the last accessibility event was long enough ago to count as idle).
+        @Volatile private var continuousUsageStartTimeShared: Long? = null
+
+        fun getContinuousUsageStartTime(): Long? = continuousUsageStartTimeShared
+
         const val EXTRA_PACKAGE_NAME = "extra_package_name"
         const val CHALLENGE_UNLOCK_DURATION_MS = 20 * 60 * 1000L // 20 minutes
 
@@ -417,6 +426,7 @@ class AppMonitorService : AccessibilityService() {
         val lastEvent = lastActivityEventTime
         if (lastEvent == null || currentTime - lastEvent > IDLE_RESET_THRESHOLD_MS) {
             continuousUsageStartTime = currentTime
+            continuousUsageStartTimeShared = currentTime
         }
         lastActivityEventTime = currentTime
 
@@ -426,6 +436,7 @@ class AppMonitorService : AccessibilityService() {
         if (elapsed >= breakReminderIntervalMs) {
             postBreakReminderNotification(elapsed)
             continuousUsageStartTime = currentTime
+            continuousUsageStartTimeShared = currentTime
         }
     }
 

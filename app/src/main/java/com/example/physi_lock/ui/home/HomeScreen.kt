@@ -100,6 +100,7 @@ fun HomeScreen(
     val predictiveOveruse by homeViewModel.predictiveOveruse.collectAsState(initial = null)
     val doomscrollAlert by homeViewModel.doomscrollAlert.collectAsState(initial = null)
     val hasReflectedToday by homeViewModel.hasReflectedToday.collectAsState(initial = false)
+    val continuousUsageMinutes by homeViewModel.continuousUsageMinutes.collectAsState(initial = null)
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -126,6 +127,10 @@ fun HomeScreen(
         )
         Spacer(modifier = Modifier.height(16.dp))
         ScreenTimeCard(todayMinutes = todayMinutes, dailyLimitMinutes = dailyLimitMinutes)
+        continuousUsageMinutes?.let { minutes ->
+            Spacer(modifier = Modifier.height(12.dp))
+            BreakReminderBanner(minutes = minutes, onFocusClick = onNavigateToFocus)
+        }
         predictiveOveruse?.let { prediction ->
             Spacer(modifier = Modifier.height(12.dp))
             PredictiveOveruseBanner(prediction = prediction, onFocusClick = onNavigateToFocus)
@@ -300,6 +305,59 @@ private fun formatHour(hour: Int): String {
         else -> hour
     }
     return "$displayHour $period"
+}
+
+/** Ported from the teammate's DashboardScreen "You've been online 47 min" banner —
+ *  previously dropped as fake (no live-session-duration plumbing existed); real as of
+ *  2026-08-25 via [HomeViewModel.continuousUsageMinutes]. Only rendered once the current
+ *  continuous session passes a 5-minute floor, so trivial usage blips don't flash it. */
+@Composable
+private fun BreakReminderBanner(minutes: Int, onFocusClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(PrimaryGreen.copy(alpha = 0.09f), RoundedCornerShape(15.dp))
+            .border(1.dp, PrimaryGreen.copy(alpha = 0.40f), RoundedCornerShape(15.dp))
+            .padding(horizontal = 15.dp, vertical = 11.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Bedtime,
+            contentDescription = null,
+            tint = PrimaryGreen,
+            modifier = Modifier.size(20.dp)
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "You've been online $minutes min",
+                fontFamily = Nunito,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = PrimaryDark
+            )
+            Text(
+                text = "Maybe stretch or take a walk",
+                fontFamily = Nunito,
+                fontSize = 13.sp,
+                color = DeepOlive
+            )
+        }
+        Box(
+            modifier = Modifier
+                .background(PrimaryGreen, RoundedCornerShape(19.dp))
+                .clickable(onClick = onFocusClick)
+                .padding(horizontal = 8.dp, vertical = 6.dp)
+        ) {
+            Text(
+                text = "Focus",
+                fontFamily = Nunito,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Bold,
+                color = BackgroundLight
+            )
+        }
+    }
 }
 
 /** Ported from the teammate's DashboardScreen "Predictive Overuse" banner — real data

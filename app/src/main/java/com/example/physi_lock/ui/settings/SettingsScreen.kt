@@ -62,6 +62,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.Account
+import com.example.physi_lock.data.auth.ChangePasswordResult
 import com.example.physi_lock.data.auth.FirebaseAccountRepository
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.ui.theme.BackgroundLight
@@ -136,6 +137,8 @@ fun SettingsScreen(
     var showResetConfirm by remember { mutableStateOf(false) }
     var showContextAlerts by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
+    var passwordChangeMessage by remember { mutableStateOf<String?>(null) }
+    var passwordChangeSuccess by remember { mutableStateOf(false) }
 
     // Rows with no real backend — local-only state, exactly as unpersisted as the
     // teammate's own version of these same toggles.
@@ -150,8 +153,34 @@ fun SettingsScreen(
         EditProfileScreen(
             currentAccount = currentAccount,
             errorMessage = errorMessage,
+            canChangePassword = remember { accountRepository.hasPasswordProvider() },
+            onChangePassword = { current, new ->
+                coroutineScope.launch {
+                    when (val result = accountRepository.changePassword(current, new)) {
+                        is ChangePasswordResult.Success -> {
+                            passwordChangeSuccess = true
+                            passwordChangeMessage = "Password updated."
+                        }
+                        is ChangePasswordResult.WrongCurrentPassword -> {
+                            passwordChangeSuccess = false
+                            passwordChangeMessage = "Current password is incorrect."
+                        }
+                        is ChangePasswordResult.NoPasswordProvider -> {
+                            passwordChangeSuccess = false
+                            passwordChangeMessage = "This account has no password to change."
+                        }
+                        is ChangePasswordResult.Error -> {
+                            passwordChangeSuccess = false
+                            passwordChangeMessage = result.message
+                        }
+                    }
+                }
+            },
+            passwordChangeMessage = passwordChangeMessage,
+            passwordChangeSuccess = passwordChangeSuccess,
             onBackClick = {
                 errorMessage = null
+                passwordChangeMessage = null
                 showAccountEditor = false
             },
             onSave = { updated ->
