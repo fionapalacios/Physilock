@@ -25,8 +25,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.UserConfiguration
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.ui.theme.BackgroundLight
@@ -37,16 +40,22 @@ import com.example.physi_lock.ui.theme.SoftSand
 
 /**
  * Built from scratch — the teammate's WorkModeScreen.kt is a confirmed 0-byte stub, no
- * design to port. Mirrors StudentModeScreen's honesty about what's real (the shared
- * global UserConfiguration values) vs. planned (per-mode presets, not built yet).
+ * design to port. Real schedule-based enforcement as of 2026-08-27 (see ScheduleViewModel /
+ * AppMonitorService.activeScheduleBlock/isQuietHours): a Work Hours schedule during which
+ * Admin-curated Social Media/Entertainment apps (the same set Focus Mode blocks) are sent
+ * to the home screen and Break Reminder/Overuse/Excessive-Usage notifications are held.
+ * Deliberately reframed, not faked: this is schedule-triggered category blocking, not real
+ * calendar-meeting detection (no Calendar API integration exists) -- the copy below says so.
  */
 @Composable
 fun WorkModeScreen(
     config: UserConfiguration,
     isActive: Boolean,
     onSwitchToThisMode: () -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    scheduleViewModel: ScheduleViewModel = viewModel()
 ) {
+    val scheduleBlocks by scheduleViewModel.scheduleBlocks.collectAsState()
     val sensitivity = ChallengeSensitivity.fromLabel(config.motionLockSensitivity)
     val dailyLimitMinutes = (config.dailyScreenTimeThresholdMs / 60_000L).toInt()
 
@@ -146,7 +155,7 @@ fun WorkModeScreen(
                 )
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = "These apply globally right now — Student and Work mode share the same settings below until per-mode presets are built.",
+                    text = "Your daily limit switches to Work Mode's default when you tap in here; the rest below stay shared with Student Mode.",
                     fontFamily = Nunito,
                     fontSize = 12.sp,
                     color = DeepOlive
@@ -167,26 +176,14 @@ fun WorkModeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            SettingsCard {
-                Text(
-                    text = "Planned for Work Mode",
-                    fontFamily = Nunito,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = DeepOlive
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = "Not built yet — noted here so the profile isn't an empty shell.",
-                    fontFamily = Nunito,
-                    fontSize = 12.sp,
-                    color = DeepOlive
-                )
-                Spacer(modifier = Modifier.height(9.dp))
-                PlannedFeatureRow("Work-hours quiet mode", "Hold notifications during set working hours")
-                PlannedFeatureRow("Meeting-aware locking", "Detect calendar meetings and lock distracting apps")
-                PlannedFeatureRow("Looser default limit", "A higher daily threshold than Student Mode's default")
-            }
+            ScheduleBlockSection(
+                title = "Work Hours",
+                description = "During these windows, distracting apps (Social Media/Entertainment — the same categories Focus Mode blocks) are sent to the home screen, and Break/Overuse notifications are held until after. This is schedule-triggered blocking, not real calendar-meeting detection.",
+                mode = "WORK_MODE",
+                blocks = scheduleBlocks,
+                onAdd = { day, start, end, label -> scheduleViewModel.addScheduleBlock("WORK_MODE", day, start, end, label) },
+                onDelete = { id -> scheduleViewModel.deleteScheduleBlock(id) }
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
         }

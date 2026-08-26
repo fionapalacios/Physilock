@@ -26,8 +26,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.UserConfiguration
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.ui.theme.BackgroundLight
@@ -38,19 +41,24 @@ import com.example.physi_lock.ui.theme.SoftSand
 
 /**
  * Built from scratch — the teammate's StudentModeScreen.kt is a confirmed 0-byte stub, no
- * design to port. There's no mode-differentiated backend yet (userMode only labels which
- * profile is active; the settings below are the same global UserConfiguration Student and
- * Work modes currently share) — this screen is honest about that rather than faking
- * per-mode values, and lists the differentiated behavior that isn't built yet as a
- * roadmap, not as if it already works.
+ * design to port. Real schedule-based enforcement as of 2026-08-27 (see ScheduleViewModel /
+ * AppMonitorService.activeScheduleBlock): a Class Schedule of recurring time windows during
+ * which every app not on the Study App Allowlist (and not a system app) gets sent to the
+ * home screen. Daily limit/sensitivity/etc. below stay the same shared global
+ * UserConfiguration Work Mode also reads -- only the daily limit gets a per-mode preset,
+ * applied on every explicit "Switch to Student Mode" tap (see SettingsViewModel.setUserMode).
  */
 @Composable
 fun StudentModeScreen(
     config: UserConfiguration,
     isActive: Boolean,
     onSwitchToThisMode: () -> Unit,
-    onBackClick: () -> Unit
+    onBackClick: () -> Unit,
+    scheduleViewModel: ScheduleViewModel = viewModel()
 ) {
+    val scheduleBlocks by scheduleViewModel.scheduleBlocks.collectAsState()
+    val allowlistedApps by scheduleViewModel.allowlistedApps.collectAsState()
+    val installedApps by scheduleViewModel.installedApps.collectAsState()
     val sensitivity = ChallengeSensitivity.fromLabel(config.motionLockSensitivity)
     val dailyLimitMinutes = (config.dailyScreenTimeThresholdMs / 60_000L).toInt()
 
@@ -150,7 +158,7 @@ fun StudentModeScreen(
                 )
                 Spacer(modifier = Modifier.height(3.dp))
                 Text(
-                    text = "These apply globally right now — Student and Work mode share the same settings below until per-mode presets are built.",
+                    text = "Your daily limit switches to Student Mode's default when you tap in here; the rest below stay shared with Work Mode.",
                     fontFamily = Nunito,
                     fontSize = 12.sp,
                     color = DeepOlive
@@ -171,26 +179,22 @@ fun StudentModeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            SettingsCard {
-                Text(
-                    text = "Planned for Student Mode",
-                    fontFamily = Nunito,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = DeepOlive
-                )
-                Spacer(modifier = Modifier.height(3.dp))
-                Text(
-                    text = "Not built yet — noted here so the profile isn't an empty shell.",
-                    fontFamily = Nunito,
-                    fontSize = 12.sp,
-                    color = DeepOlive
-                )
-                Spacer(modifier = Modifier.height(9.dp))
-                PlannedFeatureRow("Class schedule awareness", "Auto-tighten limits during class hours")
-                PlannedFeatureRow("Study app allowlist", "Keep note-taking and research apps unlocked")
-                PlannedFeatureRow("Stricter default limit", "A lower daily threshold than Work Mode's default")
-            }
+            ScheduleBlockSection(
+                title = "Class Schedule",
+                description = "During these windows, only apps on your Study App Allowlist below stay reachable — everything else is sent to the home screen.",
+                mode = "STUDENT_MODE",
+                blocks = scheduleBlocks,
+                onAdd = { day, start, end, label -> scheduleViewModel.addScheduleBlock("STUDENT_MODE", day, start, end, label) },
+                onDelete = { id -> scheduleViewModel.deleteScheduleBlock(id) }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            AllowlistSection(
+                installedApps = installedApps,
+                allowlistedPackages = allowlistedApps.map { it.packageName }.toSet(),
+                onToggle = { app, allowed -> scheduleViewModel.setAllowlisted(app, allowed) }
+            )
 
             Spacer(modifier = Modifier.height(24.dp))
         }

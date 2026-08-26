@@ -52,16 +52,17 @@ private val PrimaryGreen = SageAccent
 private val AccentLavender = Orchid
 private val AuthTabsBackground = SoftSand
 
-/** UI-only for now, per teammate's ReportsScreen design — This Month has no real
- *  monthly aggregation behind it yet (would need a new multi-week query path), so
- *  it shows an honest placeholder rather than inventing numbers the way the
- *  teammate's own mock version did. */
-private enum class ReportPeriod { WEEK, MONTH }
+/** DAILY = the existing 7-day per-day chart; WEEKLY = the real 4-week aggregate view
+ *  (2026-08-27, see ReportsViewModel.buildWeeklyBreakdown) — replaces the old static
+ *  "Weekly view coming soon" placeholder. (Renamed from WEEK/MONTH, which had drifted
+ *  out of sync with their own tab labels — WEEK showed "Daily", MONTH showed "Weekly".) */
+private enum class ReportPeriod { DAILY, WEEKLY }
 
 @Composable
 fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
-    var period by remember { mutableStateOf(ReportPeriod.WEEK) }
+    var period by remember { mutableStateOf(ReportPeriod.DAILY) }
     val weeklyUsage by reportsViewModel.weeklyUsage.collectAsState(initial = emptyList())
+    val weeklyBreakdown by reportsViewModel.weeklyBreakdown.collectAsState(initial = emptyList())
     val topApps by reportsViewModel.topApps.collectAsState(initial = emptyList())
     val categoryBreakdown by reportsViewModel.categoryBreakdown.collectAsState(initial = emptyList())
     val insights by reportsViewModel.insights.collectAsState(initial = emptyList())
@@ -98,8 +99,8 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
 
         Spacer(modifier = Modifier.height(15.dp))
 
-        if (period == ReportPeriod.MONTH) {
-            MonthPlaceholder()
+        if (period == ReportPeriod.WEEKLY) {
+            WeeklyBreakdownContent(weeklyBreakdown)
             return@Column
         }
 
@@ -386,7 +387,7 @@ private fun PeriodTabs(selected: ReportPeriod, onSelected: (ReportPeriod) -> Uni
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = if (entry == ReportPeriod.WEEK) "Daily" else "Weekly",
+                    text = if (entry == ReportPeriod.DAILY) "Daily" else "Weekly",
                     fontFamily = Nunito,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
@@ -397,23 +398,135 @@ private fun PeriodTabs(selected: ReportPeriod, onSelected: (ReportPeriod) -> Uni
     }
 }
 
+/** Reports' real Weekly view (2026-08-27, see ReportsViewModel.weeklyBreakdown) — a
+ *  4-week bar chart + stat cards, scoped intentionally smaller than the Daily view: Top
+ *  Apps/Category Breakdown/Insights/AI Insights stay Daily-only, not duplicated per-week. */
 @Composable
-private fun MonthPlaceholder() {
+private fun WeeklyBreakdownContent(weeks: List<WeekUsage>) {
+    if (weeks.isEmpty()) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(AuthTabsBackground, RoundedCornerShape(22.dp))
+                .border(1.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(22.dp))
+                .padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "No usage logged yet this month",
+                fontFamily = Nunito,
+                fontSize = 15.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PrimaryDark
+            )
+        }
+        return
+    }
+
+    val avgMinutes = weeks.map { it.totalMinutes }.average().roundToInt()
+    val totalMinutes = weeks.sumOf { it.totalMinutes }
+
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+        StatCard(
+            label = "Avg / Week",
+            value = formatMinutes(avgMinutes),
+            delta = "${weeks.size}-week average",
+            modifier = Modifier.weight(1f)
+        )
+        StatCard(
+            label = "Total (${weeks.size} wk)",
+            value = formatMinutes(totalMinutes),
+            delta = "Since ${weeks.first().weekLabel}",
+            modifier = Modifier.weight(1f)
+        )
+    }
+
+    Spacer(modifier = Modifier.height(15.dp))
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .background(AuthTabsBackground, RoundedCornerShape(22.dp))
             .border(1.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(22.dp))
-            .padding(24.dp),
-        horizontalAlignment = Alignment.CenterHorizontally
+            .padding(15.dp)
     ) {
+        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+            Text(
+                text = "Weekly Usage",
+                fontFamily = Nunito,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PrimaryDark
+            )
+            Text(
+                text = "mins / week",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                color = PrimaryGreen
+            )
+        }
+        Spacer(modifier = Modifier.height(11.dp))
+        WeeklyUsageChart(weeks)
+        Spacer(modifier = Modifier.height(8.dp))
         Text(
-            text = "Weekly view coming soon",
+            text = "Top Apps, Category Breakdown, and Insights stay scoped to the last 7 days above.",
             fontFamily = Nunito,
-            fontSize = 15.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = PrimaryDark
+            fontSize = 11.sp,
+            color = DeepOlive.copy(alpha = 0.6f)
         )
+    }
+}
+
+@Composable
+private fun WeeklyUsageChart(weeks: List<WeekUsage>) {
+    val maxMinutes = (weeks.maxOfOrNull { it.totalMinutes } ?: 0).coerceAtLeast(1)
+
+    Row(modifier = Modifier.fillMaxWidth()) {
+        Column(
+            modifier = Modifier.height(chartHeight).width(32.dp),
+            verticalArrangement = Arrangement.SpaceBetween
+        ) {
+            listOf(maxMinutes, maxMinutes * 2 / 3, maxMinutes / 3, 0).forEach { minutes ->
+                Text(
+                    text = formatMinutes(minutes),
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 9.sp,
+                    color = PrimaryGreen
+                )
+            }
+        }
+        Spacer(modifier = Modifier.width(7.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Row(
+                modifier = Modifier.fillMaxWidth().height(chartHeight),
+                horizontalArrangement = Arrangement.SpaceEvenly
+            ) {
+                weeks.forEach { week ->
+                    val barColor = if (week.isCurrentWeek) PrimaryDark else PrimaryGreen
+                    Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
+                        Box(
+                            modifier = Modifier
+                                .width(28.dp)
+                                .fillMaxHeight((week.totalMinutes.toFloat() / maxMinutes).coerceIn(0f, 1f))
+                                .background(barColor.copy(alpha = 0.85f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
+                weeks.forEach { week ->
+                    Text(
+                        text = week.weekLabel,
+                        modifier = Modifier.weight(1f),
+                        textAlign = TextAlign.Center,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 9.sp,
+                        color = DeepOlive
+                    )
+                }
+            }
+        }
     }
 }
 

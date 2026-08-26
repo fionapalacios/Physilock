@@ -43,7 +43,19 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
-    fun setUserMode(mode: String) = update { it.copy(userMode = mode) }
+    // Real per-mode default limit (2026-08-27): "Stricter for Student / Looser for Work"
+    // is applied as a preset daily-limit re-applied on every explicit mode switch (a
+    // proposed default, not manuscript-specified — bracketing the existing 480 min
+    // global default), rather than a silently-never-changing one-time value.
+    fun setUserMode(mode: String) = update {
+        val presetMinutes = when (mode) {
+            "STUDENT_MODE" -> 360
+            "WORK_MODE" -> 600
+            else -> null
+        }
+        val base = it.copy(userMode = mode)
+        if (presetMinutes != null) base.copy(dailyScreenTimeThresholdMs = presetMinutes * 60_000L) else base
+    }
 
     fun setDailyScreenTimeThresholdMinutes(minutes: Int) =
         update { it.copy(dailyScreenTimeThresholdMs = minutes * 60_000L) }

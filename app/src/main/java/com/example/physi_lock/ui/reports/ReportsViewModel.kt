@@ -48,6 +48,12 @@ data class CategoryUsage(
     val percent: Int
 )
 
+/** Reports' real "Weekly" view (2026-08-27) -- one bar per ISO (Monday-start) week over the
+ *  last 4 weeks, replacing the old static "Weekly view coming soon" placeholder. Scoped to
+ *  the chart + stat cards only; Top Apps/Category Breakdown/Insights/AI Insights stay
+ *  Daily-scoped (not duplicated per-week) -- see ReportsViewModel.buildWeeklyBreakdown. */
+data class WeekUsage(val weekLabel: String, val totalMinutes: Int, val isCurrentWeek: Boolean)
+
 class ReportsViewModel(application: Application) : AndroidViewModel(application) {
     private val db = PhysiLockDatabase.getInstance(application)
     private val userConfigDao = db.userConfigurationDao()
@@ -75,29 +81,41 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val _usagePatterns = MutableStateFlow(UsagePatterns())
     val usagePatterns: StateFlow<UsagePatterns> = _usagePatterns.asStateFlow()
 
+    private val _weeklyBreakdown = MutableStateFlow<List<WeekUsage>>(emptyList())
+    val weeklyBreakdown: StateFlow<List<WeekUsage>> = _weeklyBreakdown.asStateFlow()
+
     private val _dailyLimitMinutes = MutableStateFlow(480)
     val dailyLimitMinutes: StateFlow<Int> = _dailyLimitMinutes.asStateFlow()
 
     init {
         viewModelScope.launch {
             val today = LocalDate.now()
-            // Oldest to newest, ending with today
-            val last7Dates = (6 downTo 0).map { today.minusDays(it.toLong()) }
+            // Oldest to newest, ending with today. Extended to 28 days (2026-08-27) to also
+            // back the real Weekly view -- 4 weeks chosen as a scope tradeoff bounding the
+            // number of UsageStatsManager calls made per screen load (documented the same
+            // way the ML model-size tradeoff is in ml/README.md), not a technical limit.
+            val last28Dates = (27 downTo 0).map { today.minusDays(it.toLong()) }
+            val dailyWindowStart = today.minusDays(6)
 
             // Same UsageStatsManager source Home uses (see HomeViewModel), not AppUsageLog —
             // that only reflects usage since AppMonitorService started watching, not real
-            // historical totals. One query per day rather than a single 7-day range query,
-            // since UsageStatsManager's multi-day aggregation isn't reliable enough to trust
-            // (see UsageStatsRepository.getUsageForRange kdoc); totals are folded client-side.
+            // historical totals. One query per day rather than a single multi-day range
+            // query, since UsageStatsManager's multi-day aggregation isn't reliable enough to
+            // trust (see UsageStatsRepository.getUsageForRange kdoc); totals are folded
+            // client-side. Top Apps/Category Breakdown/Insights/Usage Patterns stay scoped to
+            // the last 7 days only -- packageTotals is deliberately not filled for the older
+            // 21 days fetched for the Weekly view.
             val packageTotals = mutableMapOf<String, Long>()
-            val days = last7Dates.map { date ->
+            val dayUsageByDate = last28Dates.associateWith { date ->
                 val (dayStart, dayEnd) = dayBoundsMillis(date, today)
                 val usage = try {
                     usageStatsRepository.getUsageForRange(dayStart, dayEnd)
                 } catch (e: Exception) {
                     emptyList()
                 }
-                usage.forEach { packageTotals[it.packageName] = (packageTotals[it.packageName] ?: 0L) + it.totalTimeMs }
+                if (!date.isBefore(dailyWindowStart)) {
+                    usage.forEach { packageTotals[it.packageName] = (packageTotals[it.packageName] ?: 0L) + it.totalTimeMs }
+                }
                 DayUsage(
                     dayLabel = date.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
                     minutes = (usage.sumOf { it.totalTimeMs } / 60_000L).toInt(),
@@ -105,9 +123,12 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                     isWeekend = date.dayOfWeek == DayOfWeek.SATURDAY || date.dayOfWeek == DayOfWeek.SUNDAY
                 )
             }
+
+            val days = last28Dates.filter { !it.isBefore(dailyWindowStart) }.map { dayUsageByDate.getValue(it) }
             _weeklyUsage.value = days
             _insights.value = buildInsights(days)
             _usagePatterns.value = buildUsagePatterns(days)
+            _weeklyBreakdown.value = buildWeeklyBreakdown(dayUsageByDate, today)
 
             _topApps.value = packageTotals.entries
                 .sortedByDescending { it.value }
@@ -122,6 +143,31 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
 
             _categoryBreakdown.value = buildCategoryBreakdown(packageTotals)
         }
+    }
+
+    // Reports' real Weekly view: buckets the 28 fetched days into ISO (Monday-start) weeks,
+    // newest first. weekLabel is "This Week"/"Last Week" for the two most recent buckets,
+    // a date range for older ones.
+    private fun buildWeeklyBreakdown(dayUsageByDate: Map<LocalDate, DayUsage>, today: LocalDate): List<WeekUsage> {
+        fun mondayOf(date: LocalDate): LocalDate = date.minusDays((date.dayOfWeek.value - 1).toLong())
+
+        val thisWeekStart = mondayOf(today)
+        return dayUsageByDate.keys
+            .groupBy { date -> java.time.temporal.ChronoUnit.WEEKS.between(mondayOf(date), thisWeekStart) }
+            .toSortedMap()
+            .map { (weeksAgo, dates) ->
+                val totalMinutes = dates.sumOf { dayUsageByDate.getValue(it).minutes }
+                val weekStart = mondayOf(dates.min())
+                val label = when (weeksAgo) {
+                    0L -> "This Week"
+                    1L -> "Last Week"
+                    else -> "${weekStart.monthValue}/${weekStart.dayOfMonth}"
+                }
+                WeekUsage(weekLabel = label, totalMinutes = totalMinutes, isCurrentWeek = weeksAgo == 0L)
+            }
+            // toSortedMap orders ascending by weeksAgo (0 = This Week first) -- reverse so
+            // the oldest week renders first/leftmost, matching DailyUsageChart's ordering.
+            .reversed()
     }
 
     private suspend fun buildCategoryBreakdown(packageTotals: Map<String, Long>): List<CategoryUsage> {

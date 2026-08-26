@@ -20,6 +20,7 @@ import com.example.physi_lock.data.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.MotionInterventionLog
 import com.example.physi_lock.data.NotificationLog
 import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.ScheduleBlock
 import com.example.physi_lock.data.UsageStatsRepository
 import com.example.physi_lock.data.currentWifiSsid
 import com.example.physi_lock.ml.DoomscrollDetector
@@ -128,6 +129,13 @@ class AppMonitorService : AccessibilityService() {
         // on every accessibility event either -- a cached value refreshed this often is
         // fresh enough for a "which network am I on" check.
         private const val WIFI_SSID_REFRESH_INTERVAL_MS = 30 * 1000L
+
+        private const val SCHEDULE_BLOCK_CHANNEL_ID = "schedule_block_channel"
+        private const val SCHEDULE_BLOCK_NOTIFICATION_ID = 1007
+        // Same reasoning as Focus Block's throttle — an app can be repeatedly
+        // relaunched during an active schedule block; only the notification/log is
+        // throttled, the home-kick itself always fires on every attempt.
+        private const val SCHEDULE_BLOCK_NOTIFICATION_THROTTLE_MS = 60 * 1000L
     }
 
     @Volatile private var lockedPackages: Set<String> = emptySet()
@@ -159,6 +167,16 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var contextAlertWifiSsid: String? = null
     @Volatile private var cachedWifiSsid: String? = null
     private var lastContextAlertNotifyTime: Long = 0L
+    // Student/Work Mode real schedule-based enforcement: userMode wasn't previously
+    // mirrored here (nothing before this needed it at enforcement time). scheduleBlocks
+    // holds every block for both modes (filtered by mode at check time, since the active
+    // mode can change while the service keeps running); allowlistedPackages is Student
+    // Mode's "stays reachable during a block" set. Same live-Flow-collector pattern as
+    // lockedPackages/focusBlockedPackages above.
+    @Volatile private var userMode: String = "STUDENT_MODE"
+    @Volatile private var scheduleBlocks: List<ScheduleBlock> = emptyList()
+    @Volatile private var allowlistedPackages: Set<String> = emptySet()
+    private var lastScheduleBlockNotifyTime: Long = 0L
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private lateinit var database: PhysiLockDatabase
     private lateinit var usageStatsRepository: UsageStatsRepository
@@ -193,6 +211,7 @@ class AppMonitorService : AccessibilityService() {
         createExcessiveUsagePredictionNotificationChannel()
         createFocusBlockNotificationChannel()
         createContextAlertNotificationChannel()
+        createScheduleBlockNotificationChannel()
 
         // Live-reload the locked app set from Settings > App Lock Rules; Room's
         // Flow re-emits automatically whenever the table changes, so toggles
@@ -213,6 +232,20 @@ class AppMonitorService : AccessibilityService() {
                 doomscrollingDetectionEnabled = config?.doomscrollingDetectionEnabled ?: true
                 contextAlertsEnabled = config?.contextAlertsEnabled ?: false
                 contextAlertWifiSsid = config?.contextAlertWifiSsid
+                userMode = config?.userMode ?: "STUDENT_MODE"
+            }
+        }
+
+        // Student/Work Mode: live-reload schedule blocks (both modes) and Student
+        // Mode's study app allowlist, same pattern as lockedPackages/focusBlockedPackages.
+        serviceScope.launch {
+            database.scheduleBlockDao().getAll().collect { blocks ->
+                scheduleBlocks = blocks
+            }
+        }
+        serviceScope.launch {
+            database.allowlistedAppDao().getAll().collect { apps ->
+                allowlistedPackages = apps.map { it.packageName }.toSet()
             }
         }
 
@@ -297,7 +330,10 @@ class AppMonitorService : AccessibilityService() {
         )
 
         val hourKey = "$dateKey-$hour"
-        if (prediction.isExcessive && overuseAlertsEnabled && lastExcessiveUsageAlertHourKey != hourKey) {
+        // Deferred, not skipped, during quiet hours -- see checkOveruseAlert's isQuietHours
+        // comment; the hour-dedupe key is left unset so a later check this same hour
+        // (once the schedule block ends) can still post it.
+        if (prediction.isExcessive && overuseAlertsEnabled && lastExcessiveUsageAlertHourKey != hourKey && !isQuietHours()) {
             lastExcessiveUsageAlertHourKey = hourKey
             postExcessiveUsagePredictionNotification()
         }
@@ -389,6 +425,17 @@ class AppMonitorService : AccessibilityService() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
+    private fun createScheduleBlockNotificationChannel() {
+        val channel = NotificationChannel(
+            SCHEDULE_BLOCK_CHANNEL_ID,
+            "Schedule Blocks",
+            NotificationManager.IMPORTANCE_HIGH
+        ).apply {
+            description = "Notifies when an app is blocked during a Student/Work Mode schedule block"
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         val packageName = event?.packageName?.toString() ?: return
         val currentTime = System.currentTimeMillis()
@@ -441,6 +488,7 @@ class AppMonitorService : AccessibilityService() {
     }
 
     private fun postBreakReminderNotification(elapsedMs: Long) {
+        if (isQuietHours()) return
         if (ActivityCompat.checkSelfPermission(
                 this, Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
@@ -486,6 +534,9 @@ class AppMonitorService : AccessibilityService() {
 
         val todayKey = dateFormatter.format(Date(currentTime))
         if (lastOveruseAlertDateKey == todayKey) return
+        // Deferred, not skipped: don't consume today's dedupe key during quiet hours,
+        // so the alert can still fire once the Work Mode schedule block ends.
+        if (isQuietHours()) return
 
         serviceScope.launch {
             try {
@@ -687,16 +738,64 @@ class AppMonitorService : AccessibilityService() {
 
         // Check if app should be locked (Module 3/4's challenge-based lock takes
         // priority over Focus Mode's plain block for apps that are both).
+        val scheduleBlock = activeScheduleBlock()
         if (packageName in lockedPackages && !isTemporarilyUnlocked(packageName, currentTime)) {
             val intent = Intent(this, LockActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 putExtra(EXTRA_PACKAGE_NAME, packageName)
             }
             startActivity(intent)
+        } else if (userMode == "STUDENT_MODE" && scheduleBlock != null &&
+            packageName !in allowlistedPackages && !isSystemPackage(packageName)
+        ) {
+            handleScheduleBlock(
+                currentTime,
+                title = "Class Mode active",
+                description = "${getAppName(packageName)} is blocked during ${scheduleBlock.label}"
+            )
+        } else if (userMode == "WORK_MODE" && scheduleBlock != null && packageName in focusBlockedPackages) {
+            handleScheduleBlock(
+                currentTime,
+                title = "Work Hours active",
+                description = "${getAppName(packageName)} is blocked during ${scheduleBlock.label}"
+            )
         } else if (focusModeActive && packageName in focusBlockedPackages) {
             handleFocusBlock(packageName, currentTime)
         } else if (contextAlertsEnabled && packageName in focusBlockedPackages && isOnWatchedWifi()) {
             handleContextAlert(packageName, currentTime)
+        }
+    }
+
+    // Student/Work Mode (real schedule-based enforcement): a ScheduleBlock is active
+    // right now for the active mode, or null. Cheap synchronous check against the
+    // cached list only -- no DB access on the accessibility-event thread, same
+    // constraint as the rest of this priority chain.
+    private fun activeScheduleBlock(): ScheduleBlock? {
+        val calendar = Calendar.getInstance()
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        return scheduleBlocks.firstOrNull { block ->
+            block.mode == userMode && block.dayOfWeek == dayOfWeek &&
+                minuteOfDay >= block.startMinute && minuteOfDay < block.endMinute
+        }
+    }
+
+    // Work Mode "quiet hours": passive nudge notifications (Break Reminder, Overuse
+    // Alert, Excessive Usage Prediction) are held while a Work Mode schedule block is
+    // active -- Doomscroll Alert, Context Alert, and the schedule block notification
+    // itself are unaffected, since those are active-intervention signals, not FYI nudges.
+    private fun isQuietHours(): Boolean = userMode == "WORK_MODE" && activeScheduleBlock() != null
+
+    // Safety filter for Student Mode's allowlist-inverted blocking (block everything
+    // NOT allowlisted) -- must never kick the launcher, dialer, Settings, or system UI
+    // to home. Work Mode doesn't need this: it only ever targets Admin-curated Social
+    // Media/Entertainment apps (focusBlockedPackages), already inherently safe.
+    private fun isSystemPackage(packageName: String): Boolean {
+        return try {
+            val flags = packageManager.getApplicationInfo(packageName, 0).flags
+            (flags and android.content.pm.ApplicationInfo.FLAG_SYSTEM) != 0
+        } catch (e: Exception) {
+            false
         }
     }
 
@@ -792,6 +891,45 @@ class AppMonitorService : AccessibilityService() {
             title = "$appName blocked",
             description = "$appName is blocked while Focus Mode is active"
         )
+    }
+
+    // Student/Work Mode (real schedule-based enforcement): same "kick to home, no
+    // challenge bypass" shape as Focus Mode's block -- the only way in is waiting out
+    // the schedule block (or, for Student Mode, being on the study allowlist).
+    private fun handleScheduleBlock(currentTime: Long, title: String, description: String) {
+        performGlobalAction(GLOBAL_ACTION_HOME)
+        if (currentTime - lastScheduleBlockNotifyTime < SCHEDULE_BLOCK_NOTIFICATION_THROTTLE_MS) return
+        lastScheduleBlockNotifyTime = currentTime
+        postScheduleBlockNotification(title, description)
+    }
+
+    private fun postScheduleBlockNotification(title: String, description: String) {
+        if (ActivityCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val contentIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, SCHEDULE_BLOCK_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setContentTitle(title)
+            .setContentText(description)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(contentIntent)
+            .setAutoCancel(true)
+            .build()
+
+        NotificationManagerCompat.from(this).notify(SCHEDULE_BLOCK_NOTIFICATION_ID, notification)
+        logNotification(type = "SCHEDULE_BLOCK", title = title, description = description)
     }
 
     private fun logAppSession(
