@@ -1,5 +1,6 @@
 package com.example.physi_lock.ui.settings
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -92,10 +93,11 @@ import kotlinx.coroutines.launch
  * Permissions, Delete Account) are kept visible with a plain "Coming soon" subtitle rather
  * than dropped, per the instruction not to skip ported UI just because the logic behind it
  * isn't built. About/Reset-to-Default (easy to make real, so made real rather than left as
- * dead taps) are additions beyond their row list. "Location Context" became real 2026-08-25
- * (Module 7, see ContextAlertsScreen.kt) — it's now also the sole entry point for this
- * feature, so the separate "Location & Context AI" placeholder row (ACCOUNT section) was
- * removed as a literal duplicate rather than wired to the same screen twice.
+ * dead taps) are additions beyond their row list. "Location Context" briefly became real
+ * 2026-08-25 (Module 7, see ContextAlertsScreen.kt) but was reverted to a plain "Coming soon"
+ * row per instruction — Context Alerts isn't a final design yet and the user plans to bring
+ * their own API-based approach. ContextAlertsScreen.kt/the AppMonitorService wiring/DB columns
+ * are left intact, just unreachable from here for now, rather than deleted.
  */
 private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student")
 
@@ -142,22 +144,29 @@ fun SettingsScreen(
     var showWorkMode by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
-    var showContextAlerts by remember { mutableStateOf(false) }
     var showBreakIntervalPicker by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeSuccess by remember { mutableStateOf(false) }
 
     // Rows with no real backend — local-only state, exactly as unpersisted as the
-    // teammate's own version of these same toggles.
+    // teammate's own version of these same toggles. Location Context rejoined this list
+    // 2026-08-26 (reverted from its brief real implementation, see the class kdoc above).
     var wellnessNudgesEnabled by remember { mutableStateOf(true) }
+    var locationContextEnabled by remember { mutableStateOf(false) }
 
     if (showAppLockRules) {
+        BackHandler { showAppLockRules = false }
         AppLockRulesScreen(onBack = { showAppLockRules = false })
         return
     }
 
     if (showAccountEditor) {
+        BackHandler {
+            errorMessage = null
+            passwordChangeMessage = null
+            showAccountEditor = false
+        }
         EditProfileScreen(
             currentAccount = currentAccount,
             errorMessage = errorMessage,
@@ -211,6 +220,7 @@ fun SettingsScreen(
     val streakDays by settingsViewModel.streakDays.collectAsState()
 
     if (showStudentMode) {
+        BackHandler { showStudentMode = false }
         StudentModeScreen(
             config = config,
             isActive = config.userMode == "STUDENT_MODE",
@@ -221,21 +231,12 @@ fun SettingsScreen(
     }
 
     if (showWorkMode) {
+        BackHandler { showWorkMode = false }
         WorkModeScreen(
             config = config,
             isActive = config.userMode == "WORK_MODE",
             onSwitchToThisMode = { settingsViewModel.setUserMode("WORK_MODE") },
             onBackClick = { showWorkMode = false }
-        )
-        return
-    }
-
-    if (showContextAlerts) {
-        ContextAlertsScreen(
-            config = config,
-            onToggleEnabled = { settingsViewModel.setContextAlertsEnabled(it) },
-            onSaveSsid = { settingsViewModel.setContextAlertWifiSsid(it) },
-            onBackClick = { showContextAlerts = false }
         )
         return
     }
@@ -305,7 +306,7 @@ fun SettingsScreen(
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
                     title = "Doomscrolling Detection",
-                    subtitle = "Set by Admin — warns when scrolling patterns suggest doomscrolling",
+                    subtitle = "Warns when scrolling patterns suggest doomscrolling",
                     trailing = SettingsTrailing.Label(if (config.doomscrollingDetectionEnabled) "On" else "Off")
                 ),
                 SettingsRow(
@@ -313,7 +314,7 @@ fun SettingsScreen(
                     iconBackground = SageAccent.copy(alpha = 0.13f),
                     iconTint = SageAccent,
                     title = "Motion Lock Sensitivity",
-                    subtitle = "Set by Admin — how hard the unlock challenge is",
+                    subtitle = "How hard the unlock challenge is",
                     trailing = SettingsTrailing.Label(ChallengeSensitivity.displayLabel(config.motionLockSensitivity))
                 ),
                 SettingsRow(
@@ -321,15 +322,8 @@ fun SettingsScreen(
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
                     title = "Location Context",
-                    subtitle = when {
-                        !config.contextAlertsEnabled -> "Off"
-                        config.contextAlertWifiSsid.isNullOrBlank() -> "On — set your Wi-Fi network below"
-                        else -> "Alerts on \"${config.contextAlertWifiSsid}\" Wi-Fi"
-                    },
-                    trailing = SettingsTrailing.Toggle(config.contextAlertsEnabled) {
-                        settingsViewModel.setContextAlertsEnabled(it)
-                    },
-                    onClick = { showContextAlerts = true }
+                    subtitle = "Coming soon",
+                    trailing = SettingsTrailing.Toggle(locationContextEnabled) { locationContextEnabled = it }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Bedtime,

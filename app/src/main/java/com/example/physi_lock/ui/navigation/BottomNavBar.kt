@@ -36,7 +36,9 @@ import com.example.physi_lock.ui.theme.SecondarySage
 
 /** Visual design ported from the teammate's sprint-2-ui-navigation branch (BottomNavBar.kt) — a
  * pill-highlighted branded bar replacing the stock Material3 NavigationBar. Keeps this repo's
- * NavController-driven routing (their version takes a plain enum + callback instead). */
+ * NavController-driven routing (their version takes a plain enum + callback instead). Icon/pill/
+ * label sizing reverted 2026-08-26 back to the teammate's original values (17dp icon, 12sp
+ * label) after a prior session's "restore to Material-standard 24dp" pass was judged too big. */
 private data class BottomNavItem(val route: String, val icon: ImageVector, val label: String)
 
 private val bottomNavItems = listOf(
@@ -83,7 +85,7 @@ fun BottomNavBar(navController: NavController) {
                 ) {
                     Box(
                         modifier = Modifier
-                            .size(width = 56.dp, height = 40.dp)
+                            .size(width = 48.dp, height = 32.dp)
                             .then(
                                 if (isSelected) {
                                     Modifier.background(DeepOlive, RoundedCornerShape(19.dp))
@@ -97,14 +99,14 @@ fun BottomNavBar(navController: NavController) {
                             imageVector = item.icon,
                             contentDescription = item.label,
                             tint = if (isSelected) SecondarySage else DeepOlive,
-                            modifier = Modifier.size(24.dp)
+                            modifier = Modifier.size(17.dp)
                         )
                     }
                     Spacer(modifier = Modifier.height(3.75.dp))
                     Text(
                         text = item.label,
                         fontFamily = Nunito,
-                        fontSize = 13.sp,
+                        fontSize = 12.sp,
                         fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
                         color = if (isSelected) DeepOlive else DeepOlive.copy(alpha = 0.7f)
                     )
