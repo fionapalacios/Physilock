@@ -22,6 +22,22 @@ private val THRESHOLD_BY_RISK_LEVEL = mapOf(
 )
 
 /**
+ * Doomscroll Sensitivity (2026-08-27, project memory "module2-doomscroll-design", Option
+ * A): an Admin-set LOW/MODERATE/HIGH bias layered on top of THRESHOLD_BY_RISK_LEVEL above,
+ * not a replacement for it — the risk-level recipe stays exactly as tested. MODERATE (see
+ * ChallengeSensitivity.displayLabel for the shared display convention) is a zero bias, so a
+ * user who's never touched this Admin setting sees identical behavior to before this field
+ * existed. LOW sensitivity raises the bar (fewer alerts); HIGH lowers it (more alerts).
+ * Clamped so an unexpected/unset value can't push the effective threshold outside a sane
+ * probability range.
+ */
+private val SENSITIVITY_BIAS = mapOf(
+    "LOW" to 0.10,
+    "MODERATE" to 0.0,
+    "HIGH" to -0.10
+)
+
+/**
  * Module 2 (AI-Based Behavior Analysis): Logistic Regression I, trained offline
  * in ml/train_doomscroll_model.py and transpiled via m2cgen (see ml/README.md).
  *
@@ -33,11 +49,13 @@ private val THRESHOLD_BY_RISK_LEVEL = mapOf(
  * FEATURE_COLUMNS: [scrollSpeedPerMin, maxPauseGapSec, hourOfDay].
  */
 object DoomscrollDetector {
-    fun detect(inputs: DoomscrollInputs, riskLevel: RiskLevel): Boolean {
+    fun detect(inputs: DoomscrollInputs, riskLevel: RiskLevel, sensitivity: String = "MODERATE"): Boolean {
         val input = doubleArrayOf(inputs.scrollSpeedPerMin, inputs.maxPauseGapSec, inputs.hourOfDay)
         val logit = DoomscrollModel.score(input)
         val probability = sigmoid(logit)
-        val threshold = THRESHOLD_BY_RISK_LEVEL.getValue(riskLevel)
+        val baseThreshold = THRESHOLD_BY_RISK_LEVEL.getValue(riskLevel)
+        val bias = SENSITIVITY_BIAS[sensitivity] ?: 0.0
+        val threshold = (baseThreshold + bias).coerceIn(0.30, 0.95)
         return probability >= threshold
     }
 

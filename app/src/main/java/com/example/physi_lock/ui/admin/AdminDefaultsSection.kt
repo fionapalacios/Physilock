@@ -24,7 +24,7 @@ import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.ui.theme.MutedText
 
 private val userModes = listOf("STUDENT_MODE" to "Student", "WORK_MODE" to "Work")
-private val sensitivityLevels = listOf("LOW", "MEDIUM", "HIGH")
+private val sensitivityLevels = listOf("LOW", "MODERATE", "HIGH")
 
 @Composable
 fun AdminDefaultsSection(
@@ -32,6 +32,7 @@ fun AdminDefaultsSection(
     onSetUserMode: (String) -> Unit,
     onSetDailyLimitMinutes: (Int) -> Unit,
     onSetDoomscrolling: (Boolean) -> Unit,
+    onSetDoomscrollingSensitivity: (String) -> Unit,
     onSetMotionSensitivity: (String) -> Unit
 ) {
     Column(
@@ -41,7 +42,7 @@ fun AdminDefaultsSection(
     ) {
         Text(
             text = "Applied to new accounts on registration. Motion Lock Sensitivity and Doomscrolling " +
-                "Detection are Admin-controlled — users can view these in their own Settings but cannot change them.",
+                "Detection/Sensitivity are Admin-controlled — users can view these in their own Settings but cannot change them.",
             style = MaterialTheme.typography.bodySmall,
             color = MutedText,
             modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
@@ -100,6 +101,31 @@ fun AdminDefaultsSection(
                     checked = defaults.doomscrollingDetectionEnabled,
                     onCheckedChange = onSetDoomscrolling
                 )
+            }
+        }
+
+        Card(modifier = Modifier.padding(8.dp), colors = CardDefaults.cardColors()) {
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(text = "Default Doomscrolling Sensitivity", style = MaterialTheme.typography.titleLarge)
+                Text(
+                    text = "Moderate matches today's existing behavior; Low raises the bar for fewer " +
+                        "alerts, High lowers it for more — layered on top of the risk-level detection " +
+                        "recipe, not a replacement for it.",
+                    style = MaterialTheme.typography.bodyLarge
+                )
+                Row(modifier = Modifier.padding(top = 8.dp)) {
+                    SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
+                        sensitivityLevels.forEachIndexed { index, level ->
+                            SegmentedButton(
+                                selected = defaults.doomscrollingSensitivity == level,
+                                onClick = { onSetDoomscrollingSensitivity(level) },
+                                shape = SegmentedButtonDefaults.itemShape(index = index, count = sensitivityLevels.size)
+                            ) {
+                                Text(ChallengeSensitivity.displayLabel(level))
+                            }
+                        }
+                    }
+                }
             }
         }
 

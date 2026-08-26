@@ -307,7 +307,13 @@ fun SettingsScreen(
                     iconTint = Orchid,
                     title = "Doomscrolling Detection",
                     subtitle = "Warns when scrolling patterns suggest doomscrolling",
-                    trailing = SettingsTrailing.Label(if (config.doomscrollingDetectionEnabled) "On" else "Off")
+                    trailing = SettingsTrailing.Label(
+                        if (config.doomscrollingDetectionEnabled) {
+                            ChallengeSensitivity.displayLabel(config.doomscrollingSensitivity)
+                        } else {
+                            "Off"
+                        }
+                    )
                 ),
                 SettingsRow(
                     icon = Icons.AutoMirrored.Filled.DirectionsRun,

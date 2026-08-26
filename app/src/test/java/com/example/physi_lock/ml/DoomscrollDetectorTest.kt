@@ -60,4 +60,45 @@ class DoomscrollDetectorTest {
             }
         }
     }
+
+    // Doomscroll Sensitivity (2026-08-27, project memory "module2-doomscroll-design",
+    // Option A): a bias layered on the risk-level recipe, not a replacement for it.
+    @Test
+    fun `MODERATE sensitivity is a no-op, matching the pre-existing tested behavior`() {
+        for (inputs in samples) {
+            for (riskLevel in RiskLevel.entries) {
+                assertEquals(
+                    "inputs=$inputs riskLevel=$riskLevel",
+                    DoomscrollDetector.detect(inputs, riskLevel),
+                    DoomscrollDetector.detect(inputs, riskLevel, "MODERATE")
+                )
+            }
+        }
+    }
+
+    @Test
+    fun `a flag at HIGH sensitivity always also flags at MODERATE, which always also flags at LOW`() {
+        for (inputs in samples) {
+            for (riskLevel in RiskLevel.entries) {
+                val flaggedHighSensitivity = DoomscrollDetector.detect(inputs, riskLevel, "HIGH")
+                val flaggedModerateSensitivity = DoomscrollDetector.detect(inputs, riskLevel, "MODERATE")
+                val flaggedLowSensitivity = DoomscrollDetector.detect(inputs, riskLevel, "LOW")
+
+                if (flaggedModerateSensitivity) {
+                    assertEquals(
+                        "inputs=$inputs riskLevel=$riskLevel: MODERATE sensitivity flagged but HIGH didn't",
+                        true,
+                        flaggedHighSensitivity
+                    )
+                }
+                if (flaggedLowSensitivity) {
+                    assertEquals(
+                        "inputs=$inputs riskLevel=$riskLevel: LOW sensitivity flagged but MODERATE didn't",
+                        true,
+                        flaggedModerateSensitivity
+                    )
+                }
+            }
+        }
+    }
 }

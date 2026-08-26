@@ -15,7 +15,7 @@ enum class StepChallengeMode { WALK, JOG }
 class StepChallengeDetector(
     context: Context,
     private val mode: StepChallengeMode,
-    private val sensitivity: ChallengeSensitivity = ChallengeSensitivity.MEDIUM,
+    private val sensitivity: ChallengeSensitivity = ChallengeSensitivity.MODERATE,
     private val onProgress: (stepsSoFar: Int, elapsedMs: Long, cadenceStepsPerMin: Int) -> Unit,
     private val onComplete: () -> Unit,
     private val onCadenceDropped: (() -> Unit)? = null,

@@ -12,6 +12,7 @@ data class DefaultSettings(
     val dailyScreenTimeThresholdMs: Long = 480 * 60 * 1000,
     val hourlyExcessiveUsageThresholdMs: Long = 60 * 60 * 1000,
     val doomscrollingDetectionEnabled: Boolean = true,
-    val motionLockSensitivity: String = "MEDIUM",
+    val doomscrollingSensitivity: String = "MODERATE",
+    val motionLockSensitivity: String = "MODERATE",
     val lastUpdatedTime: Long = System.currentTimeMillis()
 )

@@ -54,7 +54,7 @@ class MoveViewModel(application: Application) : AndroidViewModel(application) {
         .map { names -> names.mapNotNull { name -> runCatching { ChallengeType.valueOf(name) }.getOrNull() }.toSet() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptySet())
 
-    var sensitivity: ChallengeSensitivity = ChallengeSensitivity.MEDIUM
+    var sensitivity: ChallengeSensitivity = ChallengeSensitivity.MODERATE
         private set
 
     init {

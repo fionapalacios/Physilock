@@ -114,6 +114,7 @@ fun AdminHomeScreen(viewModel: AdminViewModel = viewModel()) {
                     onSetUserMode = viewModel::setDefaultUserMode,
                     onSetDailyLimitMinutes = viewModel::setDefaultDailyScreenTimeThresholdMinutes,
                     onSetDoomscrolling = viewModel::setDefaultDoomscrollingDetectionEnabled,
+                    onSetDoomscrollingSensitivity = viewModel::setDefaultDoomscrollingSensitivity,
                     onSetMotionSensitivity = viewModel::setDefaultMotionLockSensitivity
                 )
             }

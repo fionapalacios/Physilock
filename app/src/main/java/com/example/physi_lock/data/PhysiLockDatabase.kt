@@ -23,7 +23,7 @@ import androidx.room.RoomDatabase
         ScheduleBlock::class,
         AllowlistedApp::class
     ],
-    version = 18,
+    version = 19,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {

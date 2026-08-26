@@ -173,6 +173,9 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     fun setDefaultDoomscrollingDetectionEnabled(enabled: Boolean) =
         updateDefaults { it.copy(doomscrollingDetectionEnabled = enabled) }
 
+    fun setDefaultDoomscrollingSensitivity(level: String) =
+        updateDefaults { it.copy(doomscrollingSensitivity = level) }
+
     fun setDefaultMotionLockSensitivity(level: String) =
         updateDefaults { it.copy(motionLockSensitivity = level) }
 

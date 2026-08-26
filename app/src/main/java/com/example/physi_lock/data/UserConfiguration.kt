@@ -10,7 +10,13 @@ data class UserConfiguration(
     val dailyScreenTimeThresholdMs: Long = 480 * 60 * 1000, // 480 minutes default
     val hourlyExcessiveUsageThresholdMs: Long = 60 * 60 * 1000, // 60 minutes per hour
     val doomscrollingDetectionEnabled: Boolean = true,
-    val motionLockSensitivity: String = "MEDIUM", // "LOW", "MEDIUM", "HIGH"
+    // Doomscroll Sensitivity (2026-08-27): an Admin-set bias layered on top of
+    // DoomscrollDetector's existing risk-level threshold "recipe", not a replacement for
+    // it -- MODERATE leaves that recipe exactly as it was before this field existed. See
+    // project memory "module2-doomscroll-design" for the confirmed design/rejected
+    // alternatives. Same Admin-controlled, User-read-only treatment as motionLockSensitivity.
+    val doomscrollingSensitivity: String = "MODERATE", // "LOW", "MODERATE", "HIGH"
+    val motionLockSensitivity: String = "MODERATE", // "LOW", "MODERATE", "HIGH"
     val breakReminderEnabled: Boolean = true,
     val breakReminderIntervalMs: Long = 30 * 60 * 1000, // 30 minutes default
     val overuseAlertsEnabled: Boolean = true,

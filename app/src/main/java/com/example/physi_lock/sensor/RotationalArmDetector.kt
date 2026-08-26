@@ -14,7 +14,7 @@ import kotlin.math.sqrt
 // needing per-axis/direction classification.
 class RotationalArmDetector(
     context: Context,
-    private val sensitivity: ChallengeSensitivity = ChallengeSensitivity.MEDIUM,
+    private val sensitivity: ChallengeSensitivity = ChallengeSensitivity.MODERATE,
     private val onProgress: (Int) -> Unit,
     private val onComplete: () -> Unit
 ) : SensorEventListener, ChallengeDetector {

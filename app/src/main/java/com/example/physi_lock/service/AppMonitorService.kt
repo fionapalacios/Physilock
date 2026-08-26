@@ -144,6 +144,9 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var overuseAlertsEnabled: Boolean = true
     @Volatile private var dailyScreenTimeThresholdMs: Long = 480 * 60 * 1000L
     @Volatile private var doomscrollingDetectionEnabled: Boolean = true
+    // Doomscroll Sensitivity (2026-08-27): Admin-set bias layered on the risk-level
+    // recipe below -- see DoomscrollDetector.kt's SENSITIVITY_BIAS kdoc.
+    @Volatile private var doomscrollingSensitivity: String = "MODERATE"
     // Refreshed periodically (RISK_REFRESH_INTERVAL_MS), not on every check — see
     // startRiskRefreshLoop(). Selects the doomscroll detection threshold "recipe";
     // is NOT fed into DoomscrollModel as a feature (see DoomscrollDetector.kt).
@@ -230,6 +233,7 @@ class AppMonitorService : AccessibilityService() {
                 overuseAlertsEnabled = config?.overuseAlertsEnabled ?: true
                 dailyScreenTimeThresholdMs = config?.dailyScreenTimeThresholdMs ?: (480 * 60 * 1000L)
                 doomscrollingDetectionEnabled = config?.doomscrollingDetectionEnabled ?: true
+                doomscrollingSensitivity = config?.doomscrollingSensitivity ?: "MODERATE"
                 contextAlertsEnabled = config?.contextAlertsEnabled ?: false
                 contextAlertWifiSsid = config?.contextAlertWifiSsid
                 userMode = config?.userMode ?: "STUDENT_MODE"
@@ -609,7 +613,7 @@ class AppMonitorService : AccessibilityService() {
         )
 
         val isDoomscrolling = try {
-            DoomscrollDetector.detect(inputs, cachedRiskLevel)
+            DoomscrollDetector.detect(inputs, cachedRiskLevel, doomscrollingSensitivity)
         } catch (e: Exception) {
             e.printStackTrace()
             false
