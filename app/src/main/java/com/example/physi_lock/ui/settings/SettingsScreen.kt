@@ -306,22 +306,13 @@ fun SettingsScreen(
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
                     title = "Doomscrolling Detection",
-                    subtitle = "Warns when scrolling patterns suggest doomscrolling",
-                    trailing = SettingsTrailing.Label(
-                        if (config.doomscrollingDetectionEnabled) {
-                            ChallengeSensitivity.displayLabel(config.doomscrollingSensitivity)
-                        } else {
-                            "Off"
-                        }
-                    )
-                ),
-                SettingsRow(
-                    icon = Icons.AutoMirrored.Filled.DirectionsRun,
-                    iconBackground = SageAccent.copy(alpha = 0.13f),
-                    iconTint = SageAccent,
-                    title = "Motion Lock Sensitivity",
-                    subtitle = "How hard the unlock challenge is",
-                    trailing = SettingsTrailing.Label(ChallengeSensitivity.displayLabel(config.motionLockSensitivity))
+                    subtitle = if (config.doomscrollingDetectionEnabled) {
+                        "Warns when scrolling patterns suggest doomscrolling · " +
+                            "${ChallengeSensitivity.displayLabel(config.doomscrollingSensitivity)} sensitivity"
+                    } else "Off",
+                    trailing = SettingsTrailing.Toggle(config.doomscrollingDetectionEnabled) {
+                        settingsViewModel.setDoomscrollingDetectionEnabled(it)
+                    }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Room,
@@ -361,6 +352,14 @@ fun SettingsScreen(
                     title = "App Lock Rules",
                     subtitle = "Choose which apps require a shake challenge",
                     onClick = { showAppLockRules = true }
+                ),
+                SettingsRow(
+                    icon = Icons.AutoMirrored.Filled.DirectionsRun,
+                    iconBackground = SageAccent.copy(alpha = 0.13f),
+                    iconTint = SageAccent,
+                    title = "Motion Lock Sensitivity",
+                    subtitle = "How hard the unlock challenge is · set by Admin",
+                    trailing = SettingsTrailing.Label(ChallengeSensitivity.displayLabel(config.motionLockSensitivity))
                 ),
                 SettingsRow(
                     icon = Icons.AutoMirrored.Filled.PlaylistAddCheck,

@@ -69,6 +69,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setOveruseAlertsEnabled(enabled: Boolean) =
         update { it.copy(overuseAlertsEnabled = enabled) }
 
+    /** User can turn doomscroll detection on/off; the sensitivity level itself stays
+     *  Admin-controlled (see AdminDefaultsSection), same split as Break Reminder's
+     *  enabled-toggle vs. Admin-defaulted interval. */
+    fun setDoomscrollingDetectionEnabled(enabled: Boolean) =
+        update { it.copy(doomscrollingDetectionEnabled = enabled) }
+
     fun setContextAlertsEnabled(enabled: Boolean) =
         update { it.copy(contextAlertsEnabled = enabled) }
 
