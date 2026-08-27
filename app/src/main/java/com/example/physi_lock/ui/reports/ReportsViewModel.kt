@@ -156,6 +156,10 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         return dayUsageByDate.keys
             .groupBy { date -> java.time.temporal.ChronoUnit.WEEKS.between(mondayOf(date), thisWeekStart) }
             .toSortedMap()
+            // The 28-day fetch is calendar days back from "today," not week-aligned, so unless
+            // today happens to be a Sunday it straddles a 5th, partial week at the far end.
+            // Keep exactly the 4 intended buckets (weeksAgo 0..3) and drop that leftover one.
+            .filterKeys { it < 4 }
             .map { (weeksAgo, dates) ->
                 val totalMinutes = dates.sumOf { dayUsageByDate.getValue(it).minutes }
                 val weekStart = mondayOf(dates.min())
