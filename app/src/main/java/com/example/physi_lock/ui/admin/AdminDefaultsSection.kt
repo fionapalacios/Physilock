@@ -19,7 +19,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import com.example.physi_lock.data.DefaultSettings
+import com.example.physi_lock.data.entity.DefaultSettings
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.ui.theme.MutedText
 

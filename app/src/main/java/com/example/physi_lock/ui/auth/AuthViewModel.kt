@@ -8,12 +8,13 @@ import androidx.credentials.CustomCredential
 import androidx.credentials.GetCredentialRequest
 import androidx.lifecycle.AndroidViewModel
 import com.example.physi_lock.R
-import com.example.physi_lock.data.Account
-import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.model.Account
+import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.data.auth.FirebaseAccountRepository
 import com.example.physi_lock.data.auth.HybridAccountRepository
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.example.physi_lock.data.entity.UserConfiguration
 
 data class AuthFormState(
     val username: String = "",

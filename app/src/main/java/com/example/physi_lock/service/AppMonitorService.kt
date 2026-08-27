@@ -14,15 +14,15 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.physi_lock.MainActivity
 import com.example.physi_lock.R
-import com.example.physi_lock.data.AppCategoryType
-import com.example.physi_lock.data.AppUsageLog
-import com.example.physi_lock.data.ExcessiveUsagePredictionLog
-import com.example.physi_lock.data.MotionInterventionLog
-import com.example.physi_lock.data.NotificationLog
-import com.example.physi_lock.data.PhysiLockDatabase
-import com.example.physi_lock.data.ScheduleBlock
-import com.example.physi_lock.data.UsageStatsRepository
-import com.example.physi_lock.data.currentWifiSsid
+import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.data.entity.AppUsageLog
+import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
+import com.example.physi_lock.data.entity.MotionInterventionLog
+import com.example.physi_lock.data.entity.NotificationLog
+import com.example.physi_lock.data.db.PhysiLockDatabase
+import com.example.physi_lock.data.entity.ScheduleBlock
+import com.example.physi_lock.data.repository.UsageStatsRepository
+import com.example.physi_lock.data.context.currentWifiSsid
 import com.example.physi_lock.ml.DoomscrollDetector
 import com.example.physi_lock.ml.DoomscrollInputs
 import com.example.physi_lock.ml.ExcessiveUsageDetector
@@ -39,6 +39,7 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import com.example.physi_lock.data.entity.FocusSession
 
 class AppMonitorService : AccessibilityService() {
 

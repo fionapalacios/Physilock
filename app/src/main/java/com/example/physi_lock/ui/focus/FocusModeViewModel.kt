@@ -3,10 +3,10 @@ package com.example.physi_lock.ui.focus
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.AppCategoryType
-import com.example.physi_lock.data.FocusSession
-import com.example.physi_lock.data.PhysiLockDatabase
-import com.example.physi_lock.data.UserConfiguration
+import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.data.entity.FocusSession
+import com.example.physi_lock.data.db.PhysiLockDatabase
+import com.example.physi_lock.data.entity.UserConfiguration
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

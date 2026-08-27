@@ -3,9 +3,9 @@ package com.example.physi_lock.ui.home
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.AppUsageTotal
-import com.example.physi_lock.data.PhysiLockDatabase
-import com.example.physi_lock.data.UsageStatsRepository
+import com.example.physi_lock.data.dao.AppUsageTotal
+import com.example.physi_lock.data.db.PhysiLockDatabase
+import com.example.physi_lock.data.repository.UsageStatsRepository
 import com.example.physi_lock.ml.RiskFeatureExtractor
 import com.example.physi_lock.ml.RiskScoringEngine
 import com.example.physi_lock.service.AppMonitorService
@@ -23,6 +23,8 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.example.physi_lock.data.entity.AppUsageLog
+import com.example.physi_lock.data.entity.UserConfiguration
 
 /** Ported from the teammate's DashboardScreen "Doomscrolling detected" banner — real data
  *  instead of their hardcoded "23 min continuous session on TikTok": which app the most

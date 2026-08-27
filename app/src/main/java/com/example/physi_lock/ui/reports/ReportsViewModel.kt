@@ -3,12 +3,12 @@ package com.example.physi_lock.ui.reports
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.AppCategoryType
-import com.example.physi_lock.data.AppUsageTotal
-import com.example.physi_lock.data.ExcessiveUsagePredictionLog
-import com.example.physi_lock.data.PhysiLockDatabase
-import com.example.physi_lock.data.UsageStatsRepository
-import com.example.physi_lock.data.categoryTotals
+import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.data.dao.AppUsageTotal
+import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
+import com.example.physi_lock.data.db.PhysiLockDatabase
+import com.example.physi_lock.data.repository.UsageStatsRepository
+import com.example.physi_lock.data.repository.categoryTotals
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.example.physi_lock.data.entity.AppUsageLog
 
 data class DayUsage(val dayLabel: String, val minutes: Int, val isToday: Boolean, val isWeekend: Boolean)
 

@@ -1,11 +1,12 @@
 package com.example.physi_lock.ml
 
 import android.content.Context
-import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.db.PhysiLockDatabase
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
+import com.example.physi_lock.data.entity.AppUsageLog
 
 /**
  * Pulls the current hour's Module 2 Logistic Regression II feature vector from real

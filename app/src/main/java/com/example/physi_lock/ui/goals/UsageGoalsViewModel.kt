@@ -3,11 +3,11 @@ package com.example.physi_lock.ui.goals
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.CategoryGoal
-import com.example.physi_lock.data.PhysiLockDatabase
-import com.example.physi_lock.data.UsageStatsRepository
-import com.example.physi_lock.data.UserConfiguration
-import com.example.physi_lock.data.categoryTotals
+import com.example.physi_lock.data.entity.CategoryGoal
+import com.example.physi_lock.data.db.PhysiLockDatabase
+import com.example.physi_lock.data.repository.UsageStatsRepository
+import com.example.physi_lock.data.entity.UserConfiguration
+import com.example.physi_lock.data.repository.categoryTotals
 import java.time.LocalDate
 import java.time.ZoneId
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.example.physi_lock.data.entity.AppCategoryType
 
 private const val MS_PER_HOUR = 3_600_000L
 

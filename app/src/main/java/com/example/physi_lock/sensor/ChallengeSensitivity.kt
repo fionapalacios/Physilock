@@ -1,6 +1,7 @@
 package com.example.physi_lock.sensor
 
 import com.example.physi_lock.ml.RiskLevel
+import com.example.physi_lock.data.entity.UserConfiguration
 
 // Mirrors UserConfiguration.motionLockSensitivity ("LOW"/"MODERATE"/"HIGH") — the
 // single source of truth for how the setting maps to detector behavior, shared

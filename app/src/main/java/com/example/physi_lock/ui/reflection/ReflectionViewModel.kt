@@ -3,8 +3,8 @@ package com.example.physi_lock.ui.reflection
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.PhysiLockDatabase
-import com.example.physi_lock.data.ReflectionEntry
+import com.example.physi_lock.data.db.PhysiLockDatabase
+import com.example.physi_lock.data.entity.ReflectionEntry
 import java.text.SimpleDateFormat
 import java.time.LocalDate
 import java.util.Date

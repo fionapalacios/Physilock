@@ -43,6 +43,7 @@ import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
+import com.example.physi_lock.data.entity.FocusSession
 
 /** Ported from the teammate's sprint-2-ui-navigation branch; visuals only, session/timer/
  *  blocking backend is real as of 2026-08-25 — see [FocusModeRoute] and [FocusModeViewModel]. */

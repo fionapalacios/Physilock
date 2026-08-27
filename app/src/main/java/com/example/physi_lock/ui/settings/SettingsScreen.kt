@@ -62,7 +62,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.physi_lock.data.Account
+import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.data.auth.ChangePasswordResult
 import com.example.physi_lock.data.auth.FirebaseAccountRepository
 import com.example.physi_lock.sensor.ChallengeSensitivity

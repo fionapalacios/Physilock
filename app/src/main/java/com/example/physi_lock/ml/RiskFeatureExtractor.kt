@@ -1,8 +1,8 @@
 package com.example.physi_lock.ml
 
 import android.content.Context
-import com.example.physi_lock.data.AppCategoryType
-import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.data.db.PhysiLockDatabase
 import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date

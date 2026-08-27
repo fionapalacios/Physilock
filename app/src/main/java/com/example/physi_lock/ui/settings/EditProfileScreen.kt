@@ -37,13 +37,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.physi_lock.data.Account
+import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.ui.components.AuthFieldLabel
 import com.example.physi_lock.ui.components.AuthTextField
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
+import com.example.physi_lock.data.entity.UserConfiguration
 
 /**
  * Ported from the teammate's sprint-2-ui-navigation branch (`ui/screens/settings/EditProfileScreen.kt`).

@@ -26,7 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.example.physi_lock.data.AppCategoryType
+import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.ui.settings.InstalledAppInfo
 import com.example.physi_lock.ui.theme.DeepOlive
 

@@ -7,7 +7,7 @@ import androidx.compose.ui.Modifier
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.example.physi_lock.data.Account
+import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.ui.focus.FocusModeRoute
 import com.example.physi_lock.ui.goals.UsageGoalsScreen
 import com.example.physi_lock.ui.home.HomeScreen
