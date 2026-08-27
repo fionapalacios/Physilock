@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "624600146817",
+    "project_id": "physi-lock",
+    "storage_bucket": "physi-lock.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:624600146817:android:3751d62eed0265324b7e80",
+        "android_client_info": {
+          "package_name": "com.example.physi_lock"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "624600146817-gnkjro95dk5dc1d54hj5tj6hn51nc3h0.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.physi_lock",
+            "certificate_hash": "5a3c2f3e77a80f149984dc4c07ae1301164456cf"
+          }
+        },
+        {
+          "client_id": "624600146817-q929fb0h7ipe781jlvkg6077t35lc09t.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyACxx99aBrrnCLCEJxF5GJzkzA0UZVaLU8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "624600146817-q929fb0h7ipe781jlvkg6077t35lc09t.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
