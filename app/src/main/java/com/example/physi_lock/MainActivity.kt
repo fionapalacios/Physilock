@@ -277,7 +277,16 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     )
-                    AppStage.ADMIN_HOME -> AdminHomeScreen()
+                    AppStage.ADMIN_HOME -> AdminHomeScreen(
+                        onLogout = {
+                            coroutineScope.launch {
+                                authViewModel.logout(context)
+                                currentAccount = null
+                                authError = null
+                                stage = AppStage.AUTH_LOGIN
+                            }
+                        }
+                    )
                 }
             }
         }

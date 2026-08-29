@@ -1,12 +1,18 @@
 package com.example.physi_lock.ui.admin
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.Logout
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
@@ -18,6 +24,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -36,7 +43,7 @@ enum class AdminTab(val label: String) {
 }
 
 @Composable
-fun AdminHomeScreen(viewModel: AdminViewModel = viewModel()) {
+fun AdminHomeScreen(onLogout: () -> Unit = {}, viewModel: AdminViewModel = viewModel()) {
     var tab by remember { mutableStateOf(AdminTab.ACCOUNTS) }
 
     val isOnline by viewModel.isOnline.collectAsState()
@@ -48,20 +55,35 @@ fun AdminHomeScreen(viewModel: AdminViewModel = viewModel()) {
             .background(Color(0xFFFEFEFE))
             .padding(16.dp)
     ) {
-        Text(
-            text = "Admin Dashboard",
-            fontFamily = Nunito,
-            fontWeight = FontWeight.ExtraBold,
-            fontSize = 22.sp,
-            color = DeepOlive
-        )
-        Text(
-            text = "Governance tools for accounts, app categories, and defaults",
-            fontFamily = Nunito,
-            fontSize = 13.sp,
-            color = MutedText,
-            modifier = Modifier.padding(bottom = 16.dp)
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.Top
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "Admin Dashboard",
+                    fontFamily = Nunito,
+                    fontWeight = FontWeight.ExtraBold,
+                    fontSize = 22.sp,
+                    color = DeepOlive
+                )
+                Text(
+                    text = "Governance tools for accounts, app categories, and defaults",
+                    fontFamily = Nunito,
+                    fontSize = 13.sp,
+                    color = MutedText,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+            }
+            IconButton(onClick = onLogout) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.Logout,
+                    contentDescription = "Sign out",
+                    tint = DeepOlive
+                )
+            }
+        }
 
         if (!isOnline) {
             AdminOfflineBanner()
@@ -104,7 +126,8 @@ fun AdminHomeScreen(viewModel: AdminViewModel = viewModel()) {
                 AdminCategoriesSection(
                     apps = apps,
                     categories = categories,
-                    onSetCategory = viewModel::setCategory
+                    onSetCategory = viewModel::setCategory,
+                    onAutoCategorize = viewModel::autoCategorizeUncategorized
                 )
             }
             AdminTab.DEFAULTS -> {

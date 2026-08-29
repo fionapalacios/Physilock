@@ -1,6 +1,7 @@
 package com.example.physi_lock.ui.admin
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -11,12 +12,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,7 +37,8 @@ import com.example.physi_lock.ui.theme.DeepOlive
 fun AdminCategoriesSection(
     apps: List<InstalledAppInfo>,
     categories: Map<String, String>,
-    onSetCategory: (InstalledAppInfo, String) -> Unit
+    onSetCategory: (InstalledAppInfo, String) -> Unit,
+    onAutoCategorize: () -> Unit
 ) {
     if (apps.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -43,6 +47,33 @@ fun AdminCategoriesSection(
         return
     }
 
+    Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.End
+        ) {
+            TextButton(onClick = onAutoCategorize) {
+                Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = DeepOlive)
+                Text(
+                    "  Auto-categorize uncategorized apps",
+                    color = DeepOlive,
+                    style = MaterialTheme.typography.labelLarge
+                )
+            }
+        }
+        HorizontalDivider()
+        AdminCategoriesList(apps = apps, categories = categories, onSetCategory = onSetCategory)
+    }
+}
+
+@Composable
+private fun AdminCategoriesList(
+    apps: List<InstalledAppInfo>,
+    categories: Map<String, String>,
+    onSetCategory: (InstalledAppInfo, String) -> Unit
+) {
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         items(apps, key = { it.packageName }) { app ->
             val currentCategory = categories[app.packageName] ?: AppCategoryType.OTHER

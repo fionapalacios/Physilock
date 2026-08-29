@@ -14,7 +14,6 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.physi_lock.MainActivity
 import com.example.physi_lock.R
-import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.entity.AppUsageLog
 import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.entity.MotionInterventionLog
@@ -34,6 +33,7 @@ import com.example.physi_lock.ui.lock.LockActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -120,6 +120,15 @@ class AppMonitorService : AccessibilityService() {
         // which always fires on every attempt.
         private const val FOCUS_BLOCK_NOTIFICATION_THROTTLE_MS = 60 * 1000L
 
+        // Persistent "session running" notification (2026-08-29, per YPT/Digital Wellbeing
+        // comparison) -- Focus Mode lets the user leave to use non-blocked apps, so the
+        // in-app countdown alone is invisible once they do. This keeps the live elapsed time
+        // visible via the notification shade the whole session, same purpose YPT's floating
+        // timer overlay serves, without building a full always-on-top overlay widget.
+        private const val FOCUS_SESSION_CHANNEL_ID = "focus_session_channel"
+        private const val FOCUS_SESSION_NOTIFICATION_ID = 1008
+        private const val FOCUS_SESSION_UPDATE_INTERVAL_MS = 60 * 1000L
+
         private const val CONTEXT_ALERT_CHANNEL_ID = "context_alert_channel"
         private const val CONTEXT_ALERT_NOTIFICATION_ID = 1006
         // Context Alerts are informational only (no block), so a longer cooldown than
@@ -155,9 +164,10 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var cachedRiskScore: Double = 0.5
     // Module 6 (Personalization & User Control): Focus Mode. focusModeActive mirrors
     // whether a FocusSession row is currently open; focusBlockedPackages mirrors the
-    // Admin-curated Social Media / Entertainment categories (see FocusModeViewModel —
+    // User's own FocusBlockedApp selection (see FocusModeViewModel/FocusBlockedAppsScreen —
     // same source of truth, so the UI's "blocked" chips and the actual enforcement here
-    // can never drift apart).
+    // can never drift apart). Deliberately not Admin's app categories -- Admin curates
+    // categories for tracking/reporting, the User decides what gets blocked.
     @Volatile private var focusModeActive: Boolean = false
     @Volatile private var focusBlockedPackages: Set<String> = emptySet()
     private var lastFocusBlockNotifyTime: Long = 0L
@@ -216,6 +226,7 @@ class AppMonitorService : AccessibilityService() {
         createFocusBlockNotificationChannel()
         createContextAlertNotificationChannel()
         createScheduleBlockNotificationChannel()
+        createFocusSessionNotificationChannel()
 
         // Live-reload the locked app set from Settings > App Lock Rules; Room's
         // Flow re-emits automatically whenever the table changes, so toggles
@@ -256,17 +267,26 @@ class AppMonitorService : AccessibilityService() {
 
         // Module 6 (Personalization & User Control): live-reload Focus Mode's active
         // session and its real blocked-app set, same pattern as lockedPackages above.
+        // The blocked set is a User-owned selection (see FocusBlockedAppsScreen), not
+        // derived from Admin's app categories.
         serviceScope.launch {
-            database.focusSessionDao().getActiveSession().collect { session ->
+            database.focusSessionDao().getActiveSession().collectLatest { session ->
                 focusModeActive = session != null
+                if (session == null) {
+                    NotificationManagerCompat.from(this@AppMonitorService).cancel(FOCUS_SESSION_NOTIFICATION_ID)
+                    return@collectLatest
+                }
+                // Ticks for as long as this exact session stays active; collectLatest
+                // cancels this loop the moment the session ends or a new one starts.
+                while (true) {
+                    postFocusSessionNotification(session.startTimeMillis)
+                    delay(FOCUS_SESSION_UPDATE_INTERVAL_MS)
+                }
             }
         }
         serviceScope.launch {
-            database.appCategoryDao().getAll().collect { categories ->
-                focusBlockedPackages = categories
-                    .filter { it.category == AppCategoryType.SOCIAL_MEDIA || it.category == AppCategoryType.ENTERTAINMENT }
-                    .map { it.packageName }
-                    .toSet()
+            database.focusBlockedAppDao().getAll().collect { apps ->
+                focusBlockedPackages = apps.map { it.packageName }.toSet()
             }
         }
 
@@ -437,6 +457,17 @@ class AppMonitorService : AccessibilityService() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Notifies when an app is blocked during a Student/Work Mode schedule block"
+        }
+        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
+    }
+
+    private fun createFocusSessionNotificationChannel() {
+        val channel = NotificationChannel(
+            FOCUS_SESSION_CHANNEL_ID,
+            "Focus Session Timer",
+            NotificationManager.IMPORTANCE_LOW
+        ).apply {
+            description = "Shows the live elapsed time while a Focus Mode session is running"
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -883,8 +914,8 @@ class AppMonitorService : AccessibilityService() {
 
         val notification = NotificationCompat.Builder(this, FOCUS_BLOCK_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher_round)
-            .setContentTitle("$appName blocked")
-            .setContentText("$appName is blocked while Focus Mode is active")
+            .setContentTitle("Focus Mode Active")
+            .setContentText("You're in a Focus Mode session — $appName is blocked.")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
@@ -893,9 +924,39 @@ class AppMonitorService : AccessibilityService() {
         NotificationManagerCompat.from(this).notify(FOCUS_BLOCK_NOTIFICATION_ID, notification)
         logNotification(
             type = "FOCUS_BLOCK",
-            title = "$appName blocked",
-            description = "$appName is blocked while Focus Mode is active"
+            title = "Focus Mode Active",
+            description = "You're in a Focus Mode session — $appName is blocked."
         )
+    }
+
+    private fun postFocusSessionNotification(startTimeMillis: Long) {
+        if (ActivityCompat.checkSelfPermission(
+                this, Manifest.permission.POST_NOTIFICATIONS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
+
+        val elapsedMinutes = ((System.currentTimeMillis() - startTimeMillis) / 60_000L).coerceAtLeast(0)
+        val contentIntent = PendingIntent.getActivity(
+            this, 0,
+            Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            },
+            PendingIntent.FLAG_IMMUTABLE
+        )
+
+        val notification = NotificationCompat.Builder(this, FOCUS_SESSION_CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_round)
+            .setContentTitle("Focus session running")
+            .setContentText("${elapsedMinutes}m focused so far · tap to return")
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .setContentIntent(contentIntent)
+            .build()
+
+        NotificationManagerCompat.from(this).notify(FOCUS_SESSION_NOTIFICATION_ID, notification)
     }
 
     // Student/Work Mode (real schedule-based enforcement): same "kick to home, no

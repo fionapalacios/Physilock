@@ -38,6 +38,7 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.SelfImprovement
 import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.Work
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Switch
@@ -66,6 +67,7 @@ import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.data.auth.ChangePasswordResult
 import com.example.physi_lock.data.auth.FirebaseAccountRepository
 import com.example.physi_lock.sensor.ChallengeSensitivity
+import com.example.physi_lock.ui.focus.FocusBlockedAppsScreen
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.ErrorRed
@@ -139,6 +141,7 @@ fun SettingsScreen(
     val accountRepository = remember { FirebaseAccountRepository() }
 
     var showAppLockRules by remember { mutableStateOf(false) }
+    var showFocusBlockedApps by remember { mutableStateOf(false) }
     var showAccountEditor by remember { mutableStateOf(false) }
     var showStudentMode by remember { mutableStateOf(false) }
     var showWorkMode by remember { mutableStateOf(false) }
@@ -158,6 +161,12 @@ fun SettingsScreen(
     if (showAppLockRules) {
         BackHandler { showAppLockRules = false }
         AppLockRulesScreen(onBack = { showAppLockRules = false })
+        return
+    }
+
+    if (showFocusBlockedApps) {
+        BackHandler { showFocusBlockedApps = false }
+        FocusBlockedAppsScreen(onBack = { showFocusBlockedApps = false })
         return
     }
 
@@ -352,6 +361,14 @@ fun SettingsScreen(
                     title = "App Lock Rules",
                     subtitle = "Choose which apps require a shake challenge",
                     onClick = { showAppLockRules = true }
+                ),
+                SettingsRow(
+                    icon = Icons.Default.Block,
+                    iconBackground = DeepOlive.copy(alpha = 0.13f),
+                    iconTint = DeepOlive,
+                    title = "Focus Mode Blocked Apps",
+                    subtitle = "Choose which apps stay locked during Focus sessions",
+                    onClick = { showFocusBlockedApps = true }
                 ),
                 SettingsRow(
                     icon = Icons.AutoMirrored.Filled.DirectionsRun,
