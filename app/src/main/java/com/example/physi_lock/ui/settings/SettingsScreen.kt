@@ -68,6 +68,7 @@ import com.example.physi_lock.data.auth.ChangePasswordResult
 import com.example.physi_lock.data.auth.FirebaseAccountRepository
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.ui.focus.FocusBlockedAppsScreen
+import com.example.physi_lock.ui.permissions.permissionSteps
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.ErrorRed
@@ -145,6 +146,8 @@ fun SettingsScreen(
     var showAccountEditor by remember { mutableStateOf(false) }
     var showStudentMode by remember { mutableStateOf(false) }
     var showWorkMode by remember { mutableStateOf(false) }
+    var showWhitelistManager by remember { mutableStateOf(false) }
+    var showPermissions by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
     var showBreakIntervalPicker by remember { mutableStateOf(false) }
@@ -167,6 +170,18 @@ fun SettingsScreen(
     if (showFocusBlockedApps) {
         BackHandler { showFocusBlockedApps = false }
         FocusBlockedAppsScreen(onBack = { showFocusBlockedApps = false })
+        return
+    }
+
+    if (showWhitelistManager) {
+        BackHandler { showWhitelistManager = false }
+        WhitelistManagerScreen(onBackClick = { showWhitelistManager = false })
+        return
+    }
+
+    if (showPermissions) {
+        BackHandler { showPermissions = false }
+        PermissionsScreen(onBackClick = { showPermissions = false })
         return
     }
 
@@ -227,6 +242,9 @@ fun SettingsScreen(
 
     val config by settingsViewModel.configuration.collectAsState()
     val streakDays by settingsViewModel.streakDays.collectAsState()
+    // Deliberately not `remember`-ed: recomputed on every recomposition (cheap, 5 checks) so
+    // coming back from PermissionsScreen after granting one reflects the fresh count.
+    val permissionsGrantedCount = permissionSteps.count { it.isGranted(context) }
 
     if (showStudentMode) {
         BackHandler { showStudentMode = false }
@@ -383,14 +401,16 @@ fun SettingsScreen(
                     iconBackground = SageAccent.copy(alpha = 0.13f),
                     iconTint = SageAccent,
                     title = "Whitelist Manager",
-                    subtitle = "Coming soon"
+                    subtitle = "Apps that stay reachable during Student Mode",
+                    onClick = { showWhitelistManager = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Lock,
                     iconBackground = SageAccent.copy(alpha = 0.13f),
                     iconTint = SageAccent,
                     title = "Permissions",
-                    subtitle = "Coming soon"
+                    subtitle = "$permissionsGrantedCount/${permissionSteps.size} granted",
+                    onClick = { showPermissions = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Info,
