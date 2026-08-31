@@ -12,6 +12,13 @@ data class AppUsageTotal(
     val totalDurationMs: Long
 )
 
+data class DailyAppUsage(
+    val dateKey: String,
+    val packageName: String,
+    val appName: String,
+    val totalDurationMs: Long
+)
+
 data class HourlyUsage(val hour: Int, val totalDurationMs: Long)
 
 @Dao
@@ -83,6 +90,15 @@ interface AppUsageLogDao {
 
     @Query("DELETE FROM app_usage_logs WHERE julianday(datetime(sessionStartTime / 1000, 'unixepoch')) < julianday('now', '-90 days')")
     suspend fun deleteOldLogs()
+
+    // Admin Analytics "Top Apps (min/day, last 7 days)" chart — per-day, per-app totals so
+    // the chart can plot each of the (separately-computed) top apps' usage day by day.
+    @Query(
+        "SELECT dateKey, packageName, appName, SUM(foregroundDurationMs) as totalDurationMs " +
+        "FROM app_usage_logs WHERE dateKey BETWEEN :startDateKey AND :endDateKey " +
+        "GROUP BY dateKey, packageName"
+    )
+    suspend fun getDailyAppTotals(startDateKey: String, endDateKey: String): List<DailyAppUsage>
 
     // Module 1 (Core Monitoring & Usage Awareness) "View Usage Patterns": real hour-of-day
     // usage distribution since sinceMillis, for finding which hour the user is typically

@@ -7,42 +7,55 @@ import androidx.lifecycle.viewModelScope
 import com.example.physi_lock.data.Account
 import com.example.physi_lock.data.AppCategory
 import com.example.physi_lock.data.AppCategoryType
+import com.example.physi_lock.ui.settings.InstalledAppInfo
 import com.example.physi_lock.data.AppUsageTotal
+import com.example.physi_lock.data.DailyAppUsage
+import com.example.physi_lock.data.DailyCount
 import com.example.physi_lock.data.DefaultSettings
 import com.example.physi_lock.data.NetworkConnectivityObserver
 import com.example.physi_lock.data.PhysiLockDatabase
 import com.example.physi_lock.data.Role
-import com.example.physi_lock.ui.settings.InstalledAppInfo
-import com.google.firebase.firestore.FirebaseFirestore
+import com.example.physi_lock.data.toAccount
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.TextStyle
+import java.util.Locale
+import java.util.UUID
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.tasks.await
+
+/** One line of the "Top Apps (min/day, last 7 days)" chart -- minutesByDay is aligned to
+ *  AdminAnalytics.dailyLabels (index 0 = 7 days ago .. index 6 = today). */
+data class TopAppSeries(val appName: String, val minutesByDay: List<Int>)
 
 data class AdminAnalytics(
     val totalAccounts: Int = 0,
     val activeAccounts: Int = 0,
     val categorizedAppCount: Int = 0,
     val totalUsageMinutesLast7Days: Int = 0,
-    val topApps: List<AppUsageTotal> = emptyList()
+    val topApps: List<AppUsageTotal> = emptyList(),
+    /** Mon/Tue/.../Sun labels for the last 7 days, oldest first. */
+    val dailyLabels: List<String> = emptyList(),
+    val topAppsDaily: List<TopAppSeries> = emptyList(),
+    val dailyActiveUsers: List<Int> = emptyList(),
+    val dailyChallengesCompleted: List<Int> = emptyList()
 )
 
 class AdminViewModel(application: Application) : AndroidViewModel(application) {
     private val db = PhysiLockDatabase.getInstance(application)
-    private val firestore = FirebaseFirestore.getInstance()
+    private val cachedAccountDao = db.cachedAccountDao()
     private val appCategoryDao = db.appCategoryDao()
     private val defaultSettingsDao = db.defaultSettingsDao()
     private val appUsageLogDao = db.appUsageLogDao()
+    private val motionInterventionLogDao = db.motionInterventionLogDao()
+    private val loginEventDao = db.loginEventDao()
 
     // Admin governance (known gap tracked since 2026-08-09): a shared "the last mutating
     // action failed" signal every toggle/delete/category-save/settings-save action below
@@ -62,48 +75,28 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     val isOnline: StateFlow<Boolean> = connectivityObserver.observe()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    // 1. Manage User Accounts (real-time from Firestore)
+    // 1. Manage User Accounts
+    // DEMO MODE: reads/writes the local Room cache (the same one DemoAccountRepository uses
+    // for login) instead of Firestore, since there's no real backend to query -- see
+    // PhysiLockApplication's placeholder Firebase init. accountsError/retryAccounts are kept
+    // for API compatibility with AdminAccountsSection; a local Room Flow doesn't fail the way
+    // a Firestore listener can, so there's nothing to surface or retry here. Swap back to a
+    // Firestore-backed accounts flow once a real backend exists.
     private val _accountsError = MutableStateFlow<String?>(null)
     val accountsError: StateFlow<String?> = _accountsError.asStateFlow()
-    private val accountsRetryTrigger = MutableStateFlow(0)
 
-    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
-    val accounts: StateFlow<List<Account>> = accountsRetryTrigger
-        .flatMapLatest { accountsFlow() }
+    fun retryAccounts() {}
+
+    val accounts: StateFlow<List<Account>> = cachedAccountDao.getAll()
+        .map { cached -> cached.map { it.toAccount() } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
-
-    /** Re-establishes the Firestore listener — Admin's "couldn't load accounts, tap to
-     *  retry" action, in place of the previous silent-forever-stale behavior. */
-    fun retryAccounts() {
-        accountsRetryTrigger.value++
-    }
-
-    private fun accountsFlow(): Flow<List<Account>> = callbackFlow {
-        _accountsError.value = null
-        val registration = firestore.collection("users")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    // Don't close the channel -- keep the last-known accounts list visible
-                    // (via the outer StateFlow's cached value) rather than blanking the UI,
-                    // and surface the error so the screen can offer a real retry action.
-                    _accountsError.value = error.localizedMessage ?: "Couldn't load accounts"
-                    return@addSnapshotListener
-                }
-                _accountsError.value = null
-                val accounts = snapshot?.documents?.mapNotNull { doc ->
-                    doc.toObject(Account::class.java)?.copy(id = doc.id)
-                }.orEmpty()
-                trySend(accounts)
-            }
-        awaitClose { registration.remove() }
-    }
 
     fun setAccountActive(account: Account, active: Boolean) {
         viewModelScope.launch {
             try {
-                firestore.collection("users").document(account.id)
-                    .update("isActive", active)
-                    .await()
+                val cached = cachedAccountDao.findById(account.id)
+                    ?: throw IllegalStateException("Account not found")
+                cachedAccountDao.upsert(cached.copy(isActive = active))
             } catch (e: Exception) {
                 _actionError.value = "Couldn't update ${account.fullName}'s status: ${e.localizedMessage ?: "unknown error"}"
             }
@@ -113,9 +106,7 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteAccount(account: Account) {
         viewModelScope.launch {
             try {
-                firestore.collection("users").document(account.id)
-                    .delete()
-                    .await()
+                cachedAccountDao.deleteById(account.id)
             } catch (e: Exception) {
                 _actionError.value = "Couldn't delete ${account.fullName}: ${e.localizedMessage ?: "unknown error"}"
             }
@@ -126,9 +117,53 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     private val _installedApps = MutableStateFlow<List<InstalledAppInfo>>(emptyList())
     val installedApps: StateFlow<List<InstalledAppInfo>> = _installedApps.asStateFlow()
 
-    val appCategories: StateFlow<Map<String, String>> = appCategoryDao.getAll()
+    // Raw rows (with appName) so a manually-added app -- see addManualApp -- can still render
+    // even though it's not in installedApps (it isn't a real launchable package).
+    val appCategoryEntries: StateFlow<List<AppCategory>> = appCategoryDao.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    val appCategories: StateFlow<Map<String, String>> = appCategoryEntries
         .map { list -> list.associate { it.packageName to it.category } }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
+
+    /** For an app the auto-detected installed list doesn't have (not launchable / not queried
+     *  by PackageManager) -- stored under a synthetic package id since there's no real one. */
+    fun addManualApp(appName: String, category: String) {
+        viewModelScope.launch {
+            try {
+                appCategoryDao.upsert(
+                    AppCategory(
+                        packageName = "manual:${UUID.randomUUID()}",
+                        appName = appName,
+                        category = category
+                    )
+                )
+            } catch (e: Exception) {
+                _actionError.value = "Couldn't add $appName: ${e.localizedMessage ?: "unknown error"}"
+            }
+        }
+    }
+
+    fun removeAppCategory(app: InstalledAppInfo) {
+        viewModelScope.launch {
+            try {
+                appCategoryDao.delete(app.packageName)
+            } catch (e: Exception) {
+                _actionError.value = "Couldn't remove ${app.appName}: ${e.localizedMessage ?: "unknown error"}"
+            }
+        }
+    }
+
+    // 4. View Usage Analytics + Export Research Data
+    private val _analytics = MutableStateFlow(AdminAnalytics())
+    val analytics: StateFlow<AdminAnalytics> = _analytics.asStateFlow()
+
+    // Admin governance (known gap tracked since 2026-08-09): the two queries below always
+    // caught their own failures and silently fell back to 0/emptyList with nothing shown to
+    // the UI -- this keeps that same safe-fallback display behavior but now also surfaces
+    // that a failure actually happened, so AdminAnalyticsSection can offer a real retry.
+    private val _analyticsError = MutableStateFlow<String?>(null)
+    val analyticsError: StateFlow<String?> = _analyticsError.asStateFlow()
 
     init {
         viewModelScope.launch(Dispatchers.IO) {
@@ -190,44 +225,76 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // 4. View Usage Analytics + Export Research Data
-    private val _analytics = MutableStateFlow(AdminAnalytics())
-    val analytics: StateFlow<AdminAnalytics> = _analytics.asStateFlow()
-
-    // Admin governance (known gap tracked since 2026-08-09): the two queries below always
-    // caught their own failures and silently fell back to 0/emptyList with nothing shown to
-    // the UI -- this keeps that same safe-fallback display behavior but now also surfaces
-    // that a failure actually happened, so AdminAnalyticsSection can offer a real retry.
-    private val _analyticsError = MutableStateFlow<String?>(null)
-    val analyticsError: StateFlow<String?> = _analyticsError.asStateFlow()
-
     private fun loadAnalytics() {
         viewModelScope.launch {
             _analyticsError.value = null
             val today = LocalDate.now()
             val startDate = today.minusDays(6)
             val last7Dates = (6 downTo 0).map { today.minusDays(it.toLong()) }
+            val dailyLabels = last7Dates.map { it.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()) }
+            val sinceMillis = startDate.atStartOfDay(ZoneId.systemDefault()).toInstant().toEpochMilli()
+
             val totalMinutes = try {
                 (last7Dates.sumOf { date -> appUsageLogDao.getTotalDurationByDateOnce(date.toString()) ?: 0L } / 60_000L).toInt()
             } catch (e: Exception) {
                 _analyticsError.value = "Couldn't load usage totals: ${e.localizedMessage ?: "unknown error"}"
                 0
             }
+
+            // NOTE: this used to .collect{} a live Flow here, which never completes on its own
+            // (Room keeps it open for future invalidations) -- that silently stalled the rest
+            // of this function forever after the first emission, so _analytics.value was never
+            // actually set. .first() takes just that first emission and lets loading finish.
             val topApps = try {
-                var latest = emptyList<AppUsageTotal>()
-                appUsageLogDao.getAppTotalsByDateRange(startDate.toString(), today.toString())
-                    .collect { latest = it.take(5) }
-                latest
+                appUsageLogDao.getAppTotalsByDateRange(startDate.toString(), today.toString()).first().take(5)
             } catch (e: Exception) {
                 _analyticsError.value = "Couldn't load top apps: ${e.localizedMessage ?: "unknown error"}"
                 emptyList()
             }
+
+            val topAppsDaily = try {
+                val dailyRows = appUsageLogDao.getDailyAppTotals(startDate.toString(), today.toString())
+                topApps.take(3).map { app ->
+                    val byDate = dailyRows.filter { it.packageName == app.packageName }.associateBy { it.dateKey }
+                    TopAppSeries(
+                        appName = app.appName,
+                        minutesByDay = last7Dates.map { date ->
+                            ((byDate[date.toString()]?.totalDurationMs ?: 0L) / 60_000L).toInt()
+                        }
+                    )
+                }
+            } catch (e: Exception) {
+                _analyticsError.value = "Couldn't load top app trends: ${e.localizedMessage ?: "unknown error"}"
+                emptyList()
+            }
+
+            val dailyActiveUsers = try {
+                val byDate = loginEventDao.getDailyActiveUserCounts(startDate.toString(), today.toString())
+                    .associateBy { it.dateKey }
+                last7Dates.map { date -> byDate[date.toString()]?.count ?: 0 }
+            } catch (e: Exception) {
+                _analyticsError.value = "Couldn't load daily active users: ${e.localizedMessage ?: "unknown error"}"
+                last7Dates.map { 0 }
+            }
+
+            val dailyChallengesCompleted = try {
+                val byDate = motionInterventionLogDao.getDailyCompletedCounts(sinceMillis).associateBy { it.dateKey }
+                last7Dates.map { date -> byDate[date.toString()]?.count ?: 0 }
+            } catch (e: Exception) {
+                _analyticsError.value = "Couldn't load challenge completions: ${e.localizedMessage ?: "unknown error"}"
+                last7Dates.map { 0 }
+            }
+
             _analytics.value = AdminAnalytics(
                 totalAccounts = accounts.value.size,
                 activeAccounts = accounts.value.count { it.isActive },
                 categorizedAppCount = appCategories.value.size,
                 totalUsageMinutesLast7Days = totalMinutes,
-                topApps = topApps
+                topApps = topApps,
+                dailyLabels = dailyLabels,
+                topAppsDaily = topAppsDaily,
+                dailyActiveUsers = dailyActiveUsers,
+                dailyChallengesCompleted = dailyChallengesCompleted
             )
         }
     }

@@ -21,9 +21,10 @@ import androidx.room.RoomDatabase
         CategoryGoal::class,
         ReflectionEntry::class,
         ScheduleBlock::class,
-        AllowlistedApp::class
+        AllowlistedApp::class,
+        LoginEvent::class
     ],
-    version = 19,
+    version = 20,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {
@@ -42,6 +43,7 @@ abstract class PhysiLockDatabase : RoomDatabase() {
     abstract fun reflectionEntryDao(): ReflectionEntryDao
     abstract fun scheduleBlockDao(): ScheduleBlockDao
     abstract fun allowlistedAppDao(): AllowlistedAppDao
+    abstract fun loginEventDao(): LoginEventDao
 
     companion object {
         @Volatile private var INSTANCE: PhysiLockDatabase? = null
