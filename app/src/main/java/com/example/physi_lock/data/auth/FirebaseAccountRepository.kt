@@ -1,7 +1,7 @@
 package com.example.physi_lock.data.auth
 
-import com.example.physi_lock.data.Account
-import com.example.physi_lock.data.Role
+import com.example.physi_lock.data.model.Account
+import com.example.physi_lock.data.model.Role
 import com.example.physi_lock.ui.auth.AuthFormState
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth

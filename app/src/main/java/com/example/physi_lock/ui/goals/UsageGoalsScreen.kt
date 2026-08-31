@@ -37,7 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.physi_lock.data.AppCategoryType
+import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.ui.components.AuthTabsBackground
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
@@ -49,6 +49,8 @@ import com.example.physi_lock.ui.theme.SecondarySage
 import com.example.physi_lock.ui.theme.TertiaryTan
 import java.util.Locale
 import kotlin.math.abs
+import com.example.physi_lock.data.entity.CategoryGoal
+import com.example.physi_lock.data.entity.UserConfiguration
 
 /**
  * Ported from the teammate's sprint-2-ui-navigation branch. As of 2026-08-25, every "current

@@ -55,6 +55,8 @@ import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
+import com.example.physi_lock.data.entity.UserConfiguration
+import com.example.physi_lock.data.model.Account
 
 private enum class UsageMode(val emoji: String, val label: String, val configValue: String) {
     STUDENT("📚", "Student", "STUDENT_MODE"),

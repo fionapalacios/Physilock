@@ -2,20 +2,19 @@ package com.example.physi_lock.ui.admin
 
 import android.app.Application
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.Account
-import com.example.physi_lock.data.AppCategory
-import com.example.physi_lock.data.AppCategoryType
+import com.example.physi_lock.data.model.Account
+import com.example.physi_lock.data.entity.AppCategory
+import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.data.dao.AppUsageTotal
+import com.example.physi_lock.data.entity.DefaultSettings
+import com.example.physi_lock.data.context.NetworkConnectivityObserver
+import com.example.physi_lock.data.db.PhysiLockDatabase
+import com.example.physi_lock.data.model.Role
+import com.example.physi_lock.data.entity.toAccount
 import com.example.physi_lock.ui.settings.InstalledAppInfo
-import com.example.physi_lock.data.AppUsageTotal
-import com.example.physi_lock.data.DailyAppUsage
-import com.example.physi_lock.data.DailyCount
-import com.example.physi_lock.data.DefaultSettings
-import com.example.physi_lock.data.NetworkConnectivityObserver
-import com.example.physi_lock.data.PhysiLockDatabase
-import com.example.physi_lock.data.Role
-import com.example.physi_lock.data.toAccount
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle
@@ -155,6 +154,10 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // 4. View Usage Analytics + Export Research Data
+    // Declared before the init block below: loadAnalytics() launches on
+    // Dispatchers.Main.immediate, which runs synchronously (no re-dispatch) when already on
+    // the main thread -- as it is during ViewModel construction -- so these must exist before
+    // init{} calls loadAnalytics(), or the coroutine body NPEs on a not-yet-initialized field.
     private val _analytics = MutableStateFlow(AdminAnalytics())
     val analytics: StateFlow<AdminAnalytics> = _analytics.asStateFlow()
 
@@ -194,6 +197,51 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+
+    /** Maps Android's own [ApplicationInfo.category] (developer-declared, or Play Store-inferred
+     *  for apps installed that way) onto our 4-bucket scheme. Real OS-reported data, not a guess --
+     *  returns null (no suggestion) for anything ambiguous or CATEGORY_UNDEFINED, rather than forcing
+     *  a bucket that isn't actually implied. CATEGORY_PRODUCTIVITY is deliberately NOT mapped here
+     *  (unlike GAME/SOCIAL/VIDEO/AUDIO) -- verified on-device it sweeps in a lot of unrelated apps
+     *  (banking, telecom, video-call, browsers) that Android/Play tag productivity but don't fit this
+     *  app's tracking intent; left for manual review instead. */
+    private fun androidCategoryHint(category: Int): String? = when (category) {
+        ApplicationInfo.CATEGORY_GAME -> AppCategoryType.GAMES
+        ApplicationInfo.CATEGORY_SOCIAL -> AppCategoryType.SOCIAL_MEDIA
+        ApplicationInfo.CATEGORY_VIDEO, ApplicationInfo.CATEGORY_AUDIO -> AppCategoryType.ENTERTAINMENT
+        else -> null
+    }
+
+    /** Auto-fills categories for apps Admin hasn't categorized yet, using Android's own
+     *  [ApplicationInfo.category] where it confidently maps onto one of our 4 buckets. Apps
+     *  Android reports as CATEGORY_UNDEFINED (or a category with no clean mapping, e.g. news/maps)
+     *  are left alone for manual review -- this never invents a category, and every app it does
+     *  fill in stays editable via the existing dropdown. */
+    fun autoCategorizeUncategorized() {
+        viewModelScope.launch(Dispatchers.IO) {
+            val alreadyCategorized = appCategories.value.keys
+            val candidates = _installedApps.value.filter { it.packageName !in alreadyCategorized }
+            val pm = getApplication<Application>().packageManager
+            var failures = 0
+            var applied = 0
+            for (app in candidates) {
+                try {
+                    val info = pm.getApplicationInfo(app.packageName, 0)
+                    val hint = androidCategoryHint(info.category) ?: continue
+                    appCategoryDao.upsert(
+                        AppCategory(packageName = app.packageName, appName = app.appName, category = hint)
+                    )
+                    applied++
+                } catch (e: Exception) {
+                    failures++
+                }
+            }
+            if (failures > 0) {
+                _actionError.value = "Auto-categorized $applied app(s); $failures couldn't be read."
+            }
+        }
+    }
+
 
     // 3. Configure Default Settings
     val defaultSettings: StateFlow<DefaultSettings> = defaultSettingsDao.getDefaults()

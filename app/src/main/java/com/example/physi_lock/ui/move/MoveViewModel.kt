@@ -3,10 +3,10 @@ package com.example.physi_lock.ui.move
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.MotionInterventionLog
-import com.example.physi_lock.data.PhysiLockDatabase
-import com.example.physi_lock.data.UsageStatsRepository
-import com.example.physi_lock.data.UserConfiguration
+import com.example.physi_lock.data.entity.MotionInterventionLog
+import com.example.physi_lock.data.db.PhysiLockDatabase
+import com.example.physi_lock.data.repository.UsageStatsRepository
+import com.example.physi_lock.data.entity.UserConfiguration
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.sensor.ChallengeType
 import com.example.physi_lock.service.AppMonitorService

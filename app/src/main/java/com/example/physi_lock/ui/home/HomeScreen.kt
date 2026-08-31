@@ -72,6 +72,7 @@ import com.example.physi_lock.ui.theme.TertiaryTan
 import java.util.Calendar
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import com.example.physi_lock.data.dao.AppUsageTotal
 
 private val PrimaryDark = DeepOlive
 private val PrimaryGreen = SageAccent
@@ -596,7 +597,7 @@ private fun ActionTile(
  *  version was redundant with the "Lock Apps" tile above, which already opens App Lock
  *  Rules directly, so its own "Manage Locks" CTA was dropped). */
 @Composable
-private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.AppUsageTotal>) {
+private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.AppUsageTotal>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()

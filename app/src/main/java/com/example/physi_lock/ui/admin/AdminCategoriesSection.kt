@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
@@ -45,8 +46,8 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.physi_lock.data.AppCategory
-import com.example.physi_lock.data.AppCategoryType
+import com.example.physi_lock.data.entity.AppCategory
+import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.ui.settings.InstalledAppInfo
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.CardCream
@@ -99,7 +100,8 @@ fun AdminCategoriesSection(
     categoryEntries: List<AppCategory>,
     onSetCategory: (InstalledAppInfo, String) -> Unit,
     onRemoveCategory: (InstalledAppInfo) -> Unit,
-    onAddManualApp: (String, String) -> Unit
+    onAddManualApp: (String, String) -> Unit,
+    onAutoCategorize: () -> Unit
 ) {
     if (apps.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -134,6 +136,26 @@ fun AdminCategoriesSection(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(onClick = onAutoCategorize)
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = SageAccent, modifier = Modifier.size(14.dp))
+            Spacer(modifier = Modifier.width(6.dp))
+            Text(
+                text = "Auto-categorize uncategorized apps",
+                fontFamily = Nunito,
+                fontWeight = FontWeight.Bold,
+                fontSize = 12.sp,
+                color = SageAccent
+            )
+        }
+
+        Spacer(modifier = Modifier.height(9.dp))
+
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(7.5.dp),
             modifier = Modifier.fillMaxWidth()

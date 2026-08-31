@@ -1,5 +1,6 @@
 package com.example.physi_lock.ui.focus
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -29,7 +30,6 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
@@ -43,6 +43,7 @@ import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
+import com.example.physi_lock.data.entity.FocusSession
 
 /** Ported from the teammate's sprint-2-ui-navigation branch; visuals only, session/timer/
  *  blocking backend is real as of 2026-08-25 — see [FocusModeRoute] and [FocusModeViewModel]. */
@@ -55,20 +56,12 @@ private val focusQuotes = listOf(
     "One focused hour beats five distracted ones."
 )
 
-private val defaultBlockedApps = listOf(
-    "📸" to "Instagram",
-    "🎵" to "TikTok",
-    "𝕏" to "Twitter/X",
-    "▶️" to "YouTube",
-    "🟠" to "Reddit"
-)
-
 @Composable
 fun FocusModeScreen(
     elapsedSeconds: Long,
     onEndFocusClick: () -> Unit,
     modifier: Modifier = Modifier,
-    blockedApps: List<Pair<String, String>> = defaultBlockedApps
+    blockedApps: List<String> = emptyList()
 ) {
     val quote = remember { focusQuotes.random() }
     val minutes = elapsedSeconds / 60
@@ -196,10 +189,10 @@ fun FocusModeScreen(
 }
 
 @Composable
-private fun BlockedAppsCloud(blockedApps: List<Pair<String, String>>) {
+private fun BlockedAppsCloud(blockedApps: List<String>) {
     if (blockedApps.isEmpty()) {
         Text(
-            text = "No apps categorized as Social Media or Entertainment yet — ask your Admin to curate categories.",
+            text = "No apps selected yet — choose which apps to block in Settings.",
             fontFamily = Nunito,
             fontSize = 12.sp,
             lineHeight = 18.sp,
@@ -217,14 +210,14 @@ private fun BlockedAppsCloud(blockedApps: List<Pair<String, String>>) {
             Row(
                 horizontalArrangement = Arrangement.spacedBy(7.5.dp)
             ) {
-                rowApps.forEach { (emoji, name) -> BlockedAppChip(emoji = emoji, name = name) }
+                rowApps.forEach { name -> BlockedAppChip(name = name) }
             }
         }
     }
 }
 
 @Composable
-private fun BlockedAppChip(emoji: String, name: String) {
+private fun BlockedAppChip(name: String) {
     Row(
         modifier = Modifier
             .background(BackgroundLight.copy(alpha = 0.06f), RoundedCornerShape(19.dp))
@@ -233,7 +226,6 @@ private fun BlockedAppChip(emoji: String, name: String) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(5.63.dp)
     ) {
-        Text(text = emoji, fontSize = 14.sp, modifier = Modifier.alpha(0.5f))
         Icon(
             imageVector = Icons.Default.Lock,
             contentDescription = null,
@@ -255,8 +247,8 @@ private fun BlockedAppChip(emoji: String, name: String) {
  * Drives [FocusModeScreen] off a real, persisted [FocusModeViewModel] session — elapsed time
  * survives navigation and process death (computed from FocusSession.startTimeMillis, not a
  * counter). Entering this route starts a session if none is active; AppMonitorService reads
- * the same table to actually block Social Media / Entertainment apps while one is active.
- * "End Focus Session" surfaces the ported [EndFocusSessionSheet] confirmation instead of
+ * the same User-chosen FocusBlockedApp table (see FocusBlockedAppsScreen) to actually block
+ * apps while one is active. "End Focus Session" surfaces the ported [EndFocusSessionSheet] confirmation instead of
  * ending immediately.
  */
 @Composable
@@ -268,6 +260,11 @@ fun FocusModeRoute(
     val elapsedSeconds by viewModel.elapsedSeconds.collectAsState()
     val blockedApps by viewModel.blockedApps.collectAsState()
     var showEndSheet by remember { mutableStateOf(false) }
+
+    // Focus Mode is a locked screen while a session is active -- pressing back should surface
+    // the same "End Focus Session" confirmation the button does, not silently pop back to
+    // Home. The bottom nav bar is hidden on this route too (see NavGraph.kt) for the same reason.
+    BackHandler { showEndSheet = true }
 
     LaunchedEffect(Unit) {
         viewModel.startSessionIfNeeded()

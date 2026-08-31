@@ -4,8 +4,8 @@ import android.app.Application
 import android.content.Intent
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.AppLockRule
-import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.entity.AppLockRule
+import com.example.physi_lock.data.db.PhysiLockDatabase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted

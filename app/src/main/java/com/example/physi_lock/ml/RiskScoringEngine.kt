@@ -1,5 +1,6 @@
 package com.example.physi_lock.ml
 
+import com.example.physi_lock.data.entity.MotionInterventionLog
 enum class RiskLevel(val label: String) {
     LOW("Low"),
     MODERATE("Moderate"),

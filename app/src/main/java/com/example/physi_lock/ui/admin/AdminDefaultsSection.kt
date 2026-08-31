@@ -35,7 +35,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.delay
-import com.example.physi_lock.data.DefaultSettings
+import com.example.physi_lock.data.entity.DefaultSettings
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.CardCream

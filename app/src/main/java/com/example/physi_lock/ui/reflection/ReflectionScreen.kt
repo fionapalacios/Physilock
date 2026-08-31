@@ -41,7 +41,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.physi_lock.data.ReflectionEntry
+import com.example.physi_lock.data.entity.ReflectionEntry
 import com.example.physi_lock.ui.components.AuthTabsBackground
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
@@ -104,7 +104,15 @@ fun ReflectionScreen(
             horizontalArrangement = Arrangement.spacedBy(11.25.dp)
         ) {
             Box(
-                modifier = Modifier.size(44.dp).clickable(onClick = onBackClick),
+                modifier = Modifier.size(44.dp).clickable(onClick = {
+                    // Explicitly reset local state on the way out, on top of Compose Navigation's
+                    // own disposal of this screen -- so no stale typed-but-unsaved text can ever
+                    // reappear if this route is ever kept alive (e.g. a future saveState change).
+                    answerText = ""
+                    moodRating = 0
+                    justSaved = false
+                    onBackClick()
+                }),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
@@ -171,6 +179,11 @@ fun ReflectionScreen(
                     )
                     .clickable(enabled = moodRating > 0) {
                         viewModel.saveReflection(moodRating, answerText)
+                        // Clear the written answer once it's saved -- leaving it in the field
+                        // read as still-unsaved-draft, not "recorded". hasLoadedExisting stays
+                        // true so the pre-fill LaunchedEffect won't immediately refill it from
+                        // the just-updated todayEntry.
+                        answerText = ""
                         justSaved = true
                     },
                 contentAlignment = Alignment.Center

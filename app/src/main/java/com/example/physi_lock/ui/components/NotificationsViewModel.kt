@@ -3,8 +3,8 @@ package com.example.physi_lock.ui.components
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.NotificationLog
-import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.entity.NotificationLog
+import com.example.physi_lock.data.db.PhysiLockDatabase
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn

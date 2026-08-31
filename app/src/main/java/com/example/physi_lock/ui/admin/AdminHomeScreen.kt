@@ -205,7 +205,8 @@ fun AdminHomeScreen(viewModel: AdminViewModel = viewModel(), onLogout: () -> Uni
                         categoryEntries = categoryEntries,
                         onSetCategory = viewModel::setCategory,
                         onRemoveCategory = viewModel::removeAppCategory,
-                        onAddManualApp = viewModel::addManualApp
+                        onAddManualApp = viewModel::addManualApp,
+                        onAutoCategorize = viewModel::autoCategorizeUncategorized
                     )
                 }
                 AdminTab.DEFAULTS -> {

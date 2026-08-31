@@ -33,9 +33,9 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.physi_lock.data.AppCategoryType
-import com.example.physi_lock.data.AppUsageTotal
-import com.example.physi_lock.data.ExcessiveUsagePredictionLog
+import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.data.dao.AppUsageTotal
+import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.Nunito

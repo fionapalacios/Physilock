@@ -43,9 +43,9 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.physi_lock.data.UserConfiguration
-import com.example.physi_lock.data.currentWifiSsid
-import com.example.physi_lock.data.isLocationPermissionGranted
+import com.example.physi_lock.data.entity.UserConfiguration
+import com.example.physi_lock.data.context.currentWifiSsid
+import com.example.physi_lock.data.context.isLocationPermissionGranted
 import com.example.physi_lock.ui.components.AuthTabsBackground
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive

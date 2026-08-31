@@ -6,6 +6,10 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import com.example.physi_lock.data.dao.AppCategoryDao
+import com.example.physi_lock.data.entity.AppCategory
+import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.data.repository.categoryTotals
 
 /** Trivial fake -- categoryTotals only ever calls getAll(), so upsert/delete just assert
  *  they're unused rather than pretending to implement real persistence. */

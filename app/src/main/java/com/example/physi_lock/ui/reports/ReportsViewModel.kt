@@ -3,12 +3,12 @@ package com.example.physi_lock.ui.reports
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.physi_lock.data.AppCategoryType
-import com.example.physi_lock.data.AppUsageTotal
-import com.example.physi_lock.data.ExcessiveUsagePredictionLog
-import com.example.physi_lock.data.PhysiLockDatabase
-import com.example.physi_lock.data.UsageStatsRepository
-import com.example.physi_lock.data.categoryTotals
+import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.data.dao.AppUsageTotal
+import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
+import com.example.physi_lock.data.db.PhysiLockDatabase
+import com.example.physi_lock.data.repository.UsageStatsRepository
+import com.example.physi_lock.data.repository.categoryTotals
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import com.example.physi_lock.data.entity.AppUsageLog
 
 data class DayUsage(val dayLabel: String, val minutes: Int, val isToday: Boolean, val isWeekend: Boolean)
 
@@ -155,6 +156,10 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
         return dayUsageByDate.keys
             .groupBy { date -> java.time.temporal.ChronoUnit.WEEKS.between(mondayOf(date), thisWeekStart) }
             .toSortedMap()
+            // The 28-day fetch is calendar days back from "today," not week-aligned, so unless
+            // today happens to be a Sunday it straddles a 5th, partial week at the far end.
+            // Keep exactly the 4 intended buckets (weeksAgo 0..3) and drop that leftover one.
+            .filterKeys { it < 4 }
             .map { (weeksAgo, dates) ->
                 val totalMinutes = dates.sumOf { dayUsageByDate.getValue(it).minutes }
                 val weekStart = mondayOf(dates.min())

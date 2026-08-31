@@ -22,8 +22,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.example.physi_lock.data.MotionInterventionLog
-import com.example.physi_lock.data.PhysiLockDatabase
+import com.example.physi_lock.data.entity.MotionInterventionLog
+import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.ml.RiskFeatureExtractor
 import com.example.physi_lock.ml.RiskScoringEngine
 import com.example.physi_lock.sensor.ChallengeSensitivity

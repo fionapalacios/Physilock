@@ -18,8 +18,8 @@ import androidx.compose.ui.unit.dp
 import androidx.credentials.exceptions.GetCredentialCancellationException
 import androidx.credentials.exceptions.GetCredentialException
 import androidx.lifecycle.viewmodel.compose.viewModel
-import com.example.physi_lock.data.Account
-import com.example.physi_lock.data.Role
+import com.example.physi_lock.data.model.Account
+import com.example.physi_lock.data.model.Role
 import com.example.physi_lock.ui.admin.AdminHomeScreen
 import com.example.physi_lock.ui.auth.AuthFormState
 import com.example.physi_lock.ui.auth.AuthViewModel
