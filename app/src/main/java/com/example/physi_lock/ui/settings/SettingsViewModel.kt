@@ -81,6 +81,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setContextAlertWifiSsid(ssid: String?) =
         update { it.copy(contextAlertWifiSsid = ssid?.takeIf { s -> s.isNotBlank() }) }
 
+    fun setBedtimeStartMinute(minuteOfDay: Int) =
+        update { it.copy(bedtimeStartMinute = minuteOfDay) }
+
+    fun setBedtimeEndMinute(minuteOfDay: Int) =
+        update { it.copy(bedtimeEndMinute = minuteOfDay) }
+
     /** Settings > Reset to Default Settings — overwrites every threshold/toggle back to
      * [UserConfiguration]'s built-in defaults, keeping only the account's chosen usage mode. */
     fun resetToDefaults() {

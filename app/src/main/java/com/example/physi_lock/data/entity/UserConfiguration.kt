@@ -27,6 +27,15 @@ data class UserConfiguration(
     // yet even if the toggle is on.
     val contextAlertsEnabled: Boolean = false,
     val contextAlertWifiSsid: String? = null,
+    // Bedtime Mode (2026-09-04): a daily recurring window, minutes-since-midnight, during
+    // which every app not on the (shared, see AllowlistedApp/Whitelist Manager) allowlist
+    // gets sent to the home screen -- same allowlist-inverted enforcement shape as Student
+    // Mode's Class Mode, just time-window-only rather than day-of-week + userMode scoped.
+    // Defaults (11 PM-7 PM) wrap past midnight -- see AppMonitorService.isWithinBedtimeWindow.
+    // No separate enabled flag: like Class/Work Mode, active purely by being inside the
+    // window, nothing else to toggle.
+    val bedtimeStartMinute: Int = 23 * 60,
+    val bedtimeEndMinute: Int = 7 * 60,
     // Focus Mode's earned-but-previously-unspendable "screen credit" (see FocusSession):
     // 1 credit minute per 5 minutes focused, redeemable 1:1 for temporary-unlock minutes on
     // a locked app from the Move hub -- the same real per-app timed-unlock mechanism

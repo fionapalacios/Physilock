@@ -92,15 +92,17 @@ import kotlinx.coroutines.launch
  * existed briefly (real functionality this repo had that their design doesn't cover) but was
  * removed per instruction to strictly follow their UI; Motion Lock Sensitivity's current value
  * is still visible read-only in StudentModeScreen/WorkModeScreen, just no longer editable from
- * here. Rows with no real backend yet (Bedtime Mode, Wellness Nudges, Whitelist Manager,
- * Permissions, Delete Account) are kept visible with a plain "Coming soon" subtitle rather
- * than dropped, per the instruction not to skip ported UI just because the logic behind it
- * isn't built. About/Reset-to-Default (easy to make real, so made real rather than left as
- * dead taps) are additions beyond their row list. "Location Context" briefly became real
- * 2026-08-25 (Module 7, see ContextAlertsScreen.kt) but was reverted to a plain "Coming soon"
- * row per instruction — Context Alerts isn't a final design yet and the user plans to bring
- * their own API-based approach. ContextAlertsScreen.kt/the AppMonitorService wiring/DB columns
- * are left intact, just unreachable from here for now, rather than deleted.
+ * here. Rows with no real backend yet (Wellness Nudges, Delete Account) are kept visible with
+ * a plain "Coming soon" subtitle rather than dropped, per the instruction not to skip ported UI
+ * just because the logic behind it isn't built. About/Reset-to-Default (easy to make real, so
+ * made real rather than left as dead taps) are additions beyond their row list. "Location
+ * Context" briefly became real 2026-08-25 (Module 7, see ContextAlertsScreen.kt) but was
+ * reverted to a plain "Coming soon" row per instruction — Context Alerts isn't a final design
+ * yet and the user plans to bring their own API-based approach. ContextAlertsScreen.kt/the
+ * AppMonitorService wiring/DB columns are left intact, just unreachable from here for now,
+ * rather than deleted. Whitelist Manager and Permissions were made real 2026-08-29; Bedtime
+ * Mode 2026-09-04 (see BedtimeModeScreen.kt / UserConfiguration.bedtimeStart/EndMinute /
+ * AppMonitorService.isWithinBedtimeWindow).
  */
 private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student")
 
@@ -147,6 +149,7 @@ fun SettingsScreen(
     var showStudentMode by remember { mutableStateOf(false) }
     var showWorkMode by remember { mutableStateOf(false) }
     var showWhitelistManager by remember { mutableStateOf(false) }
+    var showBedtimeMode by remember { mutableStateOf(false) }
     var showPermissions by remember { mutableStateOf(false) }
     var showAboutDialog by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
@@ -176,6 +179,12 @@ fun SettingsScreen(
     if (showWhitelistManager) {
         BackHandler { showWhitelistManager = false }
         WhitelistManagerScreen(onBackClick = { showWhitelistManager = false })
+        return
+    }
+
+    if (showBedtimeMode) {
+        BackHandler { showBedtimeMode = false }
+        BedtimeModeScreen(onBackClick = { showBedtimeMode = false })
         return
     }
 
@@ -354,7 +363,8 @@ fun SettingsScreen(
                     iconBackground = DeepOlive.copy(alpha = 0.08f),
                     iconTint = DeepOlive,
                     title = "Bedtime Mode",
-                    subtitle = "Coming soon"
+                    subtitle = "${settingsHourLabel(config.bedtimeStartMinute / 60)} – ${settingsHourLabel(config.bedtimeEndMinute / 60)}",
+                    onClick = { showBedtimeMode = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.SelfImprovement,
@@ -523,6 +533,15 @@ fun SettingsScreen(
             }
         )
     }
+}
+
+private fun settingsHourLabel(hour: Int): String {
+    val displayHour = when {
+        hour == 0 -> 12
+        hour > 12 -> hour - 12
+        else -> hour
+    }
+    return "$displayHour ${if (hour < 12) "AM" else "PM"}"
 }
 
 private fun appVersionName(context: android.content.Context): String = try {

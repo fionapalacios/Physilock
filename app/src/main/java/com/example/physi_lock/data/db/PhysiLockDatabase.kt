@@ -59,7 +59,7 @@ import com.example.physi_lock.data.entity.UserConfiguration
         FocusBlockedApp::class,
         LoginEvent::class
     ],
-    version = 20,
+    version = 21,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {

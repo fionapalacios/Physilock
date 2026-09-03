@@ -190,6 +190,8 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var userMode: String = "STUDENT_MODE"
     @Volatile private var scheduleBlocks: List<ScheduleBlock> = emptyList()
     @Volatile private var allowlistedPackages: Set<String> = emptySet()
+    @Volatile private var bedtimeStartMinute: Int = 23 * 60
+    @Volatile private var bedtimeEndMinute: Int = 7 * 60
     private var lastScheduleBlockNotifyTime: Long = 0L
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private lateinit var database: PhysiLockDatabase
@@ -249,6 +251,8 @@ class AppMonitorService : AccessibilityService() {
                 contextAlertsEnabled = config?.contextAlertsEnabled ?: false
                 contextAlertWifiSsid = config?.contextAlertWifiSsid
                 userMode = config?.userMode ?: "STUDENT_MODE"
+                bedtimeStartMinute = config?.bedtimeStartMinute ?: (23 * 60)
+                bedtimeEndMinute = config?.bedtimeEndMinute ?: (7 * 60)
             }
         }
 
@@ -781,6 +785,12 @@ class AppMonitorService : AccessibilityService() {
                 putExtra(EXTRA_PACKAGE_NAME, packageName)
             }
             startActivity(intent)
+        } else if (isWithinBedtimeWindow() && packageName !in allowlistedPackages && !isSystemPackage(packageName)) {
+            handleScheduleBlock(
+                currentTime,
+                title = "Bedtime Mode active",
+                description = "${getAppName(packageName)} is blocked until ${formatMinuteOfDay(bedtimeEndMinute)}"
+            )
         } else if (userMode == "STUDENT_MODE" && scheduleBlock != null &&
             packageName !in allowlistedPackages && !isSystemPackage(packageName)
         ) {
@@ -814,6 +824,31 @@ class AppMonitorService : AccessibilityService() {
             block.mode == userMode && block.dayOfWeek == dayOfWeek &&
                 minuteOfDay >= block.startMinute && minuteOfDay < block.endMinute
         }
+    }
+
+    // Bedtime Mode (real, 2026-09-04): unlike ScheduleBlock, this isn't day-of-week or
+    // userMode scoped -- just a daily minutes-since-midnight window, so it can (and by
+    // default does, 11 PM-7 AM) wrap past midnight. Same cheap synchronous
+    // cached-fields-only check as activeScheduleBlock -- no DB access here.
+    private fun isWithinBedtimeWindow(): Boolean {
+        val calendar = Calendar.getInstance()
+        val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        return if (bedtimeStartMinute <= bedtimeEndMinute) {
+            minuteOfDay >= bedtimeStartMinute && minuteOfDay < bedtimeEndMinute
+        } else {
+            minuteOfDay >= bedtimeStartMinute || minuteOfDay < bedtimeEndMinute
+        }
+    }
+
+    private fun formatMinuteOfDay(minuteOfDay: Int): String {
+        val hour = minuteOfDay / 60
+        val minute = minuteOfDay % 60
+        val displayHour = when {
+            hour == 0 -> 12
+            hour > 12 -> hour - 12
+            else -> hour
+        }
+        return "%d:%02d %s".format(displayHour, minute, if (hour < 12) "AM" else "PM")
     }
 
     // Work Mode "quiet hours": passive nudge notifications (Break Reminder, Overuse
