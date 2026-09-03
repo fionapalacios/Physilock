@@ -14,7 +14,9 @@ import com.example.physi_lock.data.auth.FirebaseAccountRepository
 import com.example.physi_lock.data.auth.HybridAccountRepository
 import com.google.android.libraries.identity.googleid.GetGoogleIdOption
 import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.example.physi_lock.data.entity.LoginEvent
 import com.example.physi_lock.data.entity.UserConfiguration
+import java.time.LocalDate
 
 data class AuthFormState(
     val username: String = "",
@@ -29,19 +31,39 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
     // Google sign-in is inherently online-only (Credential Manager needs the network),
     // so it talks to Firebase directly rather than through the offline-fallback wrapper.
     private val firebaseRepository = FirebaseAccountRepository()
+    private val db = PhysiLockDatabase.getInstance(application)
     private val repository = HybridAccountRepository(
         remote = firebaseRepository,
-        cache = PhysiLockDatabase.getInstance(application).cachedAccountDao()
+        cache = db.cachedAccountDao()
     )
+    private val loginEventDao = db.loginEventDao()
+
+    // Backs Admin Analytics' "Daily Active Users" chart -- see LoginEvent. Fire-and-forget
+    // is fine here: a failed insert just drops that account from today's DAU count, which
+    // isn't worth surfacing to the user or blocking their sign-in over.
+    private suspend fun recordLoginEvent(accountId: String) {
+        try {
+            loginEventDao.insert(
+                LoginEvent(
+                    accountId = accountId,
+                    dateKey = LocalDate.now().toString(),
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        } catch (e: Exception) {
+            // Best-effort -- see comment above.
+        }
+    }
 
     suspend fun login(identifier: String, password: String): Account? =
-        repository.login(identifier, password)
+        repository.login(identifier, password)?.also { recordLoginEvent(it.id) }
 
     /** Resolves an already-signed-in session on app launch, so returning users skip Login entirely. */
-    suspend fun getCurrentAccount(): Account? = repository.getCurrentAccount()
+    suspend fun getCurrentAccount(): Account? =
+        repository.getCurrentAccount()?.also { recordLoginEvent(it.id) }
 
     suspend fun register(form: AuthFormState): Account? =
-        repository.register(form)
+        repository.register(form)?.also { recordLoginEvent(it.id) }
 
     /** Firebase's native link-based reset flow — throws on failure (network/invalid email). */
     suspend fun sendPasswordReset(email: String) = firebaseRepository.sendPasswordResetEmail(email)
@@ -91,7 +113,7 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
                 idToken = googleIdTokenCredential.idToken,
                 displayName = googleIdTokenCredential.displayName,
                 email = googleIdTokenCredential.id
-            )
+            )?.also { recordLoginEvent(it.id) }
         }
         return null
     }
