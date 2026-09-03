@@ -277,5 +277,18 @@ User-provided list of screens still waiting on real (non-self-designed) UI to be
 - ~~Weekly Reports (4-week chart)~~ — done 2026-09-04: ported the teammate's dashed-goal-line chart + icon insight rows from `sprint-2-ui-navigation` (`ReportsScreen.kt`'s `WeeklyUsageChart`/`InsightRow`).
 - ~~Whitelist Manager~~ — done 2026-09-04, from a Figma Make snippet the user pasted directly. See `WhitelistManagerScreen.kt`.
 - ~~Bedtime Mode~~ — done 2026-09-04, from a Figma snippet the user pasted directly (real backend too, not just UI — see Module 6 above).
-- Location Context — wants a real map added via Leaflet.js (currently Wi-Fi-SSID-name matching only, see Module 7 above; no map UI at all yet)
-- Home — still has missing UI components generally (not itemized further by the user this session)
+- ~~Location Context~~ — done 2026-09-04, real GPS via Leaflet.js map (see Module 7 above).
+
+### Backlog explicitly held for later (as of 2026-09-04, user said "hold everything for later")
+
+User is providing more comparison UI code across several sessions. Do NOT start any of these until the user says go — this list exists so the queue isn't lost between sessions:
+
+- [ ] **Real application icons** — apps are shown as colored-circle initials or a generic phone icon everywhere (Home's App Usage Today, Whitelist Manager, App Lock Rules, Focus Mode Blocked Apps, Admin Categories, etc.), never the app's actual real launcher icon (`PackageManager.getApplicationIcon`/`loadIcon`). A cross-cutting change, not scoped to one screen.
+- [ ] **Reports page** — user will paste comparison/demo UI code to check against the existing real `ReportsScreen.kt`.
+- [ ] **Intervention page(s)** — user will paste comparison/demo UI code. Likely overlaps with the Lock Overlay below and the still-missing Overuse Intervention screen (see Home's entry above — tapping an over-limit app currently just opens App Lock Rules, no real challenge-gated intervention flow exists).
+- [ ] **Settings page** — user will paste comparison/demo UI code to check against the existing real `SettingsScreen.kt`.
+- [ ] **Lock Overlay redesign** — full `LockOverlay` demo code already pasted 2026-09-04 (not yet acted on), covering 6 trigger types: `usage-goal`, `adaptive` (AI risk), `focus-mode`, `deep-work`, `bedtime` (hard block), `doomscrolling` (reflection prompt with "5 more minutes"/"Take a Break"). Needs reconciling against what's real today: `LockActivity`/`LockScreen`/`ChallengeActiveScreen` (the actual shake/walk/jog challenge flow), `EndFocusSessionSheet`/`DeepWorkExitSheet` (already-built exit-confirm sheets that overlap this mockup's per-trigger-type overlay concept), and Bedtime Mode's current enforcement (`AppMonitorService.isWithinBedtimeWindow` just kicks to home + a notification, no in-app hard-block overlay screen at all). Also introduces a "Take a Break" / temporary-snooze concept that doesn't exist anywhere in this app yet — needs real design (how long, does it re-lock after, is it per-app or global).
+- Full Home screen pixel-level redesign — 2026-09-04 pass only closed 2 real gaps (yesterday-comparison trend, tap-through on over-limit apps); the deeper visual pass user asked about is still open if they want it.
+- Student Mode / Work Mode Pomodoro-timer redesign — full code pasted 2026-09-04 (Session Settings, blocked-apps toggle list, fullscreen Pomodoro overlay), parked — this would replace the current self-built `StudentModeScreen.kt`/`WorkModeScreen.kt` with a real Pomodoro-timer mechanic that doesn't exist in this app at all yet. User hasn't confirmed this should actually replace the current schedule-block screens.
+- Wellness Nudges — still zero backend, needs a real design decision (what content, what schedule).
+- Delete Account's actual Firebase deletion call — UI/flow is real (`ConfirmSheet`), but `onConfirm` deliberately does nothing yet. Needs explicit go-ahead first (irreversible, real account data).
