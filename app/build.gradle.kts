@@ -3,7 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.compose)
 
     id("com.google.devtools.ksp") /// new
-    id("com.google.gms.google-services")
+    // id("com.google.gms.google-services") // disabled: requires google-services.json (Firebase), skipping auth/Firebase for now
 }
 
 android {
