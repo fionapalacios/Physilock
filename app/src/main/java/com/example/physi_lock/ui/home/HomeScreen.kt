@@ -166,7 +166,8 @@ fun HomeScreen(
         NotificationsOverlay(
             notifications = notificationLogs.map { it.toEntry() },
             onDismiss = { showNotifications = false },
-            onMarkAllRead = { notificationsViewModel.markAllRead() }
+            onMarkAllRead = { notificationsViewModel.markAllRead() },
+            onMarkRead = { id -> notificationsViewModel.markRead(id) }
         )
     }
     }

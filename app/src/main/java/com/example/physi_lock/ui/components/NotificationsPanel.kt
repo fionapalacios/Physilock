@@ -29,7 +29,10 @@ import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -62,13 +65,20 @@ fun NotificationLog.toEntry(): NotificationEntry {
         else -> Icons.Default.Notifications to DeepOlive
     }
     return NotificationEntry(
+        id = id,
         icon = icon,
         accentColor = color,
         title = title,
         description = description,
         timestamp = formatRelativeTime(timestamp),
+        fullTimestamp = formatFullTimestamp(timestamp),
         isUnread = !isRead
     )
+}
+
+private fun formatFullTimestamp(timestamp: Long): String {
+    val formatter = java.text.SimpleDateFormat("MMM d, yyyy 'at' h:mm a", java.util.Locale.getDefault())
+    return formatter.format(java.util.Date(timestamp))
 }
 
 // internal (not private) so NotificationsPanelTest can exercise it directly.
@@ -87,11 +97,13 @@ internal fun formatRelativeTime(timestamp: Long): String {
 
 /** Ported from the teammate's sprint-2-ui-navigation branch, unchanged aside from theme tokens. */
 data class NotificationEntry(
+    val id: Int,
     val icon: ImageVector,
     val accentColor: Color,
     val title: String,
     val description: String,
     val timestamp: String,
+    val fullTimestamp: String,
     val isUnread: Boolean
 )
 
@@ -100,9 +112,11 @@ fun NotificationsOverlay(
     notifications: List<NotificationEntry>,
     onDismiss: () -> Unit,
     onMarkAllRead: () -> Unit,
+    onMarkRead: (Int) -> Unit,
     modifier: Modifier = Modifier
 ) {
     val unreadCount = notifications.count { it.isUnread }
+    var detailEntry by remember { mutableStateOf<NotificationEntry?>(null) }
 
     Box(
         modifier = modifier
@@ -199,14 +213,97 @@ fun NotificationsOverlay(
                     .padding(horizontal = 15.dp, vertical = 11.25.dp),
                 verticalArrangement = Arrangement.spacedBy(7.5.dp)
             ) {
-                notifications.forEach { entry -> NotificationRow(entry) }
+                notifications.forEach { entry ->
+                    NotificationRow(
+                        entry = entry,
+                        onOpen = {
+                            detailEntry = entry
+                            if (entry.isUnread) onMarkRead(entry.id)
+                        },
+                        onMarkRead = { onMarkRead(entry.id) }
+                    )
+                }
+            }
+        }
+    }
+
+    detailEntry?.let { entry ->
+        NotificationDetailModal(entry = entry, onDismiss = { detailEntry = null })
+    }
+}
+
+@Composable
+private fun NotificationDetailModal(entry: NotificationEntry, onDismiss: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DeepOlive.copy(alpha = 0.45f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Column(
+            modifier = Modifier
+                .padding(horizontal = 30.dp)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .background(BackgroundLight, RoundedCornerShape(22.dp))
+                .padding(22.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .background(entry.accentColor.copy(alpha = 0.12f), RoundedCornerShape(12.dp)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(imageVector = entry.icon, contentDescription = null, tint = entry.accentColor, modifier = Modifier.size(18.dp))
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            Text(
+                text = entry.title,
+                fontFamily = Nunito,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = DeepOlive
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = entry.description,
+                fontFamily = Nunito,
+                fontSize = 14.sp,
+                lineHeight = 20.sp,
+                color = MutedText
+            )
+            Spacer(modifier = Modifier.height(9.dp))
+            Text(
+                text = entry.fullTimestamp,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                color = SageAccent
+            )
+            Spacer(modifier = Modifier.height(18.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(DeepOlive, RoundedCornerShape(14.dp))
+                    .clickable(onClick = onDismiss)
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "Close", fontFamily = Nunito, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = BackgroundLight)
             }
         }
     }
 }
 
 @Composable
-private fun NotificationRow(entry: NotificationEntry) {
+private fun NotificationRow(entry: NotificationEntry, onOpen: () -> Unit, onMarkRead: () -> Unit) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -219,6 +316,7 @@ private fun NotificationRow(entry: NotificationEntry) {
                 if (entry.isUnread) entry.accentColor.copy(alpha = 0.19f) else DeepOlive.copy(alpha = 0.06f),
                 RoundedCornerShape(15.dp)
             )
+            .clickable(onClick = onOpen)
             .padding(11.25.dp),
         horizontalArrangement = Arrangement.spacedBy(11.25.dp)
     ) {
@@ -260,9 +358,17 @@ private fun NotificationRow(entry: NotificationEntry) {
                     }
                     Icon(
                         imageVector = Icons.Default.DoneAll,
-                        contentDescription = null,
-                        tint = SageAccent,
-                        modifier = Modifier.size(12.dp)
+                        contentDescription = if (entry.isUnread) "Mark as read" else "Read",
+                        tint = if (entry.isUnread) SageAccent else SageAccent.copy(alpha = 0.35f),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clickable(
+                                enabled = entry.isUnread,
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null,
+                                onClick = onMarkRead
+                            )
+                            .padding(4.dp)
                     )
                 }
             }

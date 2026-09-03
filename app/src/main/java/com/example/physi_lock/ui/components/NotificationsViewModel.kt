@@ -23,4 +23,8 @@ class NotificationsViewModel(application: Application) : AndroidViewModel(applic
     fun markAllRead() {
         viewModelScope.launch { dao.markAllRead() }
     }
+
+    fun markRead(id: Int) {
+        viewModelScope.launch { dao.markRead(id) }
+    }
 }
