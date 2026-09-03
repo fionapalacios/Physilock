@@ -93,17 +93,18 @@ import kotlinx.coroutines.launch
  * existed briefly (real functionality this repo had that their design doesn't cover) but was
  * removed per instruction to strictly follow their UI; Motion Lock Sensitivity's current value
  * is still visible read-only in StudentModeScreen/WorkModeScreen, just no longer editable from
- * here. Rows with no real backend yet (Wellness Nudges, Delete Account) are kept visible with
- * a plain "Coming soon" subtitle rather than dropped, per the instruction not to skip ported UI
- * just because the logic behind it isn't built. About/Reset-to-Default (easy to make real, so
- * made real rather than left as dead taps) are additions beyond their row list. "Location
- * Context" briefly became real 2026-08-25 (Module 7, see ContextAlertsScreen.kt) but was
- * reverted to a plain "Coming soon" row per instruction — Context Alerts isn't a final design
- * yet and the user plans to bring their own API-based approach. ContextAlertsScreen.kt/the
- * AppMonitorService wiring/DB columns are left intact, just unreachable from here for now,
- * rather than deleted. Whitelist Manager and Permissions were made real 2026-08-29; Bedtime
- * Mode 2026-09-04 (see BedtimeModeScreen.kt / UserConfiguration.bedtimeStart/EndMinute /
- * AppMonitorService.isWithinBedtimeWindow).
+ * here. Rows with no real backend yet (Wellness Nudges) are kept visible with a plain "Coming
+ * soon" subtitle rather than dropped, per the instruction not to skip ported UI just because
+ * the logic behind it isn't built. About/Reset-to-Default (easy to make real, so made real
+ * rather than left as dead taps) are additions beyond their row list. Whitelist Manager and
+ * Permissions were made real 2026-08-29; Bedtime Mode, About, Sign Out confirmation, and
+ * Delete Account's confirm UI (not its actual deletion — see the ConfirmSheet block below)
+ * 2026-09-04. "Location Context" briefly became real 2026-08-25 (Module 7, see
+ * ContextAlertsScreen.kt), was reverted to "Coming soon" per instruction (Context Alerts
+ * wasn't a final design yet, user was going to bring their own API-based approach), then made
+ * real again 2026-09-04 once that approach arrived: real GPS via a Leaflet.js map picker,
+ * alongside the existing Wi-Fi-name matching — see ContextAlertsScreen.kt /
+ * AppMonitorService.isNearWatchedLocation.
  */
 private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student")
 
@@ -143,6 +144,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val accountRepository = remember { FirebaseAccountRepository() }
+    val config by settingsViewModel.configuration.collectAsState()
 
     var showAppLockRules by remember { mutableStateOf(false) }
     var showFocusBlockedApps by remember { mutableStateOf(false) }
@@ -162,10 +164,9 @@ fun SettingsScreen(
     var passwordChangeSuccess by remember { mutableStateOf(false) }
 
     // Rows with no real backend — local-only state, exactly as unpersisted as the
-    // teammate's own version of these same toggles. Location Context rejoined this list
-    // 2026-08-26 (reverted from its brief real implementation, see the class kdoc above).
+    // teammate's own version of these same toggles.
     var wellnessNudgesEnabled by remember { mutableStateOf(true) }
-    var locationContextEnabled by remember { mutableStateOf(false) }
+    var showContextAlerts by remember { mutableStateOf(false) }
 
     if (showAppLockRules) {
         BackHandler { showAppLockRules = false }
@@ -194,6 +195,19 @@ fun SettingsScreen(
     if (showAboutScreen) {
         BackHandler { showAboutScreen = false }
         AboutScreen(onBackClick = { showAboutScreen = false })
+        return
+    }
+
+    if (showContextAlerts) {
+        BackHandler { showContextAlerts = false }
+        ContextAlertsScreen(
+            config = config,
+            onToggleEnabled = { settingsViewModel.setContextAlertsEnabled(it) },
+            onSaveSsid = { settingsViewModel.setContextAlertWifiSsid(it) },
+            onSaveLocation = { lat, lng, radius -> settingsViewModel.setContextAlertLocation(lat, lng, radius) },
+            onClearLocation = { settingsViewModel.clearContextAlertLocation() },
+            onBackClick = { showContextAlerts = false }
+        )
         return
     }
 
@@ -258,7 +272,6 @@ fun SettingsScreen(
         return
     }
 
-    val config by settingsViewModel.configuration.collectAsState()
     val streakDays by settingsViewModel.streakDays.collectAsState()
     // Deliberately not `remember`-ed: recomputed on every recomposition (cheap, 5 checks) so
     // coming back from PermissionsScreen after granting one reflects the fresh count.
@@ -364,8 +377,22 @@ fun SettingsScreen(
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
                     title = "Location Context",
-                    subtitle = "Coming soon",
-                    trailing = SettingsTrailing.Toggle(locationContextEnabled) { locationContextEnabled = it }
+                    subtitle = if (!config.contextAlertsEnabled) {
+                        "Off"
+                    } else {
+                        val hasWifi = !config.contextAlertWifiSsid.isNullOrBlank()
+                        val hasLocation = config.contextAlertLatitude != null
+                        when {
+                            hasWifi && hasLocation -> "On — watching a Wi-Fi network and a map location"
+                            hasWifi -> "On — watching \"${config.contextAlertWifiSsid}\" Wi-Fi"
+                            hasLocation -> "On — watching a pinned map location"
+                            else -> "On — set a Wi-Fi network or map location below"
+                        }
+                    },
+                    trailing = SettingsTrailing.Toggle(config.contextAlertsEnabled) {
+                        settingsViewModel.setContextAlertsEnabled(it)
+                    },
+                    onClick = { showContextAlerts = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Bedtime,

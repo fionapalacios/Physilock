@@ -21,12 +21,19 @@ data class UserConfiguration(
     val breakReminderIntervalMs: Long = 30 * 60 * 1000, // 30 minutes default
     val overuseAlertsEnabled: Boolean = true,
     val weeklyScreenTimeGoalMs: Long = 35 * 3_600_000L, // 35 hours default (Usage Goals screen)
-    // Module 7 (Context-Aware AI): a Wi-Fi-network-name-matched "Context Alert" (not GPS
-    // geofencing -- the manuscript itself lists real location-based locking as a Future
-    // Enhancement, out of MVP scope). contextAlertWifiSsid null means no network configured
-    // yet even if the toggle is on.
+    // Module 7 (Context-Aware AI): a "Context Alert" -- a passive notification when a
+    // distracting app opens somewhere the user flagged, either by Wi-Fi network name or
+    // (2026-09-04, user's own explicit ask, going beyond the manuscript's stated MVP scope
+    // which lists real location-based locking as a Future Enhancement) by real GPS
+    // proximity via a Leaflet.js map picker -- see ContextAlertsScreen.kt /
+    // AppMonitorService.isNearWatchedLocation. Either/both trigger signals can be set;
+    // contextAlertWifiSsid/contextAlertLatitude+Longitude null means that one isn't
+    // configured, independent of whether the other is.
     val contextAlertsEnabled: Boolean = false,
     val contextAlertWifiSsid: String? = null,
+    val contextAlertLatitude: Double? = null,
+    val contextAlertLongitude: Double? = null,
+    val contextAlertRadiusMeters: Int = 100,
     // Bedtime Mode (2026-09-04): a daily recurring window, minutes-since-midnight, during
     // which every app not on the (shared, see AllowlistedApp/Whitelist Manager) allowlist
     // gets sent to the home screen -- same allowlist-inverted enforcement shape as Student

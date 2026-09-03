@@ -22,6 +22,7 @@ import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.data.entity.ScheduleBlock
 import com.example.physi_lock.data.repository.UsageStatsRepository
 import com.example.physi_lock.data.context.currentWifiSsid
+import com.example.physi_lock.data.context.lastKnownLocation
 import com.example.physi_lock.ml.DoomscrollDetector
 import com.example.physi_lock.ml.DoomscrollInputs
 import com.example.physi_lock.ml.ExcessiveUsageDetector
@@ -180,6 +181,10 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var contextAlertsEnabled: Boolean = false
     @Volatile private var contextAlertWifiSsid: String? = null
     @Volatile private var cachedWifiSsid: String? = null
+    @Volatile private var contextAlertLatitude: Double? = null
+    @Volatile private var contextAlertLongitude: Double? = null
+    @Volatile private var contextAlertRadiusMeters: Int = 100
+    @Volatile private var cachedLocation: android.location.Location? = null
     private var lastContextAlertNotifyTime: Long = 0L
     // Student/Work Mode real schedule-based enforcement: userMode wasn't previously
     // mirrored here (nothing before this needed it at enforcement time). scheduleBlocks
@@ -250,6 +255,9 @@ class AppMonitorService : AccessibilityService() {
                 doomscrollingSensitivity = config?.doomscrollingSensitivity ?: "MODERATE"
                 contextAlertsEnabled = config?.contextAlertsEnabled ?: false
                 contextAlertWifiSsid = config?.contextAlertWifiSsid
+                contextAlertLatitude = config?.contextAlertLatitude
+                contextAlertLongitude = config?.contextAlertLongitude
+                contextAlertRadiusMeters = config?.contextAlertRadiusMeters ?: 100
                 userMode = config?.userMode ?: "STUDENT_MODE"
                 bedtimeStartMinute = config?.bedtimeStartMinute ?: (23 * 60)
                 bedtimeEndMinute = config?.bedtimeEndMinute ?: (7 * 60)
@@ -309,6 +317,10 @@ class AppMonitorService : AccessibilityService() {
             while (true) {
                 try {
                     cachedWifiSsid = currentWifiSsid(this@AppMonitorService)
+                    // Context Alert's GPS trigger (2026-09-04): same cadence/rationale as the
+                    // Wi-Fi read above -- a cheap periodic cache read backing the per-event
+                    // check below, not a live location request.
+                    cachedLocation = lastKnownLocation(this@AppMonitorService)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -807,7 +819,9 @@ class AppMonitorService : AccessibilityService() {
             )
         } else if (focusModeActive && packageName in focusBlockedPackages) {
             handleFocusBlock(packageName, currentTime)
-        } else if (contextAlertsEnabled && packageName in focusBlockedPackages && isOnWatchedWifi()) {
+        } else if (contextAlertsEnabled && packageName in focusBlockedPackages &&
+            (isOnWatchedWifi() || isNearWatchedLocation())
+        ) {
             handleContextAlert(packageName, currentTime)
         }
     }
@@ -877,6 +891,18 @@ class AppMonitorService : AccessibilityService() {
     private fun isOnWatchedWifi(): Boolean {
         val watched = contextAlertWifiSsid ?: return false
         return cachedWifiSsid != null && cachedWifiSsid == watched
+    }
+
+    // Context Alert's GPS trigger (2026-09-04, see UserConfiguration.contextAlertLatitude
+    // kdoc): same passive-notification-only semantics as isOnWatchedWifi above, just a
+    // distance check instead of a name match.
+    private fun isNearWatchedLocation(): Boolean {
+        val lat = contextAlertLatitude ?: return false
+        val lng = contextAlertLongitude ?: return false
+        val here = cachedLocation ?: return false
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(here.latitude, here.longitude, lat, lng, results)
+        return results[0] <= contextAlertRadiusMeters
     }
 
     private fun handleContextAlert(packageName: String, currentTime: Long) {

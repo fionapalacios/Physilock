@@ -81,6 +81,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setContextAlertWifiSsid(ssid: String?) =
         update { it.copy(contextAlertWifiSsid = ssid?.takeIf { s -> s.isNotBlank() }) }
 
+    fun setContextAlertLocation(latitude: Double, longitude: Double, radiusMeters: Int) =
+        update { it.copy(contextAlertLatitude = latitude, contextAlertLongitude = longitude, contextAlertRadiusMeters = radiusMeters) }
+
+    fun clearContextAlertLocation() =
+        update { it.copy(contextAlertLatitude = null, contextAlertLongitude = null) }
+
     fun setBedtimeStartMinute(minuteOfDay: Int) =
         update { it.copy(bedtimeStartMinute = minuteOfDay) }
 
