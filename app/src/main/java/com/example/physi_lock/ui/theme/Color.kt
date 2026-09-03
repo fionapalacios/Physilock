@@ -24,3 +24,8 @@ val BackgroundLight = Color(0xFFFEFEFE)
 val SecondarySage = Color(0xFFBAC892)
 val TertiaryTan = Color(0xFFDAD5BB)
 val ErrorRed = Color(0xFFC0392B)
+
+// Admin Console mockup (teammate's Figma, sent 2026-08-28)
+val CardCream = Color(0xFFF5F3EB)
+val SignOutBackground = Color(0xFFFEF2F2)
+val PillTrackBackground = Color(0xFFEEEADE)

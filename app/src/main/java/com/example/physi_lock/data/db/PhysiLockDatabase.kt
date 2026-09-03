@@ -14,6 +14,7 @@ import com.example.physi_lock.data.dao.DefaultSettingsDao
 import com.example.physi_lock.data.dao.ExcessiveUsagePredictionLogDao
 import com.example.physi_lock.data.dao.FocusBlockedAppDao
 import com.example.physi_lock.data.dao.FocusSessionDao
+import com.example.physi_lock.data.dao.LoginEventDao
 import com.example.physi_lock.data.dao.MotionInterventionLogDao
 import com.example.physi_lock.data.dao.NotificationLogDao
 import com.example.physi_lock.data.dao.ReflectionEntryDao
@@ -30,6 +31,7 @@ import com.example.physi_lock.data.entity.DefaultSettings
 import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.entity.FocusBlockedApp
 import com.example.physi_lock.data.entity.FocusSession
+import com.example.physi_lock.data.entity.LoginEvent
 import com.example.physi_lock.data.entity.MotionInterventionLog
 import com.example.physi_lock.data.entity.NotificationLog
 import com.example.physi_lock.data.entity.ReflectionEntry
@@ -54,7 +56,8 @@ import com.example.physi_lock.data.entity.UserConfiguration
         ReflectionEntry::class,
         ScheduleBlock::class,
         AllowlistedApp::class,
-        FocusBlockedApp::class
+        FocusBlockedApp::class,
+        LoginEvent::class
     ],
     version = 20,
     exportSchema = false
@@ -76,6 +79,7 @@ abstract class PhysiLockDatabase : RoomDatabase() {
     abstract fun scheduleBlockDao(): ScheduleBlockDao
     abstract fun allowlistedAppDao(): AllowlistedAppDao
     abstract fun focusBlockedAppDao(): FocusBlockedAppDao
+    abstract fun loginEventDao(): LoginEventDao
 
     companion object {
         @Volatile private var INSTANCE: PhysiLockDatabase? = null
