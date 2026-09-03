@@ -57,7 +57,7 @@ fun AppLockRulesScreen(
                     fontWeight = FontWeight.Bold
                 )
                 Text(
-                    text = "Locked apps require a shake challenge to open",
+                    text = "Locked apps require a motion challenge to open",
                     style = MaterialTheme.typography.bodyMedium
                 )
             }

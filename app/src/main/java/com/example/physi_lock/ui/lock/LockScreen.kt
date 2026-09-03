@@ -17,7 +17,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -31,6 +30,10 @@ import com.example.physi_lock.sensor.ChallengeType
 import com.example.physi_lock.sensor.isActivityRecognitionGranted
 import com.example.physi_lock.service.AppMonitorService
 import com.example.physi_lock.ui.challenge.ChallengeProgressContent
+import com.example.physi_lock.ui.theme.BackgroundLight
+import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.Nunito
+import com.example.physi_lock.ui.theme.SecondarySage
 import kotlinx.coroutines.launch
 
 private val challengePromptText = mapOf(
@@ -93,27 +96,30 @@ fun LockScreen(packageName: String, onUnlocked: () -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFF1A2540)), // Deep dark blue tech accent background
+            .background(DeepOlive),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
     ) {
         Text(
             text = "Physi-Lock Active",
-            color = Color.White,
+            color = BackgroundLight,
+            fontFamily = Nunito,
             fontSize = 24.sp,
-            fontWeight = FontWeight.Bold
+            fontWeight = FontWeight.ExtraBold
         )
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = challengePromptText[challengeType] ?: "Complete the challenge to unlock",
-            color = Color.LightGray,
+            color = SecondarySage,
+            fontFamily = Nunito,
             fontSize = 14.sp
         )
         if (isAdaptive) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = "Difficulty adapted to your current risk level",
-                color = Color.LightGray.copy(alpha = 0.7f),
+                color = SecondarySage.copy(alpha = 0.7f),
+                fontFamily = Nunito,
                 fontSize = 12.sp
             )
         }
@@ -123,6 +129,10 @@ fun LockScreen(packageName: String, onUnlocked: () -> Unit) {
             ChallengeProgressContent(
                 challengeType = challengeType,
                 sensitivity = activeSensitivity,
+                ringColor = SecondarySage,
+                trackColor = BackgroundLight.copy(alpha = 0.15f),
+                textColor = BackgroundLight,
+                secondaryTextColor = SecondarySage,
                 onComplete = {
                     AppMonitorService.grantTemporaryUnlock(packageName, AppMonitorService.CHALLENGE_UNLOCK_DURATION_MS)
                     coroutineScope.launch {

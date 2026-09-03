@@ -377,7 +377,7 @@ fun SettingsScreen(
                     iconBackground = DeepOlive.copy(alpha = 0.13f),
                     iconTint = DeepOlive,
                     title = "App Lock Rules",
-                    subtitle = "Choose which apps require a shake challenge",
+                    subtitle = "Choose which apps require a motion challenge",
                     onClick = { showAppLockRules = true }
                 ),
                 SettingsRow(
