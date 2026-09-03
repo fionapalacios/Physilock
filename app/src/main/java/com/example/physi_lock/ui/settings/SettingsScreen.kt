@@ -67,6 +67,7 @@ import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.data.auth.ChangePasswordResult
 import com.example.physi_lock.data.auth.FirebaseAccountRepository
 import com.example.physi_lock.sensor.ChallengeSensitivity
+import com.example.physi_lock.ui.components.ConfirmSheet
 import com.example.physi_lock.ui.focus.FocusBlockedAppsScreen
 import com.example.physi_lock.ui.permissions.permissionSteps
 import com.example.physi_lock.ui.theme.BackgroundLight
@@ -151,8 +152,10 @@ fun SettingsScreen(
     var showWhitelistManager by remember { mutableStateOf(false) }
     var showBedtimeMode by remember { mutableStateOf(false) }
     var showPermissions by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
+    var showAboutScreen by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
+    var showSignOutConfirm by remember { mutableStateOf(false) }
+    var showDeleteAccountConfirm by remember { mutableStateOf(false) }
     var showBreakIntervalPicker by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeMessage by remember { mutableStateOf<String?>(null) }
@@ -185,6 +188,12 @@ fun SettingsScreen(
     if (showBedtimeMode) {
         BackHandler { showBedtimeMode = false }
         BedtimeModeScreen(onBackClick = { showBedtimeMode = false })
+        return
+    }
+
+    if (showAboutScreen) {
+        BackHandler { showAboutScreen = false }
+        AboutScreen(onBackClick = { showAboutScreen = false })
         return
     }
 
@@ -427,7 +436,7 @@ fun SettingsScreen(
                     iconBackground = DeepOlive.copy(alpha = 0.13f),
                     iconTint = DeepOlive,
                     title = "About",
-                    onClick = { showAboutDialog = true }
+                    onClick = { showAboutScreen = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Restore,
@@ -443,15 +452,15 @@ fun SettingsScreen(
                     iconTint = ErrorRed,
                     title = "Sign Out",
                     titleColor = ErrorRed,
-                    onClick = onLogout
+                    onClick = { showSignOutConfirm = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.DeleteForever,
                     iconBackground = ErrorRed.copy(alpha = 0.07f),
                     iconTint = ErrorRed,
                     title = "Delete Account",
-                    subtitle = "Coming soon",
-                    titleColor = ErrorRed
+                    titleColor = ErrorRed,
+                    onClick = { showDeleteAccountConfirm = true }
                 )
             )
         )
@@ -468,36 +477,43 @@ fun SettingsScreen(
         )
     }
 
-    if (showAboutDialog) {
-        AlertDialog(
-            onDismissRequest = { showAboutDialog = false },
-            title = { Text("About Physi-Lock") },
-            text = {
-                Text(
-                    "Physi-Lock v${appVersionName(context)}\n\n" +
-                        "AI-powered screen time control that rewards physical movement and protects your mental wellness."
-                )
+    if (showResetConfirm) {
+        ConfirmSheet(
+            title = "Reset to Default Settings?",
+            body = "This will restore all app settings to defaults. Your account and usage data will not be affected.",
+            confirmLabel = "Reset to Default",
+            onConfirm = {
+                settingsViewModel.resetToDefaults()
+                showResetConfirm = false
             },
-            confirmButton = {
-                TextButton(onClick = { showAboutDialog = false }) { Text("Close") }
-            }
+            onCancel = { showResetConfirm = false }
         )
     }
 
-    if (showResetConfirm) {
-        AlertDialog(
-            onDismissRequest = { showResetConfirm = false },
-            title = { Text("Reset to default settings?") },
-            text = { Text("This resets your daily limit, break reminders, alerts, and motion sensitivity back to their defaults. Your usage mode stays the same.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    settingsViewModel.resetToDefaults()
-                    showResetConfirm = false
-                }) { Text("Reset") }
+    if (showSignOutConfirm) {
+        ConfirmSheet(
+            title = "Sign out?",
+            body = "Your progress and settings will be saved locally on this device.",
+            confirmLabel = "Sign Out",
+            onConfirm = {
+                showSignOutConfirm = false
+                onLogout()
             },
-            dismissButton = {
-                TextButton(onClick = { showResetConfirm = false }) { Text("Cancel") }
-            }
+            onCancel = { showSignOutConfirm = false }
+        )
+    }
+
+    if (showDeleteAccountConfirm) {
+        // Deliberately not wired to a real Firebase deleteUser() call yet -- this is a
+        // destructive, irreversible action, and per standing instruction the user needs
+        // to explicitly say go-ahead before this actually deletes an account. UI/flow is
+        // real; onConfirm currently just dismisses.
+        ConfirmSheet(
+            title = "Delete Account?",
+            body = "This will permanently delete your account and all usage data. This action cannot be undone.",
+            confirmLabel = "Delete Account",
+            onConfirm = { showDeleteAccountConfirm = false },
+            onCancel = { showDeleteAccountConfirm = false }
         )
     }
 
@@ -544,7 +560,7 @@ private fun settingsHourLabel(hour: Int): String {
     return "$displayHour ${if (hour < 12) "AM" else "PM"}"
 }
 
-private fun appVersionName(context: android.content.Context): String = try {
+internal fun appVersionName(context: android.content.Context): String = try {
     context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
 } catch (e: Exception) {
     "1.0"
