@@ -21,6 +21,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
@@ -104,6 +106,7 @@ fun HomeScreen(
     val doomscrollAlert by homeViewModel.doomscrollAlert.collectAsState(initial = null)
     val hasReflectedToday by homeViewModel.hasReflectedToday.collectAsState(initial = false)
     val continuousUsageMinutes by homeViewModel.continuousUsageMinutes.collectAsState(initial = null)
+    val yesterdayDeltaMinutes by homeViewModel.yesterdayDeltaMinutes.collectAsState(initial = null)
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -129,7 +132,7 @@ fun HomeScreen(
             onNotificationsClick = { showNotifications = true }
         )
         Spacer(modifier = Modifier.height(16.dp))
-        ScreenTimeCard(todayMinutes = todayMinutes, dailyLimitMinutes = dailyLimitMinutes)
+        ScreenTimeCard(todayMinutes = todayMinutes, dailyLimitMinutes = dailyLimitMinutes, yesterdayDeltaMinutes = yesterdayDeltaMinutes)
         continuousUsageMinutes?.let { minutes ->
             Spacer(modifier = Modifier.height(12.dp))
             BreakReminderBanner(minutes = minutes, onFocusClick = onNavigateToFocus)
@@ -147,7 +150,7 @@ fun HomeScreen(
             onNavigateToDeepWork = onNavigateToDeepWork
         )
         Spacer(modifier = Modifier.height(12.dp))
-        AppUsageCard(appUsageToday = appUsageToday)
+        AppUsageCard(appUsageToday = appUsageToday, onOverLimitAppClick = { onManageAppLock() })
         doomscrollAlert?.let { alert ->
             Spacer(modifier = Modifier.height(12.dp))
             DoomscrollAlertBanner(alert = alert, onClick = onNavigateToMove)
@@ -244,7 +247,7 @@ private fun formatMinutes(minutes: Int): String {
 }
 
 @Composable
-private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int) {
+private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int, yesterdayDeltaMinutes: Int?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = PrimaryDark),
@@ -282,6 +285,29 @@ private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int) {
                     fontSize = 14.sp,
                     color = SecondarySage
                 )
+                yesterdayDeltaMinutes?.let { delta ->
+                    if (delta != 0) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(
+                                imageVector = if (delta < 0) Icons.AutoMirrored.Filled.TrendingDown else Icons.AutoMirrored.Filled.TrendingUp,
+                                contentDescription = null,
+                                tint = if (delta < 0) Orchid else AccentLavender,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = if (delta < 0) {
+                                    "${-delta} min less than yesterday"
+                                } else {
+                                    "$delta min more than yesterday"
+                                },
+                                fontFamily = Nunito,
+                                fontSize = 13.sp,
+                                color = Orchid
+                            )
+                        }
+                    }
+                }
             }
             CircularProgressRing(
                 progress = progress,
@@ -608,7 +634,7 @@ private fun ActionTile(
  *  version was redundant with the "Lock Apps" tile above, which already opens App Lock
  *  Rules directly, so its own "Manage Locks" CTA was dropped). */
 @Composable
-private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.AppUsageTotal>) {
+private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.AppUsageTotal>, onOverLimitAppClick: (com.example.physi_lock.data.dao.AppUsageTotal) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -642,24 +668,35 @@ private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.App
             )
         } else {
             appUsageToday.forEach { item ->
+                val isOverLimit = item.totalDurationMs > TimeUnit.HOURS.toMillis(3)
                 AppUsageRow(
                     appName = item.appName,
                     durationMs = item.totalDurationMs,
-                    isOverLimit = item.totalDurationMs > TimeUnit.HOURS.toMillis(3)
+                    isOverLimit = isOverLimit,
+                    onClick = if (isOverLimit) ({ onOverLimitAppClick(item) }) else null
                 )
             }
         }
     }
 }
 
+/** [onClick] navigates to App Lock Rules -- there's no real "unlock" action for an app
+ *  that's merely over a soft usage threshold here (only App Lock Rules/Focus Mode actually
+ *  block anything), so tapping an OVER row is honestly "go set a real rule for this app,"
+ *  not a fake instant-unlock. */
 @Composable
 private fun AppUsageRow(
     appName: String,
     durationMs: Long,
-    isOverLimit: Boolean
+    isOverLimit: Boolean,
+    onClick: (() -> Unit)? = null
 ) {
     val progress = (durationMs.toFloat() / TimeUnit.HOURS.toMillis(3).toFloat()).coerceIn(0f, 1f)
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

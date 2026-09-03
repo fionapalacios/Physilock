@@ -67,6 +67,13 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _appUsageToday = MutableStateFlow<List<AppUsageTotal>>(emptyList())
     val appUsageToday: StateFlow<List<AppUsageTotal>> = _appUsageToday.asStateFlow()
 
+    // Real "vs yesterday" comparison for the Screen Time card (2026-09-04) -- positive
+    // means today is ahead of yesterday's total (worse), negative means less (better),
+    // null only until the first refresh completes (not a "no data" state to render around,
+    // just not-loaded-yet).
+    private val _yesterdayDeltaMinutes = MutableStateFlow<Int?>(null)
+    val yesterdayDeltaMinutes: StateFlow<Int?> = _yesterdayDeltaMinutes.asStateFlow()
+
     private val _doomscrollAlert = MutableStateFlow<DoomscrollAlertUi?>(null)
     val doomscrollAlert: StateFlow<DoomscrollAlertUi?> = _doomscrollAlert.asStateFlow()
 
@@ -187,6 +194,20 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
                 .sortedByDescending { it.totalTimeMs }
                 .take(5)
                 .map { AppUsageTotal(it.packageName, usageStatsRepository.getAppLabel(it.packageName), it.totalTimeMs) }
+
+            try {
+                val cal = java.util.Calendar.getInstance().apply {
+                    add(java.util.Calendar.DAY_OF_YEAR, -1)
+                    set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0); set(java.util.Calendar.SECOND, 0)
+                }
+                val yesterdayStart = cal.timeInMillis
+                val yesterdayEnd = yesterdayStart + 24 * 60 * 60 * 1000L
+                val yesterdayUsage = usageStatsRepository.getUsageForRange(yesterdayStart, yesterdayEnd)
+                val yesterdayMinutes = (yesterdayUsage.sumOf { it.totalTimeMs } / 60_000L).toInt()
+                _yesterdayDeltaMinutes.value = _todayScreenTimeMinutes.value - yesterdayMinutes
+            } catch (e: Exception) {
+                _yesterdayDeltaMinutes.value = null
+            }
         }
     }
 }
