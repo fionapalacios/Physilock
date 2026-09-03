@@ -14,6 +14,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.physi_lock.MainActivity
 import com.example.physi_lock.R
+import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.entity.AppUsageLog
 import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.entity.MotionInterventionLog
@@ -171,6 +172,12 @@ class AppMonitorService : AccessibilityService() {
     // categories for tracking/reporting, the User decides what gets blocked.
     @Volatile private var focusModeActive: Boolean = false
     @Volatile private var focusBlockedPackages: Set<String> = emptySet()
+    // Deep Work Mode (2026-09-04): a stricter tier than Focus Mode -- see DeepWorkSession
+    // kdoc. deepWorkBlockedPackages is Admin-category-derived (ALL Social Media/
+    // Entertainment apps), deliberately not the User-owned focusBlockedPackages set above,
+    // so it's a genuinely broader/uncustomizable block during a Deep Work session.
+    @Volatile private var deepWorkActive: Boolean = false
+    @Volatile private var deepWorkBlockedPackages: Set<String> = emptySet()
     private var lastFocusBlockNotifyTime: Long = 0L
     // Module 7 (Context-Aware AI): Wi-Fi-network-matched Context Alerts. Not GPS
     // geofencing -- real location-based locking is a Future Enhancement per the
@@ -299,6 +306,21 @@ class AppMonitorService : AccessibilityService() {
         serviceScope.launch {
             database.focusBlockedAppDao().getAll().collect { apps ->
                 focusBlockedPackages = apps.map { it.packageName }.toSet()
+            }
+        }
+
+        // Deep Work Mode (2026-09-04): same live-reload pattern as Focus Mode above.
+        serviceScope.launch {
+            database.deepWorkSessionDao().getActiveSession().collectLatest { session ->
+                deepWorkActive = session != null
+            }
+        }
+        serviceScope.launch {
+            database.appCategoryDao().getAll().collect { categories ->
+                deepWorkBlockedPackages = categories
+                    .filter { it.category == AppCategoryType.SOCIAL_MEDIA || it.category == AppCategoryType.ENTERTAINMENT }
+                    .map { it.packageName }
+                    .toSet()
             }
         }
 
@@ -797,6 +819,12 @@ class AppMonitorService : AccessibilityService() {
                 putExtra(EXTRA_PACKAGE_NAME, packageName)
             }
             startActivity(intent)
+        } else if (deepWorkActive && packageName in deepWorkBlockedPackages) {
+            handleScheduleBlock(
+                currentTime,
+                title = "Deep Work Mode active",
+                description = "${getAppName(packageName)} is blocked for the rest of this session"
+            )
         } else if (isWithinBedtimeWindow() && packageName !in allowlistedPackages && !isSystemPackage(packageName)) {
             handleScheduleBlock(
                 currentTime,

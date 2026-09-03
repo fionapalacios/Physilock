@@ -7,11 +7,20 @@ import android.hardware.SensorEventListener
 import android.hardware.SensorManager
 import kotlin.math.sqrt
 
-// Replaces the old single-axis shake check. A rep counts when a large linear
-// acceleration AND a large gyroscope rotation rate happen together — this one
-// combined gate covers side-to-side swings, up/down raises, and 360 deg
-// rotation alike (all produce a big limb displacement plus rotation), without
+// A rep counts when a large linear acceleration AND a large gyroscope rotation rate
+// happen together — this one combined gate covers side-to-side swings, up/down raises,
+// and 360 deg rotation alike (all produce a big limb displacement plus rotation), without
 // needing per-axis/direction classification.
+//
+// 2026-09-04: added a real hysteresis (arm/rearm) gate on top of the threshold check
+// above -- the previous version could double-count a single sustained motion (e.g. one
+// slow continuous swing, or hand jitter that happens to stay above threshold) as multiple
+// reps, since a debounce timer alone doesn't require the signal to ever *drop* between
+// counts. A genuine shake/swing is oscillatory: peak, then a real return toward rest,
+// then the next peak. armed only re-arms once BOTH accel and gyro magnitude drop back
+// below a rearm fraction of their thresholds, so counting a rep now requires an actual
+// back-and-forth motion, not just staying loud for a while. Thresholds also raised ~20%
+// (rearmFraction below the peak) to require a more deliberate motion.
 class RotationalArmDetector(
     context: Context,
     private val sensitivity: ChallengeSensitivity = ChallengeSensitivity.MODERATE,
@@ -24,13 +33,15 @@ class RotationalArmDetector(
     private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
     private val repsRequired = sensitivity.armRepsRequired
-    private val accelThreshold = sensitivity.armGForceThreshold * 0.5f
-    private val gyroThresholdRadS = 2.5f
-    private val repDebounceMs = 300L
+    private val accelThreshold = sensitivity.armGForceThreshold * 0.6f
+    private val gyroThresholdRadS = 3.0f
+    private val rearmFraction = 0.45f
+    private val repDebounceMs = 250L
 
     private var repCount = 0
     private var lastRepTime = 0L
     private var isFinished = false
+    private var armed = true
 
     private var lastAccelMagnitude = 0f
     private var lastGyroMagnitude = 0f
@@ -38,6 +49,7 @@ class RotationalArmDetector(
     override fun start() {
         repCount = 0
         isFinished = false
+        armed = true
         onProgress(0)
         accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
         gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
@@ -64,10 +76,17 @@ class RotationalArmDetector(
             else -> return
         }
 
-        if (lastAccelMagnitude > accelThreshold && lastGyroMagnitude > gyroThresholdRadS) {
+        // Rearm only once the motion has genuinely settled back down on both axes --
+        // this is what forces an oscillation (out-and-back) instead of one sustained push.
+        if (!armed && lastAccelMagnitude < accelThreshold * rearmFraction && lastGyroMagnitude < gyroThresholdRadS * rearmFraction) {
+            armed = true
+        }
+
+        if (armed && lastAccelMagnitude > accelThreshold && lastGyroMagnitude > gyroThresholdRadS) {
             val currentTime = System.currentTimeMillis()
             if (currentTime - lastRepTime < repDebounceMs) return
 
+            armed = false
             lastRepTime = currentTime
             repCount++
             onProgress(repCount)
