@@ -25,14 +25,18 @@ class RotationalArmDetector(
     context: Context,
     private val sensitivity: ChallengeSensitivity = ChallengeSensitivity.MODERATE,
     private val onProgress: (Int) -> Unit,
-    private val onComplete: () -> Unit
+    private val onComplete: () -> Unit,
+    // Deep Work Mode's "shake 5x to exit" gate is a fixed safety confirmation, not a
+    // difficulty-scaled unlock challenge -- lets it request an exact rep count
+    // independent of the user's Motion Lock Sensitivity setting.
+    repsOverride: Int? = null
 ) : SensorEventListener, ChallengeDetector {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
     private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
-    private val repsRequired = sensitivity.armRepsRequired
+    private val repsRequired = repsOverride ?: sensitivity.armRepsRequired
     private val accelThreshold = sensitivity.armGForceThreshold * 0.6f
     private val gyroThresholdRadS = 3.0f
     private val rearmFraction = 0.45f

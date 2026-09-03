@@ -3,6 +3,7 @@ package com.example.physi_lock.ui.focus
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.entity.DeepWorkSession
 import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.data.entity.UserConfiguration
@@ -13,6 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -24,9 +26,21 @@ import kotlinx.coroutines.launch
 class DeepWorkViewModel(application: Application) : AndroidViewModel(application) {
     private val deepWorkSessionDao = PhysiLockDatabase.getInstance(application).deepWorkSessionDao()
     private val userConfigDao = PhysiLockDatabase.getInstance(application).userConfigurationDao()
+    private val appCategoryDao = PhysiLockDatabase.getInstance(application).appCategoryDao()
 
     val activeSession: StateFlow<DeepWorkSession?> = deepWorkSessionDao.getActiveSession()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
+
+    // Same Admin-category-derived set AppMonitorService.deepWorkBlockedPackages actually
+    // enforces against -- shown here just for the "what's blocked" chip cloud.
+    val blockedAppNames: StateFlow<List<String>> = appCategoryDao.getAll()
+        .map { categories ->
+            categories
+                .filter { it.category == AppCategoryType.SOCIAL_MEDIA || it.category == AppCategoryType.ENTERTAINMENT }
+                .map { it.appName }
+                .sorted()
+        }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
 
     private val _elapsedSeconds = MutableStateFlow(0L)
     val elapsedSeconds: StateFlow<Long> = _elapsedSeconds.asStateFlow()

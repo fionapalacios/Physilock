@@ -26,6 +26,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Card
@@ -86,6 +87,7 @@ fun HomeScreen(
     displayName: String = "Alex",
     onManageAppLock: () -> Unit = {},
     onNavigateToFocus: () -> Unit = {},
+    onNavigateToDeepWork: () -> Unit = {},
     onNavigateToGoals: () -> Unit = {},
     onNavigateToMove: () -> Unit = {},
     onNavigateToReflection: () -> Unit = {}
@@ -141,7 +143,8 @@ fun HomeScreen(
             riskLevel = riskLevel,
             riskScorePercent = riskScorePercent,
             onManageAppLock = onManageAppLock,
-            onNavigateToFocus = onNavigateToFocus
+            onNavigateToFocus = onNavigateToFocus,
+            onNavigateToDeepWork = onNavigateToDeepWork
         )
         Spacer(modifier = Modifier.height(12.dp))
         AppUsageCard(appUsageToday = appUsageToday)
@@ -491,7 +494,8 @@ private fun RiskAndActionsRow(
     riskLevel: String,
     riskScorePercent: Float,
     onManageAppLock: () -> Unit,
-    onNavigateToFocus: () -> Unit
+    onNavigateToFocus: () -> Unit,
+    onNavigateToDeepWork: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(
@@ -545,6 +549,12 @@ private fun RiskAndActionsRow(
                 title = "Focus Mode",
                 subtitle = "Block distracting apps",
                 onClick = onNavigateToFocus
+            )
+            ActionTile(
+                icon = Icons.Default.Shield,
+                title = "Deep Focus",
+                subtitle = "Stricter, timed, shake to exit",
+                onClick = onNavigateToDeepWork
             )
             ActionTile(
                 icon = Icons.Default.Lock,
