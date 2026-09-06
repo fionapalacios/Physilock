@@ -31,6 +31,11 @@ class DeepWorkViewModel(application: Application) : AndroidViewModel(application
     val activeSession: StateFlow<DeepWorkSession?> = deepWorkSessionDao.getActiveSession()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    // Wellness Nudges (2026-09-06): gates the rotating deepWorkMessages line in DeepWorkScreen.
+    val wellnessNudgesEnabled: StateFlow<Boolean> = userConfigDao.getActiveConfiguration()
+        .map { it?.wellnessNudgesEnabled ?: true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     // Same Admin-category-derived set AppMonitorService.deepWorkBlockedPackages actually
     // enforces against -- shown here just for the "what's blocked" chip cloud.
     val blockedAppNames: StateFlow<List<String>> = appCategoryDao.getAll()

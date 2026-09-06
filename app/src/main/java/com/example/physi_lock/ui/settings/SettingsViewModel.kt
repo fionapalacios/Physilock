@@ -78,6 +78,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setContextAlertsEnabled(enabled: Boolean) =
         update { it.copy(contextAlertsEnabled = enabled) }
 
+    fun setWellnessNudgesEnabled(enabled: Boolean) =
+        update { it.copy(wellnessNudgesEnabled = enabled) }
+
     fun setContextAlertWifiSsid(ssid: String?) =
         update { it.copy(contextAlertWifiSsid = ssid?.takeIf { s -> s.isNotBlank() }) }
 

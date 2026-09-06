@@ -101,9 +101,10 @@ import kotlinx.coroutines.withContext
  * existed briefly (real functionality this repo had that their design doesn't cover) but was
  * removed per instruction to strictly follow their UI; Motion Lock Sensitivity's current value
  * is still visible read-only in StudentModeScreen/WorkModeScreen, just no longer editable from
- * here. Rows with no real backend yet (Wellness Nudges) are kept visible with a plain "Coming
- * soon" subtitle rather than dropped, per the instruction not to skip ported UI just because
- * the logic behind it isn't built. About/Reset-to-Default (easy to make real, so made real
+ * here. Wellness Nudges was a "Coming soon" placeholder until 2026-09-06, when it was wired to
+ * a real UserConfiguration.wellnessNudgesEnabled flag gating the existing mindful quotes Focus
+ * Mode/Deep Work Mode already show during a session, rather than inventing new content.
+ * About/Reset-to-Default (easy to make real, so made real
  * rather than left as dead taps) are additions beyond their row list. Whitelist Manager and
  * Permissions were made real 2026-08-29; Bedtime Mode, About, Sign Out confirmation, and
  * Delete Account's confirm UI (not its actual deletion — see the ConfirmSheet block below)
@@ -176,9 +177,6 @@ fun SettingsScreen(
     var passwordChangeMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeSuccess by remember { mutableStateOf(false) }
 
-    // Rows with no real backend — local-only state, exactly as unpersisted as the
-    // teammate's own version of these same toggles.
-    var wellnessNudgesEnabled by remember { mutableStateOf(true) }
     var showContextAlerts by remember { mutableStateOf(false) }
 
     if (showAppLockRules) {
@@ -420,8 +418,10 @@ fun SettingsScreen(
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
                     title = "Wellness Nudges",
-                    subtitle = "Coming soon",
-                    trailing = SettingsTrailing.Toggle(wellnessNudgesEnabled) { wellnessNudgesEnabled = it }
+                    subtitle = "Toggle on to show mindful quotes during Focus & Deep Work sessions",
+                    trailing = SettingsTrailing.Toggle(config.wellnessNudgesEnabled) {
+                        settingsViewModel.setWellnessNudgesEnabled(it)
+                    }
                 )
             )
         )

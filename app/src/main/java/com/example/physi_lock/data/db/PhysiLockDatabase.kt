@@ -62,7 +62,7 @@ import com.example.physi_lock.data.entity.UserConfiguration
         LoginEvent::class,
         DeepWorkSession::class
     ],
-    version = 23,
+    version = 24,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {

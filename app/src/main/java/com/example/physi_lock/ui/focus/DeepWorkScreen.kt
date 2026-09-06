@@ -98,7 +98,8 @@ fun DeepWorkScreen(
     durationSecs: Int,
     blockedApps: List<String>,
     onEndClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    wellnessNudgesEnabled: Boolean = true
 ) {
     var showExitFlow by remember { mutableStateOf(false) }
     var msgIndex by remember { mutableStateOf(0) }
@@ -149,19 +150,21 @@ fun DeepWorkScreen(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                AnimatedContent(targetState = msgIndex, label = "deepWorkMessage") { index ->
-                    Text(
-                        text = "\"${deepWorkMessages[index]}\"",
-                        fontFamily = Nunito,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        color = SecondarySage,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 21.sp
-                    )
-                }
+                if (wellnessNudgesEnabled) {
+                    AnimatedContent(targetState = msgIndex, label = "deepWorkMessage") { index ->
+                        Text(
+                            text = "\"${deepWorkMessages[index]}\"",
+                            fontFamily = Nunito,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            color = SecondarySage,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 21.sp
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+                }
 
                 Text(
                     text = "ALL SOCIAL & ENTERTAINMENT BLOCKED",
@@ -495,6 +498,7 @@ fun DeepWorkRoute(
 ) {
     val elapsedSeconds by viewModel.elapsedSeconds.collectAsState()
     val blockedApps by viewModel.blockedAppNames.collectAsState()
+    val wellnessNudgesEnabled by viewModel.wellnessNudgesEnabled.collectAsState()
     val session by viewModel.activeSession.collectAsState()
     val activeSession = session
 
@@ -524,7 +528,8 @@ fun DeepWorkRoute(
             viewModel.endSession(endedEarly)
             onEndClick()
         },
-        modifier = modifier
+        modifier = modifier,
+        wellnessNudgesEnabled = wellnessNudgesEnabled
     )
 }
 

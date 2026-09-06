@@ -61,7 +61,8 @@ fun FocusModeScreen(
     elapsedSeconds: Long,
     onEndFocusClick: () -> Unit,
     modifier: Modifier = Modifier,
-    blockedApps: List<String> = emptyList()
+    blockedApps: List<String> = emptyList(),
+    wellnessNudgesEnabled: Boolean = true
 ) {
     val quote = remember { focusQuotes.random() }
     val minutes = elapsedSeconds / 60
@@ -134,18 +135,20 @@ fun FocusModeScreen(
                 }
             }
 
-            Spacer(modifier = Modifier.height(30.dp))
+            if (wellnessNudgesEnabled) {
+                Spacer(modifier = Modifier.height(30.dp))
 
-            Text(
-                text = "\"$quote\"",
-                fontFamily = Nunito,
-                fontSize = 14.sp,
-                fontStyle = FontStyle.Italic,
-                fontWeight = FontWeight.SemiBold,
-                lineHeight = 21.sp,
-                color = SecondarySage,
-                textAlign = TextAlign.Center
-            )
+                Text(
+                    text = "\"$quote\"",
+                    fontFamily = Nunito,
+                    fontSize = 14.sp,
+                    fontStyle = FontStyle.Italic,
+                    fontWeight = FontWeight.SemiBold,
+                    lineHeight = 21.sp,
+                    color = SecondarySage,
+                    textAlign = TextAlign.Center
+                )
+            }
 
             Spacer(modifier = Modifier.height(30.dp))
 
@@ -259,6 +262,7 @@ fun FocusModeRoute(
 ) {
     val elapsedSeconds by viewModel.elapsedSeconds.collectAsState()
     val blockedApps by viewModel.blockedApps.collectAsState()
+    val wellnessNudgesEnabled by viewModel.wellnessNudgesEnabled.collectAsState()
     var showEndSheet by remember { mutableStateOf(false) }
 
     // Focus Mode is a locked screen while a session is active -- pressing back should surface
@@ -274,7 +278,8 @@ fun FocusModeRoute(
         FocusModeScreen(
             elapsedSeconds = elapsedSeconds,
             onEndFocusClick = { showEndSheet = true },
-            blockedApps = blockedApps
+            blockedApps = blockedApps,
+            wellnessNudgesEnabled = wellnessNudgesEnabled
         )
 
         if (showEndSheet) {

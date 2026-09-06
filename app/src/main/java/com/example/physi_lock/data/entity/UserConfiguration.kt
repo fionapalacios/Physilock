@@ -48,5 +48,12 @@ data class UserConfiguration(
     // a locked app from the Move hub -- the same real per-app timed-unlock mechanism
     // Activity Challenges already use (AppMonitorService.grantTemporaryUnlock).
     val focusCreditBalanceMinutes: Int = 0,
+    // Wellness Nudges (2026-09-06): the Settings toggle previously had zero backend
+    // ("Coming soon"). Rather than inventing new content, this gates the mindful
+    // rotating quotes/messages Focus Mode (focusQuotes) and Deep Work Mode
+    // (deepWorkMessages) already show during a session -- see FocusModeScreen.kt /
+    // DeepWorkScreen.kt. Daily Reflection stays its own separate real feature with its
+    // own Home entry point, not folded under this toggle.
+    val wellnessNudgesEnabled: Boolean = true,
     val lastUpdatedTime: Long = System.currentTimeMillis()
 )
