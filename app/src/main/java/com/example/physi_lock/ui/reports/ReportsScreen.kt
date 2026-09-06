@@ -4,6 +4,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -53,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.dao.AppUsageTotal
 import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
+import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.Nunito
@@ -86,7 +88,16 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
     val dailyLimitMinutes by reportsViewModel.dailyLimitMinutes.collectAsState(initial = 480)
     val todaysPredictions by reportsViewModel.todaysPredictions.collectAsState(initial = emptyList())
     val usagePatterns by reportsViewModel.usagePatterns.collectAsState(initial = UsagePatterns())
+    val riskLevel by reportsViewModel.riskLevel.collectAsState(initial = "Moderate")
+    val riskScorePercent by reportsViewModel.riskScorePercent.collectAsState(initial = 0.5f)
+    val bypassAttemptsToday by reportsViewModel.bypassAttemptsToday.collectAsState(initial = 0)
+    val doomscrollEpisodesToday by reportsViewModel.doomscrollEpisodesToday.collectAsState(initial = 0)
+    var showRiskSheet by remember { mutableStateOf(false) }
 
+    val todayMinutes = weeklyUsage.lastOrNull { it.isToday }?.minutes ?: 0
+    val excessiveHoursFlagged = todaysPredictions.count { it.isExcessive }
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -102,13 +113,24 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
             fontWeight = FontWeight.Medium,
             color = PrimaryGreen
         )
-        Text(
-            text = "Usage Reports",
-            fontFamily = Nunito,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = PrimaryDark
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Usage Reports",
+                fontFamily = Nunito,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PrimaryDark
+            )
+            RiskScoreBadge(
+                riskLevel = riskLevel,
+                riskScorePercent = riskScorePercent,
+                onClick = { showRiskSheet = true }
+            )
+        }
 
         Spacer(modifier = Modifier.height(15.dp))
 
@@ -121,7 +143,6 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
             return@Column
         }
 
-        val todayMinutes = weeklyUsage.lastOrNull { it.isToday }?.minutes ?: 0
         val avgMinutes = weeklyUsage.map { it.minutes }.average().takeIf { !it.isNaN() } ?: 0.0
         val totalMinutes = weeklyUsage.sumOf { it.minutes }
         val daysTracked = weeklyUsage.count { it.minutes > 0 }
@@ -373,12 +394,189 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
             }
         }
     }
+
+    if (showRiskSheet) {
+        RiskScoreSheet(
+            riskLevel = riskLevel,
+            riskScorePercent = riskScorePercent,
+            todayMinutes = todayMinutes,
+            dailyLimitMinutes = dailyLimitMinutes,
+            doomscrollEpisodesToday = doomscrollEpisodesToday,
+            excessiveHoursFlagged = excessiveHoursFlagged,
+            hoursPredictedSoFar = todaysPredictions.size,
+            bypassAttemptsToday = bypassAttemptsToday,
+            onDismiss = { showRiskSheet = false }
+        )
+    }
+    }
 }
 
 private fun formatMinutes(minutes: Int): String {
     val hours = minutes / 60
     val mins = minutes % 60
     return if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
+}
+
+/** Tappable "Risk: 62%" pill lifted from the teammate's comparison `UsageTab` mockup
+ *  (2026-09-04 finding) -- opens [RiskScoreSheet] below. Reuses the same risk score
+ *  Home's ring already computes (see ReportsViewModel), not a separate calculation. */
+@Composable
+private fun RiskScoreBadge(riskLevel: String, riskScorePercent: Float, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .background(PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(19.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 11.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Warning,
+            contentDescription = null,
+            tint = PrimaryDark,
+            modifier = Modifier.size(13.dp)
+        )
+        Text(
+            text = "Risk: ${(riskScorePercent * 100).roundToInt()}% ($riskLevel)",
+            fontFamily = Nunito,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = PrimaryDark
+        )
+    }
+}
+
+/** Risk Score breakdown panel -- the one genuinely new piece the comparison `UsageTab`
+ *  mockup had (tap "Risk: 62" -> circular meter + 4 behavioral indicators). All 4
+ *  indicators below are real: screen time and excessive-hours come from the same data
+ *  already loaded elsewhere on this screen, and doomscroll episodes / bypass attempts
+ *  come from [com.example.physi_lock.ml.RiskFeatureExtractor]'s real MotionInterventionLog
+ *  counts -- the mockup's own "Bypass attempts: 3 today" indicator was flagged 2026-09-04
+ *  as having no real counter, which turned out to be wrong: that counter already existed,
+ *  just wasn't surfaced in Reports yet. Same custom-scrim-sheet pattern as
+ *  EndFocusSessionSheet, not Material3's ModalBottomSheet. */
+@Composable
+private fun RiskScoreSheet(
+    riskLevel: String,
+    riskScorePercent: Float,
+    todayMinutes: Int,
+    dailyLimitMinutes: Int,
+    doomscrollEpisodesToday: Int,
+    excessiveHoursFlagged: Int,
+    hoursPredictedSoFar: Int,
+    bypassAttemptsToday: Int,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DeepOlive.copy(alpha = 0.35f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            ),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .background(BackgroundLight, RoundedCornerShape(topStart = 22.5.dp, topEnd = 22.5.dp))
+                .padding(22.5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Behavioral Risk Score",
+                fontFamily = Nunito,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PrimaryDark
+            )
+            Spacer(modifier = Modifier.height(15.dp))
+            CircularProgressRing(
+                progress = riskScorePercent,
+                trackColor = TertiaryTan,
+                progressColor = PrimaryDark,
+                ringSize = 88.dp,
+                strokeWidth = 10.dp
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${(riskScorePercent * 100).roundToInt()}%",
+                        fontFamily = Nunito,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PrimaryDark
+                    )
+                    Text(
+                        text = riskLevel,
+                        fontFamily = Nunito,
+                        fontSize = 11.sp,
+                        color = DeepOlive
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                RiskIndicatorRow(
+                    label = "Screen time today",
+                    value = "${formatMinutes(todayMinutes)} / ${formatMinutes(dailyLimitMinutes)} limit"
+                )
+                RiskIndicatorRow(
+                    label = "Doomscroll episodes today",
+                    value = doomscrollEpisodesToday.toString()
+                )
+                RiskIndicatorRow(
+                    label = "Excessive-usage hours flagged",
+                    value = if (hoursPredictedSoFar > 0) {
+                        "$excessiveHoursFlagged of $hoursPredictedSoFar hours today"
+                    } else {
+                        "Not yet available today"
+                    }
+                )
+                RiskIndicatorRow(
+                    label = "Bypass attempts today",
+                    value = bypassAttemptsToday.toString()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RiskIndicatorRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(AuthTabsBackground, RoundedCornerShape(15.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontFamily = Nunito,
+            fontSize = 13.sp,
+            color = DeepOlive,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            fontFamily = Nunito,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = PrimaryDark
+        )
+    }
 }
 
 /** Ported from the teammate's sprint-2-ui-navigation branch ReportsScreen (`PeriodTabs`),
