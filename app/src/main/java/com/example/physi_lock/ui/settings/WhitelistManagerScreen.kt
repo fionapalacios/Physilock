@@ -46,20 +46,21 @@ import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
 import kotlinx.coroutines.delay
 
-/** Direct shortcut to Student Mode's "Study App Allowlist" (same real data as
- *  AllowlistSection in ScheduleBlockSection.kt / ScheduleViewModel -- reachable from
- *  Settings without going through Student Mode's schedule-block screen), but with its own
- *  layout ported from the teammate's Figma "WhitelistPage" (2026-09-04): a two-section
- *  always-accessible/add-app split with remove/add affordances, instead of AllowlistSection's
- *  compact single-list-with-switches (kept as-is for its embedded use in StudentModeScreen).
+/** Real editor for the shared `AllowlistedApp` table, ported from the teammate's Figma
+ *  "WhitelistPage" (2026-09-04): a two-section always-accessible/add-app split with
+ *  remove/add affordances. Originally described as Student Mode's "Study App Allowlist"
+ *  (a `ScheduleBlockSection.kt`/`AllowlistSection`-era concept) -- Student Mode has used a
+ *  real Pomodoro blocklist instead since 2026-09-07 (`ScheduleBlockSection.kt` and
+ *  `AllowlistSection` were deleted entirely once nothing called them anymore), so this
+ *  table/screen is Bedtime-Mode-only now.
  *
  *  The Figma copy claimed whitelisted apps are "never locked by any mechanism -- not by
  *  usage goals, adaptive lock, Focus Mode, or Bedtime Mode." That's not what the real
- *  allowlist does (see AppMonitorService.onAccessibilityEvent): it only exempts apps from
- *  Class Mode's schedule block. Adaptive Lock's challenge check runs first and overrides it
- *  even then, Focus Mode uses a separate blocklist entirely, usage goals aren't consulted
- *  here at all, and Bedtime Mode doesn't exist yet. Copy below describes the real scope
- *  instead of porting the mockup's broader claim verbatim. */
+ *  allowlist does (see AppMonitorService.isWithinBedtimeWindow): it only exempts apps from
+ *  Bedtime Mode's window. Adaptive Lock's challenge check runs first and overrides it even
+ *  then, Focus Mode/Deep Work/Pomodoro each use their own separate blocklists entirely, and
+ *  usage goals aren't consulted here at all. Copy below describes the real scope instead of
+ *  porting the mockup's broader claim verbatim. */
 @Composable
 fun WhitelistManagerScreen(
     onBackClick: () -> Unit,
@@ -113,9 +114,9 @@ fun WhitelistManagerScreen(
                 .padding(bottom = 24.dp)
         ) {
             Text(
-                text = "Whitelisted apps stay reachable during an active class schedule block, " +
+                text = "Whitelisted apps stay reachable during Bedtime Mode, " +
                     "when everything else (except system apps like Phone and Settings) is sent " +
-                    "to the home screen. This applies to Class Mode only, not Adaptive Lock or Focus Mode.",
+                    "to the home screen. This applies to Bedtime Mode only, not Adaptive Lock, Focus Mode, or a Pomodoro study session.",
                 fontFamily = Nunito,
                 fontSize = 13.sp,
                 color = MutedText,

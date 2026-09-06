@@ -22,7 +22,6 @@ import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.entity.MotionInterventionLog
 import com.example.physi_lock.data.entity.NotificationLog
 import com.example.physi_lock.data.db.PhysiLockDatabase
-import com.example.physi_lock.data.entity.ScheduleBlock
 import com.example.physi_lock.data.repository.UsageStatsRepository
 import com.example.physi_lock.data.context.currentWifiSsid
 import com.example.physi_lock.data.context.lastKnownLocation
@@ -197,6 +196,12 @@ class AppMonitorService : AccessibilityService() {
     // so it's a genuinely broader/uncustomizable block during a Deep Work session.
     @Volatile private var deepWorkActive: Boolean = false
     @Volatile private var deepWorkBlockedPackages: Set<String> = emptySet()
+    // Student Mode Pomodoro (2026-09-07): pomodoroPhase is null when no session is active,
+    // "WORK" or "BREAK" otherwise -- only "WORK" blocks (see the priority-chain branch
+    // below). pomodoroBlockedPackages is User-owned (PomodoroBlockedApp), same reasoning
+    // as focusBlockedPackages above.
+    @Volatile private var pomodoroPhase: String? = null
+    @Volatile private var pomodoroBlockedPackages: Set<String> = emptySet()
     // Module 7 (Context-Aware AI): Wi-Fi-network-matched Context Alerts. Not GPS
     // geofencing -- real location-based locking is a Future Enhancement per the
     // manuscript, out of MVP scope; this matches by Wi-Fi network name instead, which
@@ -211,14 +216,12 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var contextAlertRadiusMeters: Int = 100
     @Volatile private var cachedLocation: android.location.Location? = null
     private var lastContextAlertNotifyTime: Long = 0L
-    // Student/Work Mode real schedule-based enforcement: userMode wasn't previously
-    // mirrored here (nothing before this needed it at enforcement time). scheduleBlocks
-    // holds every block for both modes (filtered by mode at check time, since the active
-    // mode can change while the service keeps running); allowlistedPackages is Student
-    // Mode's "stays reachable during a block" set. Same live-Flow-collector pattern as
-    // lockedPackages/focusBlockedPackages above.
+    // userMode drives both Work Mode's Work Hours window and (historically) Student
+    // Mode's class-schedule blocking; allowlistedPackages is Bedtime Mode's "stays
+    // reachable during the window" set (Student Mode's old allowlist-inversion model was
+    // replaced by Pomodoro's blocklist 2026-09-07, but the table/set is shared with Bedtime
+    // so it stays). Same live-Flow-collector pattern as lockedPackages/focusBlockedPackages.
     @Volatile private var userMode: String = "STUDENT_MODE"
-    @Volatile private var scheduleBlocks: List<ScheduleBlock> = emptyList()
     @Volatile private var allowlistedPackages: Set<String> = emptySet()
     @Volatile private var bedtimeStartMinute: Int = 23 * 60
     @Volatile private var bedtimeEndMinute: Int = 7 * 60
@@ -312,13 +315,8 @@ class AppMonitorService : AccessibilityService() {
             }
         }
 
-        // Student/Work Mode: live-reload schedule blocks (both modes) and Student
-        // Mode's study app allowlist, same pattern as lockedPackages/focusBlockedPackages.
-        serviceScope.launch {
-            database.scheduleBlockDao().getAll().collect { blocks ->
-                scheduleBlocks = blocks
-            }
-        }
+        // Bedtime Mode's "stays reachable during the window" allowlist, same pattern as
+        // lockedPackages/focusBlockedPackages.
         serviceScope.launch {
             database.allowlistedAppDao().getAll().collect { apps ->
                 allowlistedPackages = apps.map { it.packageName }.toSet()
@@ -362,6 +360,18 @@ class AppMonitorService : AccessibilityService() {
                     .filter { it.category == AppCategoryType.SOCIAL_MEDIA || it.category == AppCategoryType.ENTERTAINMENT }
                     .map { it.packageName }
                     .toSet()
+            }
+        }
+
+        // Student Mode Pomodoro (2026-09-07): same live-reload pattern as Deep Work above.
+        serviceScope.launch {
+            database.pomodoroSessionDao().getActiveSession().collectLatest { session ->
+                pomodoroPhase = session?.phase
+            }
+        }
+        serviceScope.launch {
+            database.pomodoroBlockedAppDao().getAll().collect { apps ->
+                pomodoroBlockedPackages = apps.map { it.packageName }.toSet()
             }
         }
 
@@ -807,7 +817,6 @@ class AppMonitorService : AccessibilityService() {
 
         // Check if app should be locked (Module 3/4's challenge-based lock takes
         // priority over Focus Mode's plain block for apps that are both).
-        val scheduleBlock = activeScheduleBlock()
         if (packageName in lockedPackages && !isTemporarilyUnlocked(packageName, currentTime)) {
             val intent = Intent(this, LockActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
@@ -816,7 +825,7 @@ class AppMonitorService : AccessibilityService() {
             startActivity(intent)
         } else if (deepWorkActive && packageName in deepWorkBlockedPackages) {
             // Real full-screen overlay (2026-09-06) -- was routed through handleScheduleBlock
-            // (performGlobalAction(HOME) + notification, still used by Class/Work Mode below).
+            // (performGlobalAction(HOME) + notification, still used by Work Mode below).
             // Purely informational: shaking the device from the Deep Work screen's exit gate
             // stays the only real way out, this just replaces the silent home-kick.
             val intent = Intent(this, ModeLockActivity::class.java).apply {
@@ -826,24 +835,29 @@ class AppMonitorService : AccessibilityService() {
                 putExtra(ModeLockActivity.EXTRA_MESSAGE, "Blocked for the rest of this session")
             }
             startActivity(intent)
+        } else if (pomodoroPhase == "WORK" && packageName in pomodoroBlockedPackages) {
+            // Student Mode Pomodoro (2026-09-07): a real committed session like Deep Work,
+            // not a passive schedule -- same full-screen overlay treatment. Only the WORK
+            // phase blocks; the BREAK phase deliberately doesn't, matching real Pomodoro
+            // technique (a break is meant to be an actual break). Ending the session (or
+            // waiting for the WORK phase to end) stays the only real way in.
+            val intent = Intent(this, ModeLockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
+                putExtra(ModeLockActivity.EXTRA_TITLE, "Study Session Active")
+                putExtra(ModeLockActivity.EXTRA_MESSAGE, "Blocked during your Pomodoro study session")
+            }
+            startActivity(intent)
         } else if (isWithinBedtimeWindow() && packageName !in allowlistedPackages && !isSystemPackage(packageName)) {
             // Real hard-block lock screen (2026-09-06) -- was performGlobalAction(HOME) +
-            // a notification only (handleScheduleBlock, still used by Class/Work Mode
-            // below). Same startActivity(NEW_TASK|CLEAR_TASK) mechanism LockActivity uses.
+            // a notification only (handleScheduleBlock, still used by Work Mode below).
+            // Same startActivity(NEW_TASK|CLEAR_TASK) mechanism LockActivity uses.
             val intent = Intent(this, BedtimeLockActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 putExtra(EXTRA_PACKAGE_NAME, packageName)
                 putExtra(EXTRA_BEDTIME_END_MINUTE, bedtimeEndMinute)
             }
             startActivity(intent)
-        } else if (userMode == "STUDENT_MODE" && scheduleBlock != null &&
-            packageName !in allowlistedPackages && !isSystemPackage(packageName)
-        ) {
-            handleScheduleBlock(
-                currentTime,
-                title = "Class Mode active",
-                description = "${getAppName(packageName)} is blocked during ${scheduleBlock.label}"
-            )
         } else if (userMode == "WORK_MODE" && isWithinWorkHours() && packageName in focusBlockedPackages) {
             // Work Mode redesign (2026-09-07): condition changed from the old per-day
             // ScheduleBlock check to isWithinWorkHours() (single Mon-Fri window) -- the
@@ -872,24 +886,9 @@ class AppMonitorService : AccessibilityService() {
         }
     }
 
-    // Student/Work Mode (real schedule-based enforcement): a ScheduleBlock is active
-    // right now for the active mode, or null. Cheap synchronous check against the
-    // cached list only -- no DB access on the accessibility-event thread, same
-    // constraint as the rest of this priority chain.
-    private fun activeScheduleBlock(): ScheduleBlock? {
-        val calendar = Calendar.getInstance()
-        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
-        val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
-        return scheduleBlocks.firstOrNull { block ->
-            block.mode == userMode && block.dayOfWeek == dayOfWeek &&
-                minuteOfDay >= block.startMinute && minuteOfDay < block.endMinute
-        }
-    }
-
-    // Bedtime Mode (real, 2026-09-04): unlike ScheduleBlock, this isn't day-of-week or
-    // userMode scoped -- just a daily minutes-since-midnight window, so it can (and by
-    // default does, 11 PM-7 AM) wrap past midnight. Same cheap synchronous
-    // cached-fields-only check as activeScheduleBlock -- no DB access here.
+    // Bedtime Mode (real, 2026-09-04): a daily minutes-since-midnight window, so it can
+    // (and by default does, 11 PM-7 AM) wrap past midnight. Cheap synchronous
+    // cached-fields-only check -- no DB access on the accessibility-event thread.
     private fun isWithinBedtimeWindow(): Boolean {
         val calendar = Calendar.getInstance()
         val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)

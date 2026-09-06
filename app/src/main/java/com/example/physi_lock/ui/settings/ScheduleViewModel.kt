@@ -8,7 +8,7 @@ import com.example.physi_lock.data.entity.AllowlistedApp
 import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.entity.DeepWorkSchedule
-import com.example.physi_lock.data.entity.ScheduleBlock
+import com.example.physi_lock.data.entity.PomodoroBlockedApp
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -18,20 +18,17 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-/** Backs Student/Work Mode's real schedule-block enforcement UI (StudentModeScreen /
- * WorkModeScreen, see AppMonitorService.activeScheduleBlock for the runtime enforcement
- * side). One shared instance covers both screens -- schedule blocks span both modes
- * (filtered by mode in the UI) and the study allowlist is Student-only. Reuses
- * InstalledAppInfo/the queryIntentActivities loader already defined in
- * AppLockViewModel.kt (same package). */
+/** Backs Student/Work Mode's real settings-list UI (StudentModeScreen/WorkModeScreen) --
+ * Deep Work Blocks and the Work Mode blocked-apps display span Work Mode, the study
+ * allowlist and Pomodoro blocked-apps list are Student-only. One shared instance covers
+ * both screens. Reuses InstalledAppInfo/the queryIntentActivities loader already defined
+ * in AppLockViewModel.kt (same package). Live session/timer state for the Pomodoro
+ * timer itself lives in the separate PomodoroViewModel, not here. */
 class ScheduleViewModel(application: Application) : AndroidViewModel(application) {
     private val db = PhysiLockDatabase.getInstance(application)
-    private val scheduleBlockDao = db.scheduleBlockDao()
     private val allowlistedAppDao = db.allowlistedAppDao()
     private val deepWorkScheduleDao = db.deepWorkScheduleDao()
-
-    val scheduleBlocks: StateFlow<List<ScheduleBlock>> = scheduleBlockDao.getAll()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val pomodoroBlockedAppDao = db.pomodoroBlockedAppDao()
 
     val allowlistedApps: StateFlow<List<AllowlistedApp>> = allowlistedAppDao.getAll()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -56,6 +53,12 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
+    // Student Mode Pomodoro (2026-09-07): a User-owned blocklist for the timer's WORK
+    // phase, replacing the old Class-Schedule-era allowlist-inversion model. See
+    // PomodoroBlockedApp kdoc for why this is a blocklist, not an allowlist.
+    val pomodoroBlockedApps: StateFlow<List<PomodoroBlockedApp>> = pomodoroBlockedAppDao.getAll()
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
     private val _installedApps = MutableStateFlow<List<InstalledAppInfo>>(emptyList())
     val installedApps: StateFlow<List<InstalledAppInfo>> = _installedApps.asStateFlow()
 
@@ -74,24 +77,6 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
                 .map { InstalledAppInfo(packageName = it.first, appName = it.second) }
             _installedApps.value = apps
         }
-    }
-
-    fun addScheduleBlock(mode: String, dayOfWeek: Int, startMinute: Int, endMinute: Int, label: String) {
-        viewModelScope.launch {
-            scheduleBlockDao.insert(
-                ScheduleBlock(
-                    mode = mode,
-                    dayOfWeek = dayOfWeek,
-                    startMinute = startMinute,
-                    endMinute = endMinute,
-                    label = label
-                )
-            )
-        }
-    }
-
-    fun deleteScheduleBlock(id: Long) {
-        viewModelScope.launch { scheduleBlockDao.delete(id) }
     }
 
     fun addDeepWorkSchedule(label: String, startMinute: Int, endMinute: Int) {
@@ -114,6 +99,16 @@ class ScheduleViewModel(application: Application) : AndroidViewModel(application
                 allowlistedAppDao.upsert(AllowlistedApp(packageName = app.packageName, appName = app.appName))
             } else {
                 allowlistedAppDao.delete(app.packageName)
+            }
+        }
+    }
+
+    fun setPomodoroBlocked(app: InstalledAppInfo, blocked: Boolean) {
+        viewModelScope.launch {
+            if (blocked) {
+                pomodoroBlockedAppDao.upsert(PomodoroBlockedApp(packageName = app.packageName, appName = app.appName))
+            } else {
+                pomodoroBlockedAppDao.delete(app.packageName)
             }
         }
     }

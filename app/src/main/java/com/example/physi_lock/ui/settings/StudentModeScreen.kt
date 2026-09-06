@@ -1,7 +1,6 @@
 package com.example.physi_lock.ui.settings
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -23,11 +22,16 @@ import androidx.compose.material.icons.filled.School
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -41,12 +45,22 @@ import com.example.physi_lock.ui.theme.SoftSand
 
 /**
  * Built from scratch — the teammate's StudentModeScreen.kt is a confirmed 0-byte stub, no
- * design to port. Real schedule-based enforcement as of 2026-08-27 (see ScheduleViewModel /
- * AppMonitorService.activeScheduleBlock): a Class Schedule of recurring time windows during
- * which every app not on the Study App Allowlist (and not a system app) gets sent to the
- * home screen. Daily limit/sensitivity/etc. below stay the same shared global
+ * design to port. Daily limit/sensitivity/etc. below stay the same shared global
  * UserConfiguration Work Mode also reads -- only the daily limit gets a per-mode preset,
  * applied on every explicit "Switch to Student Mode" tap (see SettingsViewModel.setUserMode).
+ *
+ * Redesigned 2026-09-07 against a separately-pasted Pomodoro-timer mockup, per the same
+ * held-backlog planning session as the other work items in MODULE_PROGRESS.md. Fully
+ * replaces the old real-but-simpler "Class Schedule" (day/hour recurring blocks, the old
+ * `ScheduleBlockSection`) + "Study App Allowlist" (the old `AllowlistSection`) with a real
+ * Pomodoro timer: work/break phases cycling automatically, a session counter, and a
+ * blocklist (`PomodoroBlockedApp`) instead of the old allowlist-inversion model -- see
+ * `PomodoroViewModel`/`PomodoroSection.kt` and `AppMonitorService`'s pomodoro block check
+ * for the real backend. The old `ScheduleBlock` entity/DAO and the `ScheduleBlockSection.kt`
+ * file (which held both `ScheduleBlockSection` and `AllowlistSection`) were deleted entirely
+ * once both this and the Work Mode redesign stopped needing them; `AllowlistedApp` itself
+ * stays alive for Bedtime Mode and the standalone Whitelist Manager screen (which has its
+ * own real UI, not `AllowlistSection`).
  */
 @Composable
 fun StudentModeScreen(
@@ -54,13 +68,33 @@ fun StudentModeScreen(
     isActive: Boolean,
     onSwitchToThisMode: () -> Unit,
     onBackClick: () -> Unit,
-    scheduleViewModel: ScheduleViewModel = viewModel()
+    scheduleViewModel: ScheduleViewModel = viewModel(),
+    pomodoroViewModel: PomodoroViewModel = viewModel()
 ) {
-    val scheduleBlocks by scheduleViewModel.scheduleBlocks.collectAsState()
-    val allowlistedApps by scheduleViewModel.allowlistedApps.collectAsState()
     val installedApps by scheduleViewModel.installedApps.collectAsState()
+    val pomodoroBlockedApps by scheduleViewModel.pomodoroBlockedApps.collectAsState()
+    val session by pomodoroViewModel.activeSession.collectAsState()
+    val remainingSeconds by pomodoroViewModel.remainingSeconds.collectAsState()
     val sensitivity = ChallengeSensitivity.fromLabel(config.motionLockSensitivity)
     val dailyLimitMinutes = (config.dailyScreenTimeThresholdMs / 60_000L).toInt()
+
+    var pendingWorkMinutes by remember { mutableIntStateOf(25) }
+    var pendingBreakMinutes by remember { mutableIntStateOf(5) }
+    var showFullscreen by remember { mutableStateOf(false) }
+
+    if (showFullscreen) {
+        PomodoroFullscreenOverlay(
+            session = session,
+            remainingSeconds = remainingSeconds,
+            pendingWorkMinutes = pendingWorkMinutes,
+            onPauseResume = {
+                if (session?.pausedAt == null) pomodoroViewModel.pause() else pomodoroViewModel.resume()
+            },
+            onReset = { pomodoroViewModel.reset() },
+            onClose = { showFullscreen = false }
+        )
+        return
+    }
 
     Column(
         modifier = Modifier
@@ -151,7 +185,7 @@ fun StudentModeScreen(
             SettingsCard {
                 Text(
                     text = "YOUR CURRENT SETTINGS",
-                    fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace,
+                    fontFamily = FontFamily.Monospace,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = SageAccent
@@ -179,21 +213,33 @@ fun StudentModeScreen(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            ScheduleBlockSection(
-                title = "Class Schedule",
-                description = "During these windows, only apps on your Study App Allowlist below stay reachable — everything else is sent to the home screen.",
-                mode = "STUDENT_MODE",
-                blocks = scheduleBlocks,
-                onAdd = { day, start, end, label -> scheduleViewModel.addScheduleBlock("STUDENT_MODE", day, start, end, label) },
-                onDelete = { id -> scheduleViewModel.deleteScheduleBlock(id) }
+            PomodoroTimerCard(
+                session = session,
+                remainingSeconds = remainingSeconds,
+                pendingWorkMinutes = pendingWorkMinutes,
+                onStart = { pomodoroViewModel.startSessionIfNeeded(pendingWorkMinutes, pendingBreakMinutes) },
+                onPauseResume = {
+                    if (session?.pausedAt == null) pomodoroViewModel.pause() else pomodoroViewModel.resume()
+                },
+                onReset = { pomodoroViewModel.reset() },
+                onExpand = { showFullscreen = true }
             )
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            AllowlistSection(
+            PomodoroSessionSettingsCard(
+                workMinutes = pendingWorkMinutes,
+                breakMinutes = pendingBreakMinutes,
+                onSelectWork = { pendingWorkMinutes = it },
+                onSelectBreak = { pendingBreakMinutes = it }
+            )
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            PomodoroBlockedAppsSection(
                 installedApps = installedApps,
-                allowlistedPackages = allowlistedApps.map { it.packageName }.toSet(),
-                onToggle = { app, allowed -> scheduleViewModel.setAllowlisted(app, allowed) }
+                blockedPackages = pomodoroBlockedApps.map { it.packageName }.toSet(),
+                onToggle = { app, blocked -> scheduleViewModel.setPomodoroBlocked(app, blocked) }
             )
 
             Spacer(modifier = Modifier.height(24.dp))
