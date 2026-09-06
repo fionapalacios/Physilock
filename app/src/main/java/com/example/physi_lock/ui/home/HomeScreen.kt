@@ -1,5 +1,6 @@
 package com.example.physi_lock.ui.home
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -62,6 +63,7 @@ import androidx.lifecycle.LifecycleEventObserver
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.components.NotificationsOverlay
 import com.example.physi_lock.ui.components.NotificationsViewModel
+import com.example.physi_lock.ui.components.rememberAppIconBitmap
 import com.example.physi_lock.ui.components.toEntry
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
@@ -670,6 +672,7 @@ private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.App
             appUsageToday.forEach { item ->
                 val isOverLimit = item.totalDurationMs > TimeUnit.HOURS.toMillis(3)
                 AppUsageRow(
+                    packageName = item.packageName,
                     appName = item.appName,
                     durationMs = item.totalDurationMs,
                     isOverLimit = isOverLimit,
@@ -686,12 +689,14 @@ private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.App
  *  not a fake instant-unlock. */
 @Composable
 private fun AppUsageRow(
+    packageName: String,
     appName: String,
     durationMs: Long,
     isOverLimit: Boolean,
     onClick: (() -> Unit)? = null
 ) {
     val progress = (durationMs.toFloat() / TimeUnit.HOURS.toMillis(3).toFloat()).coerceIn(0f, 1f)
+    val iconBitmap = rememberAppIconBitmap(packageName)
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -703,12 +708,20 @@ private fun AppUsageRow(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(
-                    imageVector = Icons.Default.PhoneAndroid,
-                    contentDescription = null,
-                    tint = if (isOverLimit) AccentLavender else PrimaryGreen,
-                    modifier = Modifier.size(15.dp)
-                )
+                if (iconBitmap != null) {
+                    Image(
+                        bitmap = iconBitmap,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.PhoneAndroid,
+                        contentDescription = null,
+                        tint = if (isOverLimit) AccentLavender else PrimaryGreen,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
                 Text(
                     text = appName,
                     fontFamily = Nunito,

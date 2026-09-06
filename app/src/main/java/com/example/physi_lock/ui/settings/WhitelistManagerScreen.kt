@@ -13,7 +13,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.physi_lock.ui.components.AppIconAvatar
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.CardCream
 import com.example.physi_lock.ui.theme.DeepOlive
@@ -142,6 +142,7 @@ fun WhitelistManagerScreen(
                 } else {
                     allowlistedApps.forEachIndexed { index, app ->
                         WhitelistRow(
+                            packageName = app.packageName,
                             appName = app.appName,
                             showDivider = index > 0,
                             trailing = {
@@ -195,7 +196,7 @@ fun WhitelistManagerScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(11.dp)
                         ) {
-                            AppAvatar(appName = app.appName, allowed = false)
+                            AppAvatar(packageName = app.packageName, appName = app.appName, allowed = false)
                             Text(
                                 text = app.appName,
                                 fontFamily = Nunito,
@@ -251,7 +252,7 @@ private fun SectionLabel(text: String) {
 }
 
 @Composable
-private fun WhitelistRow(appName: String, showDivider: Boolean, trailing: @Composable () -> Unit) {
+private fun WhitelistRow(packageName: String, appName: String, showDivider: Boolean, trailing: @Composable () -> Unit) {
     Column(modifier = Modifier.fillMaxWidth()) {
         if (showDivider) {
             Box(
@@ -268,7 +269,7 @@ private fun WhitelistRow(appName: String, showDivider: Boolean, trailing: @Compo
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(11.dp)
         ) {
-            AppAvatar(appName = appName, allowed = true)
+            AppAvatar(packageName = packageName, appName = appName, allowed = true)
             Text(
                 text = appName,
                 fontFamily = Nunito,
@@ -283,20 +284,13 @@ private fun WhitelistRow(appName: String, showDivider: Boolean, trailing: @Compo
 }
 
 @Composable
-private fun AppAvatar(appName: String, allowed: Boolean) {
-    Box(
-        modifier = Modifier
-            .size(34.dp)
-            .clip(CircleShape)
-            .background(if (allowed) SageAccent else DeepOlive.copy(alpha = 0.12f)),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = appName.take(1).uppercase(),
-            fontFamily = Nunito,
-            fontWeight = FontWeight.Bold,
-            fontSize = 13.sp,
-            color = if (allowed) DeepOlive else DeepOlive.copy(alpha = 0.6f)
-        )
-    }
+private fun AppAvatar(packageName: String, appName: String, allowed: Boolean) {
+    AppIconAvatar(
+        packageName = packageName,
+        appName = appName,
+        size = 34.dp,
+        fontSize = 13.sp,
+        backgroundColor = if (allowed) SageAccent else DeepOlive.copy(alpha = 0.12f),
+        contentColor = if (allowed) DeepOlive else DeepOlive.copy(alpha = 0.6f)
+    )
 }

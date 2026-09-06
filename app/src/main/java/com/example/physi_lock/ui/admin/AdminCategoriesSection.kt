@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.physi_lock.data.entity.AppCategory
 import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.ui.components.AppIconAvatar
 import com.example.physi_lock.ui.settings.InstalledAppInfo
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.CardCream
@@ -70,28 +71,6 @@ private val CategoryChips = listOf(
     CategoryChipSpec(AppCategoryType.GAMES, "Gaming"),
     CategoryChipSpec(AppCategoryType.OTHER, "Other")
 )
-
-private fun emojiFor(appName: String): String {
-    val n = appName.lowercase()
-    return when {
-        "instagram" in n -> "📸"
-        "tiktok" in n -> "🎵"
-        "youtube" in n -> "▶️"
-        "facebook" in n -> "👤"
-        "twitter" in n || n == "x" -> "🐦"
-        "reddit" in n -> "🤖"
-        "snapchat" in n -> "👻"
-        "netflix" in n -> "🎬"
-        "spotify" in n -> "🎧"
-        "news" in n -> "📰"
-        "amazon" in n -> "🛒"
-        "duolingo" in n -> "🦉"
-        "pubg" in n -> "🎮"
-        "roblox" in n -> "🧱"
-        "headspace" in n -> "🧘"
-        else -> "📱"
-    }
-}
 
 @Composable
 fun AdminCategoriesSection(
@@ -343,7 +322,14 @@ private fun AppCategoryCard(
             .padding(11.25.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = emojiFor(app.appName), fontSize = 22.sp)
+        AppIconAvatar(
+            packageName = app.packageName,
+            appName = app.appName,
+            size = 32.dp,
+            fontSize = 13.sp,
+            backgroundColor = SecondarySage.copy(alpha = 0.20f),
+            contentColor = DeepOlive
+        )
         Spacer(modifier = Modifier.width(11.dp))
         Text(
             text = app.appName,

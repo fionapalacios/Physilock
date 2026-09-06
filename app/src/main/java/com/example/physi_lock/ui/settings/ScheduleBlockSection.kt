@@ -38,6 +38,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.physi_lock.data.entity.ScheduleBlock
+import com.example.physi_lock.ui.components.AppIconAvatar
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.Nunito
@@ -276,21 +277,14 @@ fun AllowlistSection(
                             .padding(vertical = 8.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(34.dp)
-                                .clip(CircleShape)
-                                .background(if (allowed) SageAccent else DeepOlive.copy(alpha = 0.12f)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = app.appName.take(1).uppercase(),
-                                fontFamily = Nunito,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = if (allowed) DeepOlive else DeepOlive.copy(alpha = 0.6f)
-                            )
-                        }
+                        AppIconAvatar(
+                            packageName = app.packageName,
+                            appName = app.appName,
+                            size = 34.dp,
+                            fontSize = 12.sp,
+                            backgroundColor = if (allowed) SageAccent else DeepOlive.copy(alpha = 0.12f),
+                            contentColor = if (allowed) DeepOlive else DeepOlive.copy(alpha = 0.6f)
+                        )
                         Text(
                             text = app.appName,
                             fontFamily = Nunito,
