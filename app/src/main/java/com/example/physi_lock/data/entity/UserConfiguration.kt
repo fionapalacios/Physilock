@@ -39,10 +39,16 @@ data class UserConfiguration(
     // gets sent to the home screen -- same allowlist-inverted enforcement shape as Student
     // Mode's Class Mode, just time-window-only rather than day-of-week + userMode scoped.
     // Defaults (11 PM-7 PM) wrap past midnight -- see AppMonitorService.isWithinBedtimeWindow.
-    // No separate enabled flag: like Class/Work Mode, active purely by being inside the
-    // window, nothing else to toggle.
     val bedtimeStartMinute: Int = 23 * 60,
     val bedtimeEndMinute: Int = 7 * 60,
+    // 2026-09-07: gained a real enable/disable toggle (previously "active purely by being
+    // inside the window, nothing else to toggle") to match every other Settings row's
+    // toggle-plus-tap-to-customize pattern (Context Alerts, Wellness Nudges). Defaults true
+    // so existing behavior isn't silently lost for anyone who already relied on the window.
+    // The whitelist-based hard-block mechanism itself is unchanged for now -- a real
+    // Digital-Wellbeing-style "minimize notifications instead of blocking apps" redesign is
+    // a separate, deliberately deferred follow-up.
+    val bedtimeModeEnabled: Boolean = true,
     // Work Mode redesign (2026-09-07): replaces the old per-day ScheduleBlock flexibility
     // for Work Mode specifically with a single daily window applied Mon-Fri, matching the
     // comparison mockup's static "Monday - Friday" label (it has no day picker of its own).

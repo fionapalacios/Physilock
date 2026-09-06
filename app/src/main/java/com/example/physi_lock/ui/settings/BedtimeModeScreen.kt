@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -55,12 +56,17 @@ private fun hourLabel(hour: Int): String {
 
 /** Ported from the teammate's Figma "BedtimeModePage" (2026-09-04), with real backend
  *  behind it -- see UserConfiguration.bedtimeStart/EndMinute and
- *  AppMonitorService.isWithinBedtimeWindow for the actual enforcement. Per instruction,
- *  the mockup's separate "Enable Bedtime Mode" toggle was dropped: same as Class/Work
- *  Mode, this is active purely by the current time falling in the configured window,
- *  nothing else to switch on/off. Hour-only granularity (DropdownMenu, matching
- *  ScheduleBlockSection's picker) rather than the mockup's native minute-precision time
- *  input, for consistency with the rest of the app's time pickers. */
+ *  AppMonitorService.isWithinBedtimeWindow for the actual enforcement. The mockup's
+ *  separate "Enable Bedtime Mode" toggle was dropped at first (this was active purely by
+ *  falling inside the configured window, nothing else to switch on/off), then added back
+ *  for real 2026-09-07 to match every other Settings row's toggle-plus-tap-to-customize
+ *  pattern (Context Alerts, Wellness Nudges) -- same `SettingsCard` + `Switch` layout
+ *  ContextAlertsScreen uses, config UI hidden while disabled. Hour-only granularity
+ *  (DropdownMenu, matching ScheduleBlockSection's old picker) rather than the mockup's
+ *  native minute-precision time input, for consistency with the rest of the app's time
+ *  pickers. The whitelist-based hard-block mechanism itself is unchanged for now -- a
+ *  Digital-Wellbeing-style "minimize notifications instead of blocking apps" redesign is a
+ *  separate, deliberately deferred follow-up. */
 @Composable
 fun BedtimeModeScreen(
     onBackClick: () -> Unit,
@@ -103,46 +109,77 @@ fun BedtimeModeScreen(
                 .padding(top = 4.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(15.dp)
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(RoundedCornerShape(16.dp))
-                    .background(CardCream)
-                    .padding(15.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(11.dp)
-            ) {
-                Icon(imageVector = Icons.Filled.Bedtime, contentDescription = null, tint = DeepOlive, modifier = Modifier.size(16.dp))
-                Text(
-                    text = "Apps are locked during Bedtime Mode, based on the hours below",
-                    fontFamily = Nunito,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = DeepOlive,
-                    modifier = Modifier.weight(1f)
-                )
+            SettingsCard {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = "Enable Bedtime Mode",
+                            fontFamily = Nunito,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = DeepOlive
+                        )
+                        Text(
+                            text = if (config.bedtimeModeEnabled) "On" else "Off",
+                            fontFamily = Nunito,
+                            fontSize = 12.sp,
+                            color = DeepOlive.copy(alpha = 0.7f)
+                        )
+                    }
+                    Switch(
+                        checked = config.bedtimeModeEnabled,
+                        onCheckedChange = { settingsViewModel.setBedtimeModeEnabled(it) },
+                        colors = brandedSwitchColors()
+                    )
+                }
             }
 
-            HourField(
-                label = "BEDTIME STARTS",
-                hour = config.bedtimeStartMinute / 60,
-                onSelect = { hour -> settingsViewModel.setBedtimeStartMinute(hour * 60) }
-            )
-            HourField(
-                label = "WAKE TIME",
-                hour = config.bedtimeEndMinute / 60,
-                onSelect = { hour -> settingsViewModel.setBedtimeEndMinute(hour * 60) }
-            )
+            if (config.bedtimeModeEnabled) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(16.dp))
+                        .background(CardCream)
+                        .padding(15.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(11.dp)
+                ) {
+                    Icon(imageVector = Icons.Filled.Bedtime, contentDescription = null, tint = DeepOlive, modifier = Modifier.size(16.dp))
+                    Text(
+                        text = "Apps are locked during Bedtime Mode, based on the hours below",
+                        fontFamily = Nunito,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = DeepOlive,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
 
-            Text(
-                text = "Apps are locked during Bedtime Mode. Only whitelisted apps (see Whitelist Manager) remain accessible.",
-                fontFamily = Nunito,
-                fontSize = 12.sp,
-                color = MutedText,
-                lineHeight = 18.sp,
-                textAlign = TextAlign.Center,
-                modifier = Modifier.fillMaxWidth()
-            )
+                HourField(
+                    label = "BEDTIME STARTS",
+                    hour = config.bedtimeStartMinute / 60,
+                    onSelect = { hour -> settingsViewModel.setBedtimeStartMinute(hour * 60) }
+                )
+                HourField(
+                    label = "WAKE TIME",
+                    hour = config.bedtimeEndMinute / 60,
+                    onSelect = { hour -> settingsViewModel.setBedtimeEndMinute(hour * 60) }
+                )
+
+                Text(
+                    text = "Apps are locked during Bedtime Mode. Only whitelisted apps (see Whitelist Manager) remain accessible.",
+                    fontFamily = Nunito,
+                    fontSize = 12.sp,
+                    color = MutedText,
+                    lineHeight = 18.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }

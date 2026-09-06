@@ -412,7 +412,14 @@ fun SettingsScreen(
                     iconBackground = DeepOlive.copy(alpha = 0.08f),
                     iconTint = DeepOlive,
                     title = "Bedtime Mode",
-                    subtitle = "${settingsHourLabel(config.bedtimeStartMinute / 60)} – ${settingsHourLabel(config.bedtimeEndMinute / 60)}",
+                    subtitle = if (config.bedtimeModeEnabled) {
+                        "On — ${settingsHourLabel(config.bedtimeStartMinute / 60)} – ${settingsHourLabel(config.bedtimeEndMinute / 60)}"
+                    } else {
+                        "Off"
+                    },
+                    trailing = SettingsTrailing.Toggle(config.bedtimeModeEnabled) {
+                        settingsViewModel.setBedtimeModeEnabled(it)
+                    },
                     onClick = { showBedtimeMode = true }
                 ),
                 SettingsRow(

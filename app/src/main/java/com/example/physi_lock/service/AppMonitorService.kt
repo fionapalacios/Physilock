@@ -223,6 +223,8 @@ class AppMonitorService : AccessibilityService() {
     // so it stays). Same live-Flow-collector pattern as lockedPackages/focusBlockedPackages.
     @Volatile private var userMode: String = "STUDENT_MODE"
     @Volatile private var allowlistedPackages: Set<String> = emptySet()
+    // 2026-09-07: real enable/disable toggle (see UserConfiguration.bedtimeModeEnabled kdoc).
+    @Volatile private var bedtimeModeEnabled: Boolean = true
     @Volatile private var bedtimeStartMinute: Int = 23 * 60
     @Volatile private var bedtimeEndMinute: Int = 7 * 60
     @Volatile private var workHoursStartMinute: Int = 9 * 60
@@ -290,6 +292,7 @@ class AppMonitorService : AccessibilityService() {
                 contextAlertLongitude = config?.contextAlertLongitude
                 contextAlertRadiusMeters = config?.contextAlertRadiusMeters ?: 100
                 userMode = config?.userMode ?: "STUDENT_MODE"
+                bedtimeModeEnabled = config?.bedtimeModeEnabled ?: true
                 bedtimeStartMinute = config?.bedtimeStartMinute ?: (23 * 60)
                 bedtimeEndMinute = config?.bedtimeEndMinute ?: (7 * 60)
                 workHoursStartMinute = config?.workHoursStartMinute ?: (9 * 60)
@@ -848,10 +851,11 @@ class AppMonitorService : AccessibilityService() {
                 putExtra(ModeLockActivity.EXTRA_MESSAGE, "Blocked during your Pomodoro study session")
             }
             startActivity(intent)
-        } else if (isWithinBedtimeWindow() && packageName !in allowlistedPackages && !isSystemPackage(packageName)) {
+        } else if (bedtimeModeEnabled && isWithinBedtimeWindow() && packageName !in allowlistedPackages && !isSystemPackage(packageName)) {
             // Real hard-block lock screen (2026-09-06) -- was performGlobalAction(HOME) +
             // a notification only (handleScheduleBlock, still used by Work Mode below).
-            // Same startActivity(NEW_TASK|CLEAR_TASK) mechanism LockActivity uses.
+            // Same startActivity(NEW_TASK|CLEAR_TASK) mechanism LockActivity uses. Gated on
+            // bedtimeModeEnabled (2026-09-07) so the new Settings toggle actually does something.
             val intent = Intent(this, BedtimeLockActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 putExtra(EXTRA_PACKAGE_NAME, packageName)

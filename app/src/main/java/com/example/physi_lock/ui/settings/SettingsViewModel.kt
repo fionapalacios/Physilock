@@ -96,6 +96,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setBedtimeEndMinute(minuteOfDay: Int) =
         update { it.copy(bedtimeEndMinute = minuteOfDay) }
 
+    fun setBedtimeModeEnabled(enabled: Boolean) =
+        update { it.copy(bedtimeModeEnabled = enabled) }
+
     fun setWorkHoursStartMinute(minuteOfDay: Int) =
         update { it.copy(workHoursStartMinute = minuteOfDay) }
 
