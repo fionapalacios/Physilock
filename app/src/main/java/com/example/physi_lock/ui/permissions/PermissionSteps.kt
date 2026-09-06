@@ -133,7 +133,13 @@ val permissionSteps = listOf(
     ),
     PermissionStep(
         title = "Battery Optimization Exemption",
-        description = "Keeps background monitoring stable so locks always trigger reliably.",
+        // Made required 2026-09-07 (was optional) -- reports of screen-time readings
+        // looking wrong and usage not syncing properly on some devices traced to this
+        // being skippable: without it, OEM battery managers (observed on vivo/Funtouch,
+        // see the Break Reminder heads-up-notification gap documented elsewhere in this
+        // file) can freeze or kill AppMonitorService's background monitoring, silently
+        // dropping usage events rather than erroring visibly.
+        description = "Keeps background monitoring stable so usage tracking and locks always trigger reliably.",
         icon = Icons.Default.BatteryChargingFull,
         iconBackground = TertiaryTan,
         iconTint = DeepOlive,
@@ -146,8 +152,7 @@ val permissionSteps = listOf(
                 Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
                 Uri.parse("package:${context.packageName}")
             )
-        },
-        required = false
+        }
     )
 )
 
