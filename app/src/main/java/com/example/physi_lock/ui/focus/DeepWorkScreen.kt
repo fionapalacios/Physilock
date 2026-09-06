@@ -471,41 +471,164 @@ private fun ShakeGateContent(onComplete: () -> Unit, onCancel: () -> Unit) {
     }
 }
 
+// Duration picker (2026-09-06): lifted from the comparison `InterventionTab` mockup's
+// DeepWorkCard, which offered a 1/1.5/2/3hr picker where this screen used to just hard-code
+// 60 min with no choice. A legitimate small enhancement, unlike that same mockup's
+// FocusModeCard/AdaptiveLockCard pieces (those conflict with real Focus Mode's model or
+// introduce a new master-toggle concept -- held pending a real design decision, not built here).
+private val deepWorkDurationOptions = listOf(60, 90, 120, 180) // minutes
+
+private fun formatDurationLabel(minutes: Int): String {
+    val hours = minutes / 60.0
+    return if (hours == hours.toInt().toDouble()) "${hours.toInt()} hr" else "${hours} hr"
+}
+
 /** Drives [DeepWorkScreen] off a real, persisted [DeepWorkViewModel] session -- same
- *  survives-navigation/process-death pattern as [FocusModeRoute]. [durationSecs] only
- *  applies to a session actually started here; re-entering mid-session keeps the
- *  original duration. */
+ *  survives-navigation/process-death pattern as [FocusModeRoute]. Shows [DeepWorkDurationPicker]
+ *  first when no session is active yet; re-entering mid-session (session already active)
+ *  skips straight to the real screen with the original duration, same as before. */
 @Composable
 fun DeepWorkRoute(
     onEndClick: () -> Unit,
-    durationSecs: Int = 60 * 60,
     modifier: Modifier = Modifier,
     viewModel: DeepWorkViewModel = viewModel()
 ) {
     val elapsedSeconds by viewModel.elapsedSeconds.collectAsState()
     val blockedApps by viewModel.blockedAppNames.collectAsState()
     val session by viewModel.activeSession.collectAsState()
+    val activeSession = session
+
+    if (activeSession == null) {
+        // Nothing has started yet -- ordinary back navigation is fine here, unlike the
+        // "no silent exit" stance once a real session is running below.
+        DeepWorkDurationPicker(
+            blockedApps = blockedApps,
+            onStart = { durationSecs -> viewModel.startSessionIfNeeded(durationSecs) },
+            onCancel = onEndClick,
+            modifier = modifier
+        )
+        return
+    }
 
     BackHandler {
         // Same "no silent exit" stance as Focus Mode -- surface the real shake gate
         // via the on-screen X, don't let system back skip it.
     }
 
-    LaunchedEffect(Unit) {
-        viewModel.startSessionIfNeeded(durationSecs)
-    }
-
-    val actualDuration = session?.durationSecs ?: durationSecs
-
     DeepWorkScreen(
         elapsedSeconds = elapsedSeconds,
-        durationSecs = actualDuration,
+        durationSecs = activeSession.durationSecs,
         blockedApps = blockedApps,
         onEndClick = {
-            val endedEarly = elapsedSeconds < actualDuration
+            val endedEarly = elapsedSeconds < activeSession.durationSecs
             viewModel.endSession(endedEarly)
             onEndClick()
         },
         modifier = modifier
     )
+}
+
+@Composable
+private fun DeepWorkDurationPicker(
+    blockedApps: List<String>,
+    onStart: (durationSecs: Int) -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    var selectedMinutes by remember { mutableIntStateOf(60) }
+
+    Box(modifier = modifier.fillMaxSize().background(DeepWorkBackground)) {
+        Column(
+            modifier = Modifier.fillMaxSize().padding(24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Text(
+                text = "Deep Work",
+                fontFamily = Nunito,
+                fontSize = 22.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = BackgroundLight
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = "Choose how long to lock in. All Social Media/Entertainment apps stay blocked until it ends.",
+                fontFamily = Nunito,
+                fontSize = 13.sp,
+                color = SecondarySage,
+                textAlign = TextAlign.Center,
+                lineHeight = 19.sp
+            )
+            Spacer(modifier = Modifier.height(28.dp))
+
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                deepWorkDurationOptions.forEach { minutes ->
+                    val isSelected = minutes == selectedMinutes
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                if (isSelected) SageAccent else BackgroundLight.copy(alpha = 0.06f),
+                                RoundedCornerShape(14.dp)
+                            )
+                            .clickable { selectedMinutes = minutes }
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                    ) {
+                        Text(
+                            text = formatDurationLabel(minutes),
+                            fontFamily = Nunito,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (isSelected) BackgroundLight else SecondarySage
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(28.dp))
+            Text(
+                text = "ALL SOCIAL & ENTERTAINMENT BLOCKED",
+                fontFamily = FontFamily.Monospace,
+                fontSize = 12.sp,
+                color = MutedText.copy(alpha = 0.8f),
+                textAlign = TextAlign.Center
+            )
+            Spacer(modifier = Modifier.height(9.dp))
+            DeepWorkBlockedAppsCloud(blockedApps)
+        }
+
+        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp)) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(SageAccent, RoundedCornerShape(16.dp))
+                    .clickable { onStart(selectedMinutes * 60) }
+                    .padding(vertical = 15.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Start Deep Work",
+                    fontFamily = Nunito,
+                    fontSize = 15.sp,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = BackgroundLight
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(onClick = onCancel)
+                    .padding(vertical = 12.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = "Cancel",
+                    fontFamily = Nunito,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = MutedText
+                )
+            }
+        }
+    }
 }
