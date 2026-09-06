@@ -117,4 +117,28 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
         }
         return null
     }
+
+    /** Delete Account's reauth step for Google-linked accounts (no password to re-enter):
+     *  same Credential Manager prompt [signInWithGoogle] uses, but returns just the fresh
+     *  ID token rather than signing in -- the caller passes it straight to
+     *  [FirebaseAccountRepository.deleteAccount]'s `googleIdToken` param. */
+    suspend fun getFreshGoogleIdToken(context: Context): String? {
+        val credentialManager = CredentialManager.create(context)
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(true)
+            .setServerClientId(context.getString(R.string.default_web_client_id))
+            .build()
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+
+        val result = credentialManager.getCredential(context = context, request = request)
+        val credential = result.credential
+        if (credential is CustomCredential &&
+            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+        ) {
+            return GoogleIdTokenCredential.createFrom(credential.data).idToken
+        }
+        return null
+    }
 }

@@ -54,6 +54,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -65,20 +66,27 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.data.auth.ChangePasswordResult
+import com.example.physi_lock.data.auth.DeleteAccountResult
 import com.example.physi_lock.data.auth.FirebaseAccountRepository
+import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.sensor.ChallengeSensitivity
+import com.example.physi_lock.ui.auth.AuthViewModel
+import com.example.physi_lock.ui.components.AuthTextField
 import com.example.physi_lock.ui.components.ConfirmSheet
 import com.example.physi_lock.ui.focus.FocusBlockedAppsScreen
 import com.example.physi_lock.ui.permissions.permissionSteps
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.ErrorRed
+import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
 import com.example.physi_lock.ui.theme.SoftSand
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Visual design ported from the teammate's sprint-2-ui-navigation branch (SettingsScreen.kt) —
@@ -144,6 +152,7 @@ fun SettingsScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val accountRepository = remember { FirebaseAccountRepository() }
+    val authViewModel: AuthViewModel = viewModel()
     val config by settingsViewModel.configuration.collectAsState()
 
     var showAppLockRules by remember { mutableStateOf(false) }
@@ -158,6 +167,10 @@ fun SettingsScreen(
     var showResetConfirm by remember { mutableStateOf(false) }
     var showSignOutConfirm by remember { mutableStateOf(false) }
     var showDeleteAccountConfirm by remember { mutableStateOf(false) }
+    var showDeleteReauthStep by remember { mutableStateOf(false) }
+    var deleteAccountPassword by remember { mutableStateOf("") }
+    var deleteAccountError by remember { mutableStateOf<String?>(null) }
+    var deleteAccountInProgress by remember { mutableStateOf(false) }
     var showBreakIntervalPicker by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeMessage by remember { mutableStateOf<String?>(null) }
@@ -531,16 +544,76 @@ fun SettingsScreen(
     }
 
     if (showDeleteAccountConfirm) {
-        // Deliberately not wired to a real Firebase deleteUser() call yet -- this is a
-        // destructive, irreversible action, and per standing instruction the user needs
-        // to explicitly say go-ahead before this actually deletes an account. UI/flow is
-        // real; onConfirm currently just dismisses.
         ConfirmSheet(
             title = "Delete Account?",
             body = "This will permanently delete your account and all usage data. This action cannot be undone.",
             confirmLabel = "Delete Account",
-            onConfirm = { showDeleteAccountConfirm = false },
+            onConfirm = {
+                showDeleteAccountConfirm = false
+                deleteAccountError = null
+                showDeleteReauthStep = true
+            },
             onCancel = { showDeleteAccountConfirm = false }
+        )
+    }
+
+    if (showDeleteReauthStep) {
+        // Real Firebase deletion (2026-09-06) -- Firebase requires a recent sign-in before
+        // this sensitive operation, same as Change Password. Password-based accounts
+        // reauthenticate here with the current password; Google-linked accounts reauth via
+        // a fresh Google sign-in prompt instead, since there's no password to re-enter.
+        // On success, the local Room DB is wiped entirely (see FirebaseAccountRepository.
+        // deleteAccount kdoc for why a full wipe is the right scope here) and onLogout()
+        // reuses the same sign-out+navigate-to-login flow Sign Out already does.
+        val requiresPassword = remember { accountRepository.hasPasswordProvider() }
+        DeleteAccountReauthSheet(
+            requiresPassword = requiresPassword,
+            password = deleteAccountPassword,
+            onPasswordChange = { deleteAccountPassword = it },
+            error = deleteAccountError,
+            inProgress = deleteAccountInProgress,
+            onConfirm = {
+                deleteAccountError = null
+                deleteAccountInProgress = true
+                coroutineScope.launch {
+                    val result = if (requiresPassword) {
+                        accountRepository.deleteAccount(currentPassword = deleteAccountPassword)
+                    } else {
+                        val token = try {
+                            authViewModel.getFreshGoogleIdToken(context)
+                        } catch (e: Exception) {
+                            null
+                        }
+                        if (token == null) {
+                            DeleteAccountResult.Error("Google sign-in was cancelled or failed.")
+                        } else {
+                            accountRepository.deleteAccount(googleIdToken = token)
+                        }
+                    }
+                    deleteAccountInProgress = false
+                    when (result) {
+                        is DeleteAccountResult.Success -> {
+                            showDeleteReauthStep = false
+                            deleteAccountPassword = ""
+                            withContext(Dispatchers.IO) {
+                                PhysiLockDatabase.getInstance(context).clearAllTables()
+                            }
+                            onLogout()
+                        }
+                        is DeleteAccountResult.WrongPassword ->
+                            deleteAccountError = "Current password is incorrect."
+                        is DeleteAccountResult.NeedsGoogleReauth ->
+                            deleteAccountError = "Google sign-in required. Try again."
+                        is DeleteAccountResult.Error ->
+                            deleteAccountError = result.message
+                    }
+                }
+            },
+            onCancel = {
+                showDeleteReauthStep = false
+                deleteAccountPassword = ""
+                deleteAccountError = null
+            }
         )
     }
 
@@ -575,6 +648,112 @@ fun SettingsScreen(
                 TextButton(onClick = { showBreakIntervalPicker = false }) { Text("Cancel") }
             }
         )
+    }
+}
+
+/** Delete Account's reauth step -- same bottom-sheet-over-scrim visual pattern as
+ *  [ConfirmSheet], with a password field spliced in for accounts that have one to
+ *  re-enter (Google-linked accounts have nothing to type, just a "Confirm with Google"
+ *  button that re-triggers the Google sign-in prompt). */
+@Composable
+private fun DeleteAccountReauthSheet(
+    requiresPassword: Boolean,
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    error: String?,
+    inProgress: Boolean,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(onClick = onCancel),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .background(BackgroundLight)
+                .clickable(enabled = false) {}
+                .padding(24.dp)
+        ) {
+            Text(
+                text = "Confirm Deletion",
+                fontFamily = Nunito,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = DeepOlive
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (requiresPassword) {
+                    "Enter your password to permanently delete your account."
+                } else {
+                    "Confirm your Google account to permanently delete your account."
+                },
+                fontFamily = Nunito,
+                fontSize = 14.sp,
+                color = SecondarySage,
+                lineHeight = 20.sp
+            )
+
+            if (requiresPassword) {
+                Spacer(modifier = Modifier.height(15.dp))
+                AuthTextField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    placeholder = "Current password",
+                    leadingIcon = Icons.Default.Lock,
+                    isPassword = true
+                )
+            }
+
+            if (error != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = error,
+                    fontFamily = Nunito,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ErrorRed
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            val canConfirm = !inProgress && (!requiresPassword || password.isNotBlank())
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (canConfirm) ErrorRed else ErrorRed.copy(alpha = 0.4f))
+                    .clickable(enabled = canConfirm, onClick = onConfirm)
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (inProgress) "Deleting…" else if (requiresPassword) "Delete Account" else "Confirm with Google",
+                    fontFamily = Nunito,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BackgroundLight
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(DeepOlive.copy(alpha = 0.06f))
+                    .clickable(enabled = !inProgress, onClick = onCancel)
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "Cancel", fontFamily = Nunito, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MutedText)
+            }
+        }
     }
 }
 
