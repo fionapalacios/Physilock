@@ -16,6 +16,8 @@ import com.example.physi_lock.MainActivity
 import com.example.physi_lock.R
 import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.entity.AppUsageLog
+import com.example.physi_lock.data.entity.DeepWorkSchedule
+import com.example.physi_lock.data.entity.DeepWorkSession
 import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.entity.MotionInterventionLog
 import com.example.physi_lock.data.entity.NotificationLog
@@ -46,6 +48,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import com.example.physi_lock.data.entity.FocusSession
+import com.example.physi_lock.data.entity.UserConfiguration
 
 class AppMonitorService : AccessibilityService() {
 
@@ -126,6 +129,11 @@ class AppMonitorService : AccessibilityService() {
         // scoring pipeline describes — the doomscroll "recipe" selector (see
         // DoomscrollDetector.kt) doesn't need every-scroll-event freshness.
         private const val RISK_REFRESH_INTERVAL_MS = 5 * 60 * 1000L
+
+        // Deep Work Blocks (Work Mode redesign): checked once a minute -- frequent enough
+        // that a scheduled window starts/ends close to on-time, cheap enough (in-memory
+        // list scan + at most one DB read/write) to not matter running constantly.
+        private const val DEEP_WORK_SCHEDULE_CHECK_INTERVAL_MS = 60 * 1000L
 
         private const val EXCESSIVE_USAGE_PREDICTION_CHANNEL_ID = "excessive_usage_prediction_channel"
         private const val EXCESSIVE_USAGE_PREDICTION_NOTIFICATION_ID = 1004
@@ -214,6 +222,11 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var allowlistedPackages: Set<String> = emptySet()
     @Volatile private var bedtimeStartMinute: Int = 23 * 60
     @Volatile private var bedtimeEndMinute: Int = 7 * 60
+    @Volatile private var workHoursStartMinute: Int = 9 * 60
+    @Volatile private var workHoursEndMinute: Int = 17 * 60
+    // Work Mode redesign: named windows that auto-start/end a real DeepWorkSession --
+    // see checkDeepWorkSchedules(). Same live-Flow-collector pattern as scheduleBlocks.
+    @Volatile private var deepWorkSchedules: List<DeepWorkSchedule> = emptyList()
     private var lastScheduleBlockNotifyTime: Long = 0L
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private lateinit var database: PhysiLockDatabase
@@ -276,6 +289,26 @@ class AppMonitorService : AccessibilityService() {
                 userMode = config?.userMode ?: "STUDENT_MODE"
                 bedtimeStartMinute = config?.bedtimeStartMinute ?: (23 * 60)
                 bedtimeEndMinute = config?.bedtimeEndMinute ?: (7 * 60)
+                workHoursStartMinute = config?.workHoursStartMinute ?: (9 * 60)
+                workHoursEndMinute = config?.workHoursEndMinute ?: (17 * 60)
+            }
+        }
+
+        // Work Mode redesign: live-reload Deep Work Blocks, same pattern as scheduleBlocks.
+        serviceScope.launch {
+            database.deepWorkScheduleDao().getAll().collect { schedules ->
+                deepWorkSchedules = schedules
+            }
+        }
+
+        // Auto-start/stop a real Deep Work session when the current time enters/exits an
+        // active DeepWorkSchedule window -- decoupled from accessibility events (a window
+        // can start even if the user isn't switching apps), same periodic-loop shape as
+        // the risk-score refresh below.
+        serviceScope.launch {
+            while (true) {
+                checkDeepWorkSchedules()
+                delay(DEEP_WORK_SCHEDULE_CHECK_INTERVAL_MS)
             }
         }
 
@@ -811,11 +844,14 @@ class AppMonitorService : AccessibilityService() {
                 title = "Class Mode active",
                 description = "${getAppName(packageName)} is blocked during ${scheduleBlock.label}"
             )
-        } else if (userMode == "WORK_MODE" && scheduleBlock != null && packageName in focusBlockedPackages) {
+        } else if (userMode == "WORK_MODE" && isWithinWorkHours() && packageName in focusBlockedPackages) {
+            // Work Mode redesign (2026-09-07): condition changed from the old per-day
+            // ScheduleBlock check to isWithinWorkHours() (single Mon-Fri window) -- the
+            // home-kick+notification mechanism itself (handleScheduleBlock) is unchanged.
             handleScheduleBlock(
                 currentTime,
                 title = "Work Hours active",
-                description = "${getAppName(packageName)} is blocked during ${scheduleBlock.label}"
+                description = "${getAppName(packageName)} is blocked during Work Hours"
             )
         } else if (focusModeActive && packageName in focusBlockedPackages) {
             // Real full-screen overlay (2026-09-06) -- was performGlobalAction(HOME) + a
@@ -864,11 +900,75 @@ class AppMonitorService : AccessibilityService() {
         }
     }
 
+    // Work Mode redesign (2026-09-07): replaces the old per-day ScheduleBlock check for
+    // Work Mode with a single daily window applied Mon-Fri only (matching the comparison
+    // mockup's static "Monday - Friday" label -- it has no day picker). Same
+    // cached-fields-only cheap check as isWithinBedtimeWindow.
+    private fun isWithinWorkHours(): Boolean {
+        val calendar = Calendar.getInstance()
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        if (dayOfWeek == Calendar.SUNDAY || dayOfWeek == Calendar.SATURDAY) return false
+        val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        return if (workHoursStartMinute <= workHoursEndMinute) {
+            minuteOfDay >= workHoursStartMinute && minuteOfDay < workHoursEndMinute
+        } else {
+            minuteOfDay >= workHoursStartMinute || minuteOfDay < workHoursEndMinute
+        }
+    }
+
+    // Work Mode redesign: auto-starts a real DeepWorkSession (triggeredBy="SCHEDULE") when
+    // the current time enters an active DeepWorkSchedule window, and auto-ends it (crediting
+    // the same 1-min-per-5 rate DeepWorkViewModel.endSession uses) once no window is active
+    // anymore -- but only for a session this checker itself started. A session the user
+    // started by hand (triggeredBy="MANUAL", e.g. from Home) is never touched here, and a
+    // schedule window never starts a second session on top of either kind already running.
+    private suspend fun checkDeepWorkSchedules() {
+        if (userMode != "WORK_MODE") return
+        val calendar = Calendar.getInstance()
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        if (dayOfWeek == Calendar.SUNDAY || dayOfWeek == Calendar.SATURDAY) return
+        val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+
+        val activeWindow = deepWorkSchedules.firstOrNull { schedule ->
+            schedule.active && minuteOfDay >= schedule.startMinute && minuteOfDay < schedule.endMinute
+        }
+
+        try {
+            val currentSession = database.deepWorkSessionDao().getActiveSessionOnce()
+            if (activeWindow != null) {
+                if (currentSession == null) {
+                    database.deepWorkSessionDao().insert(
+                        DeepWorkSession(
+                            startTimeMillis = System.currentTimeMillis(),
+                            durationSecs = (activeWindow.endMinute - minuteOfDay) * 60,
+                            triggeredBy = "SCHEDULE"
+                        )
+                    )
+                }
+            } else if (currentSession != null && currentSession.triggeredBy == "SCHEDULE") {
+                val endTime = System.currentTimeMillis()
+                val creditMinutes = ((endTime - currentSession.startTimeMillis) / 300_000L).toInt()
+                database.deepWorkSessionDao().endSession(currentSession.id, endTime, endedEarly = false, creditMinutesEarned = creditMinutes)
+                if (creditMinutes > 0) {
+                    val cfg = database.userConfigurationDao().getActiveConfigurationOnce() ?: UserConfiguration()
+                    database.userConfigurationDao().upsert(
+                        cfg.copy(
+                            focusCreditBalanceMinutes = cfg.focusCreditBalanceMinutes + creditMinutes,
+                            lastUpdatedTime = System.currentTimeMillis()
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
     // Work Mode "quiet hours": passive nudge notifications (Break Reminder, Overuse
-    // Alert, Excessive Usage Prediction) are held while a Work Mode schedule block is
-    // active -- Doomscroll Alert, Context Alert, and the schedule block notification
-    // itself are unaffected, since those are active-intervention signals, not FYI nudges.
-    private fun isQuietHours(): Boolean = userMode == "WORK_MODE" && activeScheduleBlock() != null
+    // Alert, Excessive Usage Prediction) are held while Work Hours is active --
+    // Doomscroll Alert, Context Alert, and the schedule block notification itself are
+    // unaffected, since those are active-intervention signals, not FYI nudges.
+    private fun isQuietHours(): Boolean = userMode == "WORK_MODE" && isWithinWorkHours()
 
     // Safety filter for Student Mode's allowlist-inverted blocking (block everything
     // NOT allowlisted) -- must never kick the launcher, dialer, Settings, or system UI

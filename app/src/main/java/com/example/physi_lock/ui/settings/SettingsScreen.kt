@@ -122,7 +122,9 @@ private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student
 // teammate's row list, leaving the interval with a toggle but no way to actually change it.
 // A preset picker (tap the row) restores that control without reintroducing the dropped
 // card. Presets are a proposed default, not manuscript-derived.
-private val breakReminderIntervalPresets = listOf(15, 30, 45, 60, 90)
+// internal (not private): WorkModeScreen's own inline Break Reminder picker (Work Mode
+// redesign, 2026-09-07) reuses this exact same preset list rather than duplicating it.
+internal val breakReminderIntervalPresets = listOf(15, 30, 45, 60, 90)
 
 private data class SettingsRow(
     val icon: ImageVector,

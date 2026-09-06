@@ -96,6 +96,12 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setBedtimeEndMinute(minuteOfDay: Int) =
         update { it.copy(bedtimeEndMinute = minuteOfDay) }
 
+    fun setWorkHoursStartMinute(minuteOfDay: Int) =
+        update { it.copy(workHoursStartMinute = minuteOfDay) }
+
+    fun setWorkHoursEndMinute(minuteOfDay: Int) =
+        update { it.copy(workHoursEndMinute = minuteOfDay) }
+
     /** Settings > Reset to Default Settings — overwrites every threshold/toggle back to
      * [UserConfiguration]'s built-in defaults, keeping only the account's chosen usage mode. */
     fun resetToDefaults() {

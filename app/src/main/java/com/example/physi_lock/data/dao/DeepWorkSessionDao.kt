@@ -14,6 +14,9 @@ interface DeepWorkSessionDao {
     @Query("SELECT * FROM deep_work_sessions WHERE endTimeMillis IS NULL ORDER BY startTimeMillis DESC LIMIT 1")
     fun getActiveSession(): Flow<DeepWorkSession?>
 
+    @Query("SELECT * FROM deep_work_sessions WHERE endTimeMillis IS NULL ORDER BY startTimeMillis DESC LIMIT 1")
+    suspend fun getActiveSessionOnce(): DeepWorkSession?
+
     @Query("UPDATE deep_work_sessions SET endTimeMillis = :endTimeMillis, endedEarly = :endedEarly, creditMinutesEarned = :creditMinutesEarned WHERE id = :id")
     suspend fun endSession(id: Long, endTimeMillis: Long, endedEarly: Boolean, creditMinutesEarned: Int)
 }

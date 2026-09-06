@@ -18,5 +18,10 @@ data class DeepWorkSession(
     val durationSecs: Int,
     val endTimeMillis: Long? = null,
     val endedEarly: Boolean = false,
-    val creditMinutesEarned: Int = 0
+    val creditMinutesEarned: Int = 0,
+    // Work Mode redesign (2026-09-07): "MANUAL" (Home's own entry point, the only value
+    // before this) or "SCHEDULE" (auto-started by a DeepWorkSchedule window, see
+    // AppMonitorService.checkDeepWorkSchedules). Lets the schedule checker only auto-end
+    // sessions it itself started, never stomping on a session the user started by hand.
+    val triggeredBy: String = "MANUAL"
 )

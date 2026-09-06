@@ -43,6 +43,12 @@ data class UserConfiguration(
     // window, nothing else to toggle.
     val bedtimeStartMinute: Int = 23 * 60,
     val bedtimeEndMinute: Int = 7 * 60,
+    // Work Mode redesign (2026-09-07): replaces the old per-day ScheduleBlock flexibility
+    // for Work Mode specifically with a single daily window applied Mon-Fri, matching the
+    // comparison mockup's static "Monday - Friday" label (it has no day picker of its own).
+    // Same shape as bedtimeStartMinute/EndMinute. See AppMonitorService.isWithinWorkHours.
+    val workHoursStartMinute: Int = 9 * 60,
+    val workHoursEndMinute: Int = 17 * 60,
     // Focus Mode's earned-but-previously-unspendable "screen credit" (see FocusSession):
     // 1 credit minute per 5 minutes focused, redeemable 1:1 for temporary-unlock minutes on
     // a locked app from the Move hub -- the same real per-app timed-unlock mechanism
