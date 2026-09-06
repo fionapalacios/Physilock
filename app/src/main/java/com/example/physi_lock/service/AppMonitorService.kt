@@ -31,9 +31,11 @@ import com.example.physi_lock.ml.ExcessiveUsageFeatureExtractor
 import com.example.physi_lock.ml.RiskFeatureExtractor
 import com.example.physi_lock.ml.RiskLevel
 import com.example.physi_lock.ml.RiskScoringEngine
+import com.example.physi_lock.ui.challenge.OveruseInterventionActivity
 import com.example.physi_lock.ui.lock.BedtimeLockActivity
 import com.example.physi_lock.ui.lock.LockActivity
 import com.example.physi_lock.ui.lock.ModeLockActivity
+import com.example.physi_lock.ui.reflection.DoomscrollReflectionActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -88,6 +90,21 @@ class AppMonitorService : AccessibilityService() {
             return true
         }
 
+        // Doomscroll "5 more minutes" (2026-09-06): unlike temporaryUnlocks above, this
+        // doesn't grant access to anything -- doomscrolling was never a blocking mechanism,
+        // just a notification. This only suppresses the reflection-prompt overlay from
+        // firing again for a while, separate from checkDoomscrolling's own
+        // DOOMSCROLL_ALERT_COOLDOWN_MS (which guards a *positive* detection from re-alerting
+        // on the same continuing binge; this guards against re-alerting at all after the
+        // user explicitly asked for more time). Same companion-object pattern as
+        // temporaryUnlocks, for the same reason: DoomscrollReflectionActivity runs in a
+        // different context and needs to reach this live service state.
+        @Volatile private var doomscrollSnoozeUntil: Long = 0L
+
+        fun snoozeDoomscrollAlerts(durationMs: Long) {
+            doomscrollSnoozeUntil = System.currentTimeMillis() + durationMs
+        }
+
         // Not derived from the manuscript or existing code — a break in accessibility
         // events longer than this is treated as the user having stepped away, which
         // resets the continuous-usage clock for the break reminder.
@@ -100,8 +117,6 @@ class AppMonitorService : AccessibilityService() {
         // checkOveruseAlert actually queries it rather than on every event.
         private const val OVERUSE_CHECK_THROTTLE_MS = 60 * 1000L
 
-        private const val DOOMSCROLL_ALERT_CHANNEL_ID = "doomscroll_alert_channel"
-        private const val DOOMSCROLL_ALERT_NOTIFICATION_ID = 1003
         // Doomscroll checks run against in-memory session state (cheap), so this only
         // needs to throttle how chatty the model calls are, not IPC cost.
         private const val DOOMSCROLL_CHECK_THROTTLE_MS = 15 * 1000L
@@ -230,7 +245,6 @@ class AppMonitorService : AccessibilityService() {
         excessiveUsageFeatureExtractor = ExcessiveUsageFeatureExtractor(this)
         createBreakReminderNotificationChannel()
         createOveruseAlertNotificationChannel()
-        createDoomscrollAlertNotificationChannel()
         createExcessiveUsagePredictionNotificationChannel()
         createContextAlertNotificationChannel()
         createScheduleBlockNotificationChannel()
@@ -438,17 +452,6 @@ class AppMonitorService : AccessibilityService() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
-    private fun createDoomscrollAlertNotificationChannel() {
-        val channel = NotificationChannel(
-            DOOMSCROLL_ALERT_CHANNEL_ID,
-            "Doomscrolling Detection",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Warns when scrolling patterns suggest doomscrolling"
-        }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
-
     private fun createExcessiveUsagePredictionNotificationChannel() {
         val channel = NotificationChannel(
             EXCESSIVE_USAGE_PREDICTION_CHANNEL_ID,
@@ -650,6 +653,7 @@ class AppMonitorService : AccessibilityService() {
     // one continuing scroll binge doesn't spam repeat notifications.
     private fun checkDoomscrolling(packageName: String, currentTime: Long) {
         if (!doomscrollingDetectionEnabled) return
+        if (currentTime < doomscrollSnoozeUntil) return
         if (currentTime - lastDoomscrollCheckTime < DOOMSCROLL_CHECK_THROTTLE_MS) return
         lastDoomscrollCheckTime = currentTime
         if (currentTime - lastDoomscrollAlertTime < DOOMSCROLL_ALERT_COOLDOWN_MS) return
@@ -674,7 +678,15 @@ class AppMonitorService : AccessibilityService() {
 
         if (!isDoomscrolling) return
         lastDoomscrollAlertTime = currentTime
-        postDoomscrollAlertNotification()
+
+        // Real full-screen reflection prompt (2026-09-06) -- was a passive notification
+        // only (postDoomscrollAlertNotification, now removed). See DoomscrollReflectionActivity.
+        val intent = Intent(this, DoomscrollReflectionActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            putExtra(EXTRA_PACKAGE_NAME, packageName)
+            putExtra(OveruseInterventionActivity.EXTRA_RISK_TIER, cachedRiskLevel.name)
+        }
+        startActivity(intent)
 
         serviceScope.launch {
             try {
@@ -690,39 +702,6 @@ class AppMonitorService : AccessibilityService() {
                 e.printStackTrace()
             }
         }
-    }
-
-    private fun postDoomscrollAlertNotification() {
-        if (ActivityCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-
-        val contentIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            },
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, DOOMSCROLL_ALERT_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
-            .setContentTitle("Doomscrolling detected")
-            .setContentText("Your scrolling pattern looks like a doomscroll — maybe take a break?")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(contentIntent)
-            .setAutoCancel(true)
-            .build()
-
-        NotificationManagerCompat.from(this).notify(DOOMSCROLL_ALERT_NOTIFICATION_ID, notification)
-        logNotification(
-            type = "DOOMSCROLL_ALERT",
-            title = "Doomscrolling detected",
-            description = "Your scrolling pattern looks like a doomscroll — maybe take a break?"
-        )
     }
 
     private fun postExcessiveUsagePredictionNotification() {

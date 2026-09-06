@@ -19,12 +19,17 @@ class StepChallengeDetector(
     private val onProgress: (stepsSoFar: Int, elapsedMs: Long, cadenceStepsPerMin: Int) -> Unit,
     private val onComplete: () -> Unit,
     private val onCadenceDropped: (() -> Unit)? = null,
-    private val onUnavailable: (() -> Unit)? = null
+    private val onUnavailable: (() -> Unit)? = null,
+    // Same purpose as RotationalArmDetector's repsOverride -- lets a caller request an
+    // exact walk-step target independent of ChallengeSensitivity's tiers (Overuse
+    // Intervention's risk-tiered step counts, see OveruseInterventionScreen.kt).
+    private val walkStepsOverride: Int? = null
 ) : SensorEventListener, ChallengeDetector {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
     private val stepSensor = sensorManager.getDefaultSensor(Sensor.TYPE_STEP_DETECTOR)
     private val accelerometer = sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER)
+    private val walkStepsRequired = walkStepsOverride ?: sensitivity.walkStepsRequired
 
     private var stepCount = 0
     private var isFinished = false
@@ -83,7 +88,7 @@ class StepChallengeDetector(
         when (mode) {
             StepChallengeMode.WALK -> {
                 onProgress(stepCount, 0L, 0)
-                if (stepCount >= sensitivity.walkStepsRequired) {
+                if (stepCount >= walkStepsRequired) {
                     finish()
                 }
             }

@@ -71,6 +71,22 @@
             android:launchMode="singleInstance"
             android:excludeFromRecents="true" />
 
+        <activity
+            android:name=".ui.challenge.OveruseInterventionActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.PhysiLock"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true" />
+
+        <activity
+            android:name=".ui.reflection.DoomscrollReflectionActivity"
+            android:exported="false"
+            android:label="@string/app_name"
+            android:theme="@style/Theme.PhysiLock"
+            android:launchMode="singleInstance"
+            android:excludeFromRecents="true" />
+
         <service
             android:name=".service.AppMonitorService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"

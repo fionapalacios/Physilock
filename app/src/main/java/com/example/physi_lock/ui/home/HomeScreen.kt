@@ -1,5 +1,6 @@
 package com.example.physi_lock.ui.home
 
+import android.content.Intent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -60,6 +61,8 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.example.physi_lock.service.AppMonitorService
+import com.example.physi_lock.ui.challenge.OveruseInterventionActivity
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.components.NotificationsOverlay
 import com.example.physi_lock.ui.components.NotificationsViewModel
@@ -96,6 +99,7 @@ fun HomeScreen(
     onNavigateToMove: () -> Unit = {},
     onNavigateToReflection: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val notificationLogs by notificationsViewModel.notifications.collectAsState()
     var showNotifications by remember { mutableStateOf(false) }
@@ -152,7 +156,21 @@ fun HomeScreen(
             onNavigateToDeepWork = onNavigateToDeepWork
         )
         Spacer(modifier = Modifier.height(12.dp))
-        AppUsageCard(appUsageToday = appUsageToday, onOverLimitAppClick = { onManageAppLock() })
+        AppUsageCard(
+            appUsageToday = appUsageToday,
+            onOverLimitAppClick = { item ->
+                // Real risk-tiered motion challenge (2026-09-06), replacing the old
+                // "just opens App Lock Rules" placeholder -- same OveruseInterventionActivity
+                // the doomscroll reflection prompt's "Take a Break" leads into, using the
+                // same real risk level already computed for the risk ring above.
+                val intent = Intent(context, OveruseInterventionActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    putExtra(AppMonitorService.EXTRA_PACKAGE_NAME, item.packageName)
+                    putExtra(OveruseInterventionActivity.EXTRA_RISK_TIER, riskLevel.uppercase())
+                }
+                context.startActivity(intent)
+            }
+        )
         doomscrollAlert?.let { alert ->
             Spacer(modifier = Modifier.height(12.dp))
             DoomscrollAlertBanner(alert = alert, onClick = onNavigateToMove)
@@ -683,10 +701,9 @@ private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.App
     }
 }
 
-/** [onClick] navigates to App Lock Rules -- there's no real "unlock" action for an app
- *  that's merely over a soft usage threshold here (only App Lock Rules/Focus Mode actually
- *  block anything), so tapping an OVER row is honestly "go set a real rule for this app,"
- *  not a fake instant-unlock. */
+/** [onClick] opens the real risk-tiered Overuse Intervention challenge (2026-09-06) --
+ *  previously just navigated to App Lock Rules, since there was no real "unlock" action for
+ *  an app merely over a soft usage threshold. See OveruseInterventionActivity. */
 @Composable
 private fun AppUsageRow(
     packageName: String,
