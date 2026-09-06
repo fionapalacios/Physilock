@@ -31,6 +31,7 @@ import com.example.physi_lock.ml.ExcessiveUsageFeatureExtractor
 import com.example.physi_lock.ml.RiskFeatureExtractor
 import com.example.physi_lock.ml.RiskLevel
 import com.example.physi_lock.ml.RiskScoringEngine
+import com.example.physi_lock.ui.lock.BedtimeLockActivity
 import com.example.physi_lock.ui.lock.LockActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -62,6 +63,7 @@ class AppMonitorService : AccessibilityService() {
         fun getContinuousUsageStartTime(): Long? = continuousUsageStartTimeShared
 
         const val EXTRA_PACKAGE_NAME = "extra_package_name"
+        const val EXTRA_BEDTIME_END_MINUTE = "extra_bedtime_end_minute"
         const val CHALLENGE_UNLOCK_DURATION_MS = 20 * 60 * 1000L // 20 minutes
 
         // packageName -> unlock expiry epoch ms. Reassigned (not mutated) on every
@@ -826,11 +828,15 @@ class AppMonitorService : AccessibilityService() {
                 description = "${getAppName(packageName)} is blocked for the rest of this session"
             )
         } else if (isWithinBedtimeWindow() && packageName !in allowlistedPackages && !isSystemPackage(packageName)) {
-            handleScheduleBlock(
-                currentTime,
-                title = "Bedtime Mode active",
-                description = "${getAppName(packageName)} is blocked until ${formatMinuteOfDay(bedtimeEndMinute)}"
-            )
+            // Real hard-block lock screen (2026-09-06) -- was performGlobalAction(HOME) +
+            // a notification only (handleScheduleBlock, still used by Class/Work Mode
+            // below). Same startActivity(NEW_TASK|CLEAR_TASK) mechanism LockActivity uses.
+            val intent = Intent(this, BedtimeLockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
+                putExtra(EXTRA_BEDTIME_END_MINUTE, bedtimeEndMinute)
+            }
+            startActivity(intent)
         } else if (userMode == "STUDENT_MODE" && scheduleBlock != null &&
             packageName !in allowlistedPackages && !isSystemPackage(packageName)
         ) {
@@ -880,17 +886,6 @@ class AppMonitorService : AccessibilityService() {
         } else {
             minuteOfDay >= bedtimeStartMinute || minuteOfDay < bedtimeEndMinute
         }
-    }
-
-    private fun formatMinuteOfDay(minuteOfDay: Int): String {
-        val hour = minuteOfDay / 60
-        val minute = minuteOfDay % 60
-        val displayHour = when {
-            hour == 0 -> 12
-            hour > 12 -> hour - 12
-            else -> hour
-        }
-        return "%d:%02d %s".format(displayHour, minute, if (hour < 12) "AM" else "PM")
     }
 
     // Work Mode "quiet hours": passive nudge notifications (Break Reminder, Overuse
