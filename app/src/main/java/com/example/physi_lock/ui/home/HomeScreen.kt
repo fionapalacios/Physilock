@@ -334,7 +334,8 @@ private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int, yesterdayD
                 trackColor = BackgroundLight.copy(alpha = 0.15f),
                 progressColor = SecondarySage,
                 ringSize = 84.dp,
-                strokeWidth = 9.dp
+                strokeWidth = 9.dp,
+                outlineColor = DeepOlive
             ) {
                 Text(
                     text = "${(progress * 100).toInt()}%",
@@ -566,7 +567,8 @@ private fun RiskAndActionsRow(
                     trackColor = TertiaryTan,
                     progressColor = PrimaryDark,
                     ringSize = 60.dp,
-                    strokeWidth = 8.dp
+                    strokeWidth = 8.dp,
+                    outlineColor = PrimaryDark
                 ) {
                     Text(
                         text = riskLevel,

@@ -503,7 +503,8 @@ private fun RiskScoreSheet(
                 trackColor = TertiaryTan,
                 progressColor = PrimaryDark,
                 ringSize = 88.dp,
-                strokeWidth = 10.dp
+                strokeWidth = 10.dp,
+                outlineColor = PrimaryDark
             ) {
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
