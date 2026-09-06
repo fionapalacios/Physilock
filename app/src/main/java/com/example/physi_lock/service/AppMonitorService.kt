@@ -33,6 +33,7 @@ import com.example.physi_lock.ml.RiskLevel
 import com.example.physi_lock.ml.RiskScoringEngine
 import com.example.physi_lock.ui.lock.BedtimeLockActivity
 import com.example.physi_lock.ui.lock.LockActivity
+import com.example.physi_lock.ui.lock.ModeLockActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -117,13 +118,6 @@ class AppMonitorService : AccessibilityService() {
         // often than this wouldn't change the hour-bucketed prediction anyway.
         private const val EXCESSIVE_USAGE_CHECK_INTERVAL_MS = 15 * 60 * 1000L
 
-        private const val FOCUS_BLOCK_CHANNEL_ID = "focus_block_channel"
-        private const val FOCUS_BLOCK_NOTIFICATION_ID = 1005
-        // A blocked app can be repeatedly relaunched (e.g. from a home-screen widget);
-        // this throttles the notification/log spam without affecting the actual block,
-        // which always fires on every attempt.
-        private const val FOCUS_BLOCK_NOTIFICATION_THROTTLE_MS = 60 * 1000L
-
         // Persistent "session running" notification (2026-08-29, per YPT/Digital Wellbeing
         // comparison) -- Focus Mode lets the user leave to use non-blocked apps, so the
         // in-app countdown alone is invisible once they do. This keeps the live elapsed time
@@ -180,7 +174,6 @@ class AppMonitorService : AccessibilityService() {
     // so it's a genuinely broader/uncustomizable block during a Deep Work session.
     @Volatile private var deepWorkActive: Boolean = false
     @Volatile private var deepWorkBlockedPackages: Set<String> = emptySet()
-    private var lastFocusBlockNotifyTime: Long = 0L
     // Module 7 (Context-Aware AI): Wi-Fi-network-matched Context Alerts. Not GPS
     // geofencing -- real location-based locking is a Future Enhancement per the
     // manuscript, out of MVP scope; this matches by Wi-Fi network name instead, which
@@ -239,7 +232,6 @@ class AppMonitorService : AccessibilityService() {
         createOveruseAlertNotificationChannel()
         createDoomscrollAlertNotificationChannel()
         createExcessiveUsagePredictionNotificationChannel()
-        createFocusBlockNotificationChannel()
         createContextAlertNotificationChannel()
         createScheduleBlockNotificationChannel()
         createFocusSessionNotificationChannel()
@@ -464,17 +456,6 @@ class AppMonitorService : AccessibilityService() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Warns when this hour is predicted to be an excessive-usage hour"
-        }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
-
-    private fun createFocusBlockNotificationChannel() {
-        val channel = NotificationChannel(
-            FOCUS_BLOCK_CHANNEL_ID,
-            "Focus Mode",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Notifies when an app is blocked during an active Focus Mode session"
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -822,11 +803,17 @@ class AppMonitorService : AccessibilityService() {
             }
             startActivity(intent)
         } else if (deepWorkActive && packageName in deepWorkBlockedPackages) {
-            handleScheduleBlock(
-                currentTime,
-                title = "Deep Work Mode active",
-                description = "${getAppName(packageName)} is blocked for the rest of this session"
-            )
+            // Real full-screen overlay (2026-09-06) -- was routed through handleScheduleBlock
+            // (performGlobalAction(HOME) + notification, still used by Class/Work Mode below).
+            // Purely informational: shaking the device from the Deep Work screen's exit gate
+            // stays the only real way out, this just replaces the silent home-kick.
+            val intent = Intent(this, ModeLockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
+                putExtra(ModeLockActivity.EXTRA_TITLE, "Deep Work Active")
+                putExtra(ModeLockActivity.EXTRA_MESSAGE, "Blocked for the rest of this session")
+            }
+            startActivity(intent)
         } else if (isWithinBedtimeWindow() && packageName !in allowlistedPackages && !isSystemPackage(packageName)) {
             // Real hard-block lock screen (2026-09-06) -- was performGlobalAction(HOME) +
             // a notification only (handleScheduleBlock, still used by Class/Work Mode
@@ -852,7 +839,17 @@ class AppMonitorService : AccessibilityService() {
                 description = "${getAppName(packageName)} is blocked during ${scheduleBlock.label}"
             )
         } else if (focusModeActive && packageName in focusBlockedPackages) {
-            handleFocusBlock(packageName, currentTime)
+            // Real full-screen overlay (2026-09-06) -- was performGlobalAction(HOME) + a
+            // throttled notification (handleFocusBlock/postFocusBlockNotification, now
+            // removed). Purely informational: ending the Focus session stays the only real
+            // way out, this just replaces the silent home-kick.
+            val intent = Intent(this, ModeLockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
+                putExtra(ModeLockActivity.EXTRA_TITLE, "Focus Mode Active")
+                putExtra(ModeLockActivity.EXTRA_MESSAGE, "Blocked while your focus session is running")
+            }
+            startActivity(intent)
         } else if (contextAlertsEnabled && packageName in focusBlockedPackages &&
             (isOnWatchedWifi() || isNearWatchedLocation())
         ) {
@@ -966,50 +963,6 @@ class AppMonitorService : AccessibilityService() {
             type = "CONTEXT_ALERT",
             title = "Context Alert",
             description = "You opened $appName while connected to $ssid"
-        )
-    }
-
-    // Focus Mode (Module 6): unlike Adaptive/App Lock's challenge-to-unlock, an app
-    // blocked during Focus Mode is simply kicked back to the home screen — there's no
-    // "solve a challenge to get in" bypass, the only way in is ending the session.
-    private fun handleFocusBlock(packageName: String, currentTime: Long) {
-        performGlobalAction(GLOBAL_ACTION_HOME)
-        if (currentTime - lastFocusBlockNotifyTime < FOCUS_BLOCK_NOTIFICATION_THROTTLE_MS) return
-        lastFocusBlockNotifyTime = currentTime
-        postFocusBlockNotification(packageName)
-    }
-
-    private fun postFocusBlockNotification(packageName: String) {
-        if (ActivityCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-
-        val appName = getAppName(packageName)
-        val contentIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            },
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, FOCUS_BLOCK_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
-            .setContentTitle("Focus Mode Active")
-            .setContentText("You're in a Focus Mode session — $appName is blocked.")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(contentIntent)
-            .setAutoCancel(true)
-            .build()
-
-        NotificationManagerCompat.from(this).notify(FOCUS_BLOCK_NOTIFICATION_ID, notification)
-        logNotification(
-            type = "FOCUS_BLOCK",
-            title = "Focus Mode Active",
-            description = "You're in a Focus Mode session — $appName is blocked."
         )
     }
 
