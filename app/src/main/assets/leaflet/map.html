@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="leaflet.css" />
+<style>
+  html,body{height:100%;margin:0;padding:0;}
+  /* 2026-09-10 fix: percentage height:100% on #map depends on every ancestor resolving a
+     definite height, which wasn't settling reliably inside this WebView (confirmed via
+     chrome://inspect: #map measured 333x0 -- real width, zero height). Absolute positioning
+     pinned to all four edges is the well-established robust alternative -- it resolves
+     against the containing block's actual box rather than a percentage chain. */
+  #map{position:absolute;top:0;left:0;right:0;bottom:0;margin:0;padding:0;}
+</style>
+</head>
+<body>
+<div id="map"></div>
+<script src="leaflet.js" onerror="console.error('FAILED to load bundled leaflet.js asset')"></script>
+<script>
+  console.log('map.html script start, Leaflet loaded: ' + (typeof L !== 'undefined'));
+  L.Icon.Default.imagePath = 'images/';
+
+  var map = null, tileLayer = null, marker = null, circle = null, radius = 100;
+
+  // Called from Kotlin (evaluateJavascript) once the static page has finished loading --
+  // pushes the per-instance dynamic values (initial center/zoom/radius/existing pin) in,
+  // rather than templating them into the HTML string itself. See LocationMapPicker.kt.
+  window.initMap = function(lat, lng, zoom, initialRadius, hasMarker, markerLat, markerLng) {
+    radius = initialRadius;
+
+    // 2026-09-10, definitive fix: window.innerHeight reliably reports the real viewport
+    // height (confirmed 220 via chrome://inspect console) even though #map's CSS-computed
+    // size stayed 0x0 through every stylesheet-based approach tried (percentage height,
+    // absolute positioning pinned to all 4 edges). Setting #map's size as an inline style
+    // computed directly from window.innerWidth/Height bypasses the cascade/containing-block
+    // resolution entirely -- inline style wins over any stylesheet rule outright.
+    var mapEl = document.getElementById('map');
+    mapEl.style.cssText = 'position:absolute;top:0;left:0;margin:0;padding:0;' +
+      'width:' + window.innerWidth + 'px;height:' + window.innerHeight + 'px;';
+    console.log('forced #map inline size: ' + window.innerWidth + 'x' + window.innerHeight);
+
+    map = L.map('map', { attributionControl: false }).setView([lat, lng], zoom);
+    console.log('map created at [' + lat + ', ' + lng + '] zoom ' + zoom);
+    // Safety net alongside the size fix above -- forces Leaflet to re-measure its container
+    // in case the WebView's own layout settles a moment after this script runs.
+    setTimeout(function() { map.invalidateSize(); console.log('invalidateSize after 150ms'); }, 150);
+
+    tileLayer = L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 });
+    var tilesLoaded = 0, tileErrors = 0;
+    tileLayer.on('tileload', function() { tilesLoaded++; console.log('tile loaded, total: ' + tilesLoaded); });
+    tileLayer.on('tileerror', function(e) { tileErrors++; console.error('TILE ERROR (' + tileErrors + '): url=' + (e.tile ? e.tile.src : '?')); });
+    tileLayer.addTo(map);
+
+    if (hasMarker) { placeMarker(markerLat, markerLng); }
+
+    map.on('click', function(e) {
+      placeMarker(e.latlng.lat, e.latlng.lng);
+      if (window.AndroidBridge) { AndroidBridge.onPick(e.latlng.lat, e.latlng.lng); }
+    });
+  };
+
+  function placeMarker(lat, lng) {
+    if (marker) { map.removeLayer(marker); }
+    if (circle) { map.removeLayer(circle); }
+    marker = L.marker([lat, lng]).addTo(map);
+    circle = L.circle([lat, lng], { radius: radius, color: '#3d4928', fillColor: '#9cb06d', fillOpacity: 0.2 }).addTo(map);
+  }
+
+  window.setRadius = function(r) {
+    radius = r;
+    if (circle) { circle.setRadius(r); }
+  };
+</script>
+</body>
+</html>

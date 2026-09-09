@@ -14,7 +14,7 @@ import androidx.room.PrimaryKey
 data class MotionInterventionLog(
     @PrimaryKey(autoGenerate = true) val interventionId: Int = 0,
     val packageName: String,
-    val triggerType: String, // "MOTION_LOCK", "DOOMSCROLL_ALERT", "HOURLY_PREDICTION", "VOLUNTARY_CHALLENGE", "OVERUSE_INTERVENTION"
+    val triggerType: String, // "MOTION_LOCK", "DOOMSCROLL_ALERT", "HOURLY_PREDICTION", "VOLUNTARY_CHALLENGE", "OVERUSE_INTERVENTION", "REFLECTION"
     val interventionTimestamp: Long,
     val userResponse: String? = null, // "UNLOCKED", "DISMISSED", "TIMEOUT", "BYPASSED"
     val accelerometerVariance: Float = 0f, // Motion intensity metric

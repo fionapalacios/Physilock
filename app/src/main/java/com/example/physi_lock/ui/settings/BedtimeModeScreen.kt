@@ -60,8 +60,8 @@ private fun hourLabel(hour: Int): String {
  *  separate "Enable Bedtime Mode" toggle was dropped at first (this was active purely by
  *  falling inside the configured window, nothing else to switch on/off), then added back
  *  for real 2026-09-07 to match every other Settings row's toggle-plus-tap-to-customize
- *  pattern (Context Alerts, Wellness Nudges) -- same `SettingsCard` + `Switch` layout
- *  ContextAlertsScreen uses, config UI hidden while disabled. Hour-only granularity
+ *  pattern (Location, Wellness Nudges) -- same `SettingsCard` + `Switch` layout
+ *  LocationScreen uses, config UI hidden while disabled. Hour-only granularity
  *  (DropdownMenu, matching ScheduleBlockSection's old picker) rather than the mockup's
  *  native minute-precision time input, for consistency with the rest of the app's time
  *  pickers. The whitelist-based hard-block mechanism itself is unchanged for now -- a

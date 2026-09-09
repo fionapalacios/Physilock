@@ -16,4 +16,9 @@ interface ReflectionEntryDao {
 
     @Query("SELECT * FROM reflection_entries ORDER BY dateKey DESC LIMIT :limit")
     fun getRecent(limit: Int): Flow<List<ReflectionEntry>>
+
+    // Cheap single-column read for streak computation -- doesn't need the full row for
+    // every past entry, just which calendar days have one.
+    @Query("SELECT dateKey FROM reflection_entries ORDER BY dateKey DESC")
+    fun getAllDateKeysDesc(): Flow<List<String>>
 }

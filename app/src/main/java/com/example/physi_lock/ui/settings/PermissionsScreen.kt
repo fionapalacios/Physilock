@@ -48,7 +48,7 @@ import com.example.physi_lock.ui.theme.Nunito
 /** Revisitable twin of OnboardingScreen's grant flow -- same permissionSteps/PermissionRow
  *  from ui.permissions, so a permission toggled off in Android Settings after onboarding
  *  (or an optional one skipped at first run) shows up here too, not just at first launch.
- *  Visual pattern matches ContextAlertsScreen: back-header row + SettingsCard. */
+ *  Visual pattern matches LocationScreen: back-header row + SettingsCard. */
 @Composable
 fun PermissionsScreen(onBackClick: () -> Unit) {
     val context = LocalContext.current

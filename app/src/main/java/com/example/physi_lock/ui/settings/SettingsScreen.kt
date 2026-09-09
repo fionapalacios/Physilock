@@ -108,12 +108,12 @@ import kotlinx.coroutines.withContext
  * rather than left as dead taps) are additions beyond their row list. Whitelist Manager and
  * Permissions were made real 2026-08-29; Bedtime Mode, About, Sign Out confirmation, and
  * Delete Account's confirm UI (not its actual deletion — see the ConfirmSheet block below)
- * 2026-09-04. "Location Context" briefly became real 2026-08-25 (Module 7, see
- * ContextAlertsScreen.kt), was reverted to "Coming soon" per instruction (Context Alerts
- * wasn't a final design yet, user was going to bring their own API-based approach), then made
- * real again 2026-09-04 once that approach arrived: real GPS via a Leaflet.js map picker,
- * alongside the existing Wi-Fi-name matching — see ContextAlertsScreen.kt /
- * AppMonitorService.isNearWatchedLocation.
+ * 2026-09-04. "Location" (this row was briefly titled "Location Context") became real
+ * 2026-08-25 (Module 7), was reverted to "Coming soon" per instruction (not a final design
+ * yet, user was going to bring their own approach), then made real again 2026-09-04: real
+ * GPS via a Leaflet.js map picker. 2026-09-09: dropped the Wi-Fi-name matching that
+ * originally shipped alongside it and replaced the single generic watched location with two
+ * named anchors (School, Work) — see LocationScreen.kt / AppMonitorService.nearestWatchedLocationName.
  */
 private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student")
 
@@ -213,12 +213,19 @@ fun SettingsScreen(
 
     if (showContextAlerts) {
         BackHandler { showContextAlerts = false }
-        ContextAlertsScreen(
+        LocationScreen(
             config = config,
             onToggleEnabled = { settingsViewModel.setContextAlertsEnabled(it) },
-            onSaveSsid = { settingsViewModel.setContextAlertWifiSsid(it) },
-            onSaveLocation = { lat, lng, radius -> settingsViewModel.setContextAlertLocation(lat, lng, radius) },
-            onClearLocation = { settingsViewModel.clearContextAlertLocation() },
+            onSaveSchoolLocation = { lat, lng, radius -> settingsViewModel.setSchoolLocation(lat, lng, radius) },
+            onClearSchoolLocation = { settingsViewModel.clearSchoolLocation() },
+            onSetSchoolTimeGateEnabled = { settingsViewModel.setSchoolLocationTimeGateEnabled(it) },
+            onSetSchoolTimeStart = { settingsViewModel.setSchoolLocationTimeStart(it) },
+            onSetSchoolTimeEnd = { settingsViewModel.setSchoolLocationTimeEnd(it) },
+            onSaveWorkLocation = { lat, lng, radius -> settingsViewModel.setWorkLocation(lat, lng, radius) },
+            onClearWorkLocation = { settingsViewModel.clearWorkLocation() },
+            onSetWorkTimeGateEnabled = { settingsViewModel.setWorkLocationTimeGateEnabled(it) },
+            onSetWorkTimeStart = { settingsViewModel.setWorkLocationTimeStart(it) },
+            onSetWorkTimeEnd = { settingsViewModel.setWorkLocationTimeEnd(it) },
             onBackClick = { showContextAlerts = false }
         )
         return
@@ -389,17 +396,17 @@ fun SettingsScreen(
                     icon = Icons.Default.Room,
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
-                    title = "Location Context",
+                    title = "Location",
                     subtitle = if (!config.contextAlertsEnabled) {
                         "Off"
                     } else {
-                        val hasWifi = !config.contextAlertWifiSsid.isNullOrBlank()
-                        val hasLocation = config.contextAlertLatitude != null
+                        val hasSchool = config.schoolLocationLatitude != null
+                        val hasWork = config.workLocationLatitude != null
                         when {
-                            hasWifi && hasLocation -> "On — watching a Wi-Fi network and a map location"
-                            hasWifi -> "On — watching \"${config.contextAlertWifiSsid}\" Wi-Fi"
-                            hasLocation -> "On — watching a pinned map location"
-                            else -> "On — set a Wi-Fi network or map location below"
+                            hasSchool && hasWork -> "On — watching School and Work locations"
+                            hasSchool -> "On — watching School location"
+                            hasWork -> "On — watching Work location"
+                            else -> "On — pin a School or Work location below"
                         }
                     },
                     trailing = SettingsTrailing.Toggle(config.contextAlertsEnabled) {
