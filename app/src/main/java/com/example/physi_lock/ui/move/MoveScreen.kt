@@ -21,12 +21,17 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -87,10 +92,40 @@ private fun cardSpecFor(type: ChallengeType): ChallengeCardSpec = when (type) {
         icon = Icons.AutoMirrored.Filled.DirectionsWalk,
         accentColor = SageAccent
     )
-    ChallengeType.ROTATIONAL_ARM -> ChallengeCardSpec(
-        title = "Rotational Arm Movements",
-        description = "Rotate your arm through the full motion",
-        icon = Icons.Default.Bolt,
+    ChallengeType.ARM_SWING_FRONT_BACK -> ChallengeCardSpec(
+        title = "Front-to-Back Swing",
+        description = "Swing your arm forward and back like a pendulum",
+        icon = Icons.AutoMirrored.Filled.CompareArrows,
+        accentColor = DeepOlive
+    )
+    ChallengeType.ARM_FULL_ROTATION -> ChallengeCardSpec(
+        title = "Full Arm Rotation",
+        description = "Rotate your whole arm in a full circle, like a windmill",
+        icon = Icons.Default.Autorenew,
+        accentColor = com.example.physi_lock.ui.theme.Orchid
+    )
+    ChallengeType.ARM_SIDE_RAISE -> ChallengeCardSpec(
+        title = "Side Arm Raise",
+        description = "Raise your arm out to the side to shoulder height, then lower",
+        icon = Icons.AutoMirrored.Filled.TrendingUp,
+        accentColor = com.example.physi_lock.ui.theme.TertiaryTan
+    )
+    ChallengeType.ARM_BICEP_CURL -> ChallengeCardSpec(
+        title = "Bicep Curl",
+        description = "Bend your elbow and curl your forearm up and down, like lifting a dumbbell",
+        icon = Icons.Default.FitnessCenter,
+        accentColor = SageAccent
+    )
+    ChallengeType.ARM_SWAY -> ChallengeCardSpec(
+        title = "Arm Sway",
+        description = "Sway your arm gently side to side",
+        icon = Icons.Default.Waves,
+        accentColor = com.example.physi_lock.ui.theme.SecondarySage
+    )
+    ChallengeType.ARM_STRETCH -> ChallengeCardSpec(
+        title = "Arm Stretch",
+        description = "Stretch your arm out, hold, then release",
+        icon = Icons.Default.SelfImprovement,
         accentColor = DeepOlive
     )
 }
@@ -98,7 +133,7 @@ private fun cardSpecFor(type: ChallengeType): ChallengeCardSpec = when (type) {
 private fun targetLabel(type: ChallengeType, sensitivity: ChallengeSensitivity): String = when (type) {
     ChallengeType.RUN_JOG -> "${sensitivity.jogDurationMs / 60_000}m"
     ChallengeType.WALK -> "${sensitivity.walkStepsRequired} steps"
-    ChallengeType.ROTATIONAL_ARM -> "${sensitivity.armRepsRequired} reps"
+    else -> "${sensitivity.armRepsRequired} reps" // all 6 ChallengeType.ARM_VARIANTS
 }
 
 @Composable

@@ -49,12 +49,6 @@ fun ChallengeProgressContent(
 
     DisposableEffect(challengeType, sensitivity) {
         val detector: ChallengeDetector = when (challengeType) {
-            ChallengeType.ROTATIONAL_ARM -> RotationalArmDetector(
-                context = context,
-                sensitivity = sensitivity,
-                onProgress = { count -> stepCount = count },
-                onComplete = onComplete
-            )
             ChallengeType.WALK -> StepChallengeDetector(
                 context = context,
                 mode = StepChallengeMode.WALK,
@@ -69,17 +63,21 @@ fun ChallengeProgressContent(
                 onProgress = { steps, elapsed, stepsPerMin -> stepCount = steps; elapsedMs = elapsed; cadence = stepsPerMin },
                 onComplete = onComplete
             )
+            // All 6 ChallengeType.ARM_VARIANTS -- armVariant tunes amplitude/timing
+            // per named exercise, see RotationalArmRepConfig.forSensitivity.
+            else -> RotationalArmDetector(
+                context = context,
+                sensitivity = sensitivity,
+                armVariant = challengeType,
+                onProgress = { count -> stepCount = count },
+                onComplete = onComplete
+            )
         }
         detector.start()
         onDispose { detector.stop() }
     }
 
     val (progress, primaryText, secondaryText) = when (challengeType) {
-        ChallengeType.ROTATIONAL_ARM -> Triple(
-            stepCount.toFloat() / sensitivity.armRepsRequired.toFloat(),
-            "$stepCount",
-            "of ${sensitivity.armRepsRequired} moves"
-        )
         ChallengeType.WALK -> Triple(
             stepCount.toFloat() / sensitivity.walkStepsRequired.toFloat(),
             "$stepCount",
@@ -89,6 +87,11 @@ fun ChallengeProgressContent(
             elapsedMs.toFloat() / sensitivity.jogDurationMs.toFloat(),
             formatMmSs(elapsedMs),
             "of ${formatMmSs(sensitivity.jogDurationMs)} · $cadence/${sensitivity.jogMinStepsPerMin} steps/min"
+        )
+        else -> Triple( // all 6 ChallengeType.ARM_VARIANTS -- reps target unaffected by variant
+            stepCount.toFloat() / sensitivity.armRepsRequired.toFloat(),
+            "$stepCount",
+            "of ${sensitivity.armRepsRequired} moves"
         )
     }
 

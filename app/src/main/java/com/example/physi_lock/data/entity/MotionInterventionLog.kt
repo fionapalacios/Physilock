@@ -19,6 +19,6 @@ data class MotionInterventionLog(
     val userResponse: String? = null, // "UNLOCKED", "DISMISSED", "TIMEOUT", "BYPASSED"
     val accelerometerVariance: Float = 0f, // Motion intensity metric
     val riskScore: Double = 0.0, // AI-computed behavioral risk (0.0–1.0)
-    val challengeType: String? = null, // "RUN_JOG", "WALK", "ROTATIONAL_ARM"
+    val challengeType: String? = null, // "RUN_JOG", "WALK", or one of ChallengeType.ARM_VARIANTS (e.g. "ARM_SWAY")
     val xpEarned: Int = 0
 )

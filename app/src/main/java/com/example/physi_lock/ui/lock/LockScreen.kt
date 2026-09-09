@@ -34,7 +34,12 @@ import com.example.physi_lock.ui.challenge.ChallengeProgressContent
 import kotlinx.coroutines.launch
 
 private val challengePromptText = mapOf(
-    ChallengeType.ROTATIONAL_ARM to "Rotate and swing your arm to unlock",
+    ChallengeType.ARM_SWING_FRONT_BACK to "Swing your arm front to back to unlock",
+    ChallengeType.ARM_FULL_ROTATION to "Rotate your arm in a full circle to unlock",
+    ChallengeType.ARM_BICEP_CURL to "Curl your arm to unlock",
+    ChallengeType.ARM_SIDE_RAISE to "Raise your arm out to the side to unlock",
+    ChallengeType.ARM_SWAY to "Sway your arm to unlock",
+    ChallengeType.ARM_STRETCH to "Stretch your arm to unlock",
     ChallengeType.WALK to "Walk to unlock",
     ChallengeType.RUN_JOG to "Jog in place to unlock"
 )
@@ -72,16 +77,23 @@ fun LockScreen(packageName: String, onUnlocked: () -> Unit) {
     }
 
     // One random challenge per lock event; rememberSaveable so a rotation or
-    // process death mid-attempt doesn't re-roll it. Walk/Jog need
-    // ACTIVITY_RECOGNITION — if it isn't granted, fall back to Rotational Arm
-    // (always available, no extra permission) rather than blocking this
-    // forced, no-back-button screen on a permission dialog.
+    // process death mid-attempt doesn't re-roll it. Two-stage pick (category, then
+    // arm variant) keeps Walk/Jog/Arm at roughly equal odds -- a flat
+    // ChallengeType.entries.random() would make the arm category 6x more likely than
+    // Walk or Jog alone now that it has 6 variants. Walk/Jog need ACTIVITY_RECOGNITION
+    // — if it isn't granted, fall back to a random arm variant (always available, no
+    // extra permission) rather than blocking this forced, no-back-button screen on a
+    // permission dialog.
     var challengeType by rememberSaveable {
-        val pick = ChallengeType.entries.random()
+        val pick = when (listOf("WALK", "RUN_JOG", "ARM").random()) {
+            "WALK" -> ChallengeType.WALK
+            "RUN_JOG" -> ChallengeType.RUN_JOG
+            else -> ChallengeType.ARM_VARIANTS.random()
+        }
         val needsStepSensor = pick == ChallengeType.WALK || pick == ChallengeType.RUN_JOG
         mutableStateOf(
             if (needsStepSensor && !isActivityRecognitionGranted(context)) {
-                ChallengeType.ROTATIONAL_ARM
+                ChallengeType.ARM_VARIANTS.random()
             } else {
                 pick
             }

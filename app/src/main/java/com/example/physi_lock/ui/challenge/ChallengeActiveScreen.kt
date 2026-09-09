@@ -16,10 +16,15 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Autorenew
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -82,12 +87,47 @@ private fun visualFor(type: ChallengeType): ChallengeVisual = when (type) {
         accentColor = SageAccent,
         quote = "One step at a time — that's all it takes."
     )
-    ChallengeType.ROTATIONAL_ARM -> ChallengeVisual(
-        title = "Rotational Arm Movements",
-        description = "Rotate your arm through the full motion — detected via accelerometer and gyroscope.",
-        icon = Icons.Default.Bolt,
+    ChallengeType.ARM_SWING_FRONT_BACK -> ChallengeVisual(
+        title = "Front-to-Back Swing",
+        description = "Swing your arm forward and back like a pendulum — detected via accelerometer and gyroscope.",
+        icon = Icons.AutoMirrored.Filled.CompareArrows,
         accentColor = DeepOlive,
-        quote = "Motion is the medicine. Keep moving."
+        quote = "Let the motion carry you — back and forth, steady and sure."
+    )
+    ChallengeType.ARM_FULL_ROTATION -> ChallengeVisual(
+        title = "Full Arm Rotation",
+        description = "Rotate your whole arm in a full circle, like a windmill.",
+        icon = Icons.Default.Autorenew,
+        accentColor = Orchid,
+        quote = "Full circle, full reset."
+    )
+    ChallengeType.ARM_SIDE_RAISE -> ChallengeVisual(
+        title = "Side Arm Raise",
+        description = "Raise your arm out to the side to shoulder height, then lower it.",
+        icon = Icons.AutoMirrored.Filled.TrendingUp,
+        accentColor = TertiaryTan,
+        quote = "Lift, hold, lower — feel it work."
+    )
+    ChallengeType.ARM_BICEP_CURL -> ChallengeVisual(
+        title = "Bicep Curl",
+        description = "Bend your elbow and curl your forearm up and down, like lifting a dumbbell.",
+        icon = Icons.Default.FitnessCenter,
+        accentColor = SageAccent,
+        quote = "Strength is built one curl at a time."
+    )
+    ChallengeType.ARM_SWAY -> ChallengeVisual(
+        title = "Arm Sway",
+        description = "Sway your arm gently side to side — a real motion, just a gentler one.",
+        icon = Icons.Default.Waves,
+        accentColor = DeepOlive,
+        quote = "Gentle motion still counts as motion."
+    )
+    ChallengeType.ARM_STRETCH -> ChallengeVisual(
+        title = "Arm Stretch",
+        description = "Stretch your arm out, hold, then release — repeat.",
+        icon = Icons.Default.SelfImprovement,
+        accentColor = SageAccent,
+        quote = "Stretch it out. Your body will thank you."
     )
 }
 

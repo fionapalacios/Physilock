@@ -12,11 +12,15 @@ enum class ChallengeSensitivity(
     val armGForceThreshold: Float,
     val walkStepsRequired: Int,
     val jogDurationMs: Long,
-    val jogMinStepsPerMin: Int
+    val jogMinStepsPerMin: Int,
+    // 2026-09-09: previously a single hardcoded 3.0f constant in RotationalArmDetector,
+    // shared across every sensitivity tier -- only the accel threshold scaled with
+    // sensitivity before. Now scales the same way accel does (see RotationalArmRepConfig).
+    val armGyroThresholdRadS: Float
 ) {
-    LOW(4, 18f, 60, 2 * 60_000L, 110),
-    MODERATE(6, 23.5f, 100, 3 * 60_000L, 130),
-    HIGH(9, 28f, 150, 3 * 60_000L, 150);
+    LOW(4, 18f, 60, 2 * 60_000L, 110, 2.3f),
+    MODERATE(6, 23.5f, 100, 3 * 60_000L, 130, 3.0f),
+    HIGH(9, 28f, 150, 3 * 60_000L, 150, 3.6f);
 
     companion object {
         fun fromLabel(label: String?): ChallengeSensitivity = when (label) {

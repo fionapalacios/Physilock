@@ -37,5 +37,7 @@ class ChallengeSensitivityTest {
         assertEquals(true, ChallengeSensitivity.MODERATE.armRepsRequired < ChallengeSensitivity.HIGH.armRepsRequired)
         assertEquals(true, ChallengeSensitivity.LOW.walkStepsRequired < ChallengeSensitivity.MODERATE.walkStepsRequired)
         assertEquals(true, ChallengeSensitivity.MODERATE.walkStepsRequired < ChallengeSensitivity.HIGH.walkStepsRequired)
+        assertEquals(true, ChallengeSensitivity.LOW.armGyroThresholdRadS < ChallengeSensitivity.MODERATE.armGyroThresholdRadS)
+        assertEquals(true, ChallengeSensitivity.MODERATE.armGyroThresholdRadS < ChallengeSensitivity.HIGH.armGyroThresholdRadS)
     }
 }

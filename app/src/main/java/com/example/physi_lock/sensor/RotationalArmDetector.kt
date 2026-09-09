@@ -8,19 +8,13 @@ import android.hardware.SensorManager
 import kotlin.math.sqrt
 
 // A rep counts when a large linear acceleration AND a large gyroscope rotation rate
-// happen together — this one combined gate covers side-to-side swings, up/down raises,
-// and 360 deg rotation alike (all produce a big limb displacement plus rotation), without
-// needing per-axis/direction classification.
-//
-// 2026-09-04: added a real hysteresis (arm/rearm) gate on top of the threshold check
-// above -- the previous version could double-count a single sustained motion (e.g. one
-// slow continuous swing, or hand jitter that happens to stay above threshold) as multiple
-// reps, since a debounce timer alone doesn't require the signal to ever *drop* between
-// counts. A genuine shake/swing is oscillatory: peak, then a real return toward rest,
-// then the next peak. armed only re-arms once BOTH accel and gyro magnitude drop back
-// below a rearm fraction of their thresholds, so counting a rep now requires an actual
-// back-and-forth motion, not just staying loud for a while. Thresholds also raised ~20%
-// (rearmFraction below the peak) to require a more deliberate motion.
+// happen together, genuinely co-occurring (not just both independently "recently
+// high") -- this one combined gate covers side-to-side swings, up/down raises, and
+// 360 deg rotation alike, without needing per-axis/direction classification. The
+// actual rep-counting decision (thresholds, rearm hysteresis, co-occurrence timing)
+// lives in RotationalArmRepCounter/RotationalArmRepConfig -- this class is a thin
+// SensorEventListener wrapper around it. See RotationalArmRepConfig's own doc comment
+// for why the co-occurrence gate exists.
 class RotationalArmDetector(
     context: Context,
     private val sensitivity: ChallengeSensitivity = ChallengeSensitivity.MODERATE,
@@ -29,7 +23,13 @@ class RotationalArmDetector(
     // Deep Work Mode's "shake 5x to exit" gate is a fixed safety confirmation, not a
     // difficulty-scaled unlock challenge -- lets it request an exact rep count
     // independent of the user's Motion Lock Sensitivity setting.
-    repsOverride: Int? = null
+    repsOverride: Int? = null,
+    // Move-to-Unlock's named arm-exercise challenges (front-to-back swing, full
+    // rotation, curl, side raise, sway, stretch) each tune amplitude/timing
+    // differently -- see RotationalArmRepConfig.forSensitivity. Left null (unchanged
+    // behavior) by every other caller (Deep Work's exit gate, Overuse Intervention's
+    // Shake/Rotate steps), which don't go through ChallengeType at all.
+    private val armVariant: ChallengeType? = null
 ) : SensorEventListener, ChallengeDetector {
 
     private val sensorManager = context.getSystemService(Context.SENSOR_SERVICE) as SensorManager
@@ -37,23 +37,15 @@ class RotationalArmDetector(
     private val gyroscope = sensorManager.getDefaultSensor(Sensor.TYPE_GYROSCOPE)
 
     private val repsRequired = repsOverride ?: sensitivity.armRepsRequired
-    private val accelThreshold = sensitivity.armGForceThreshold * 0.6f
-    private val gyroThresholdRadS = 3.0f
-    private val rearmFraction = 0.45f
-    private val repDebounceMs = 250L
+    private lateinit var counter: RotationalArmRepCounter
 
-    private var repCount = 0
-    private var lastRepTime = 0L
     private var isFinished = false
-    private var armed = true
-
-    private var lastAccelMagnitude = 0f
-    private var lastGyroMagnitude = 0f
 
     override fun start() {
-        repCount = 0
         isFinished = false
-        armed = true
+        counter = RotationalArmRepCounter(
+            RotationalArmRepConfig.forSensitivity(sensitivity, repsRequired, armVariant)
+        )
         onProgress(0)
         accelerometer?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
         gyroscope?.let { sensorManager.registerListener(this, it, SensorManager.SENSOR_DELAY_UI) }
@@ -67,40 +59,30 @@ class RotationalArmDetector(
     override fun onSensorChanged(event: SensorEvent) {
         if (isFinished) return
 
+        val type: MotionSensorType
+        val magnitude: Float
         when (event.sensor.type) {
             Sensor.TYPE_ACCELEROMETER -> {
                 val (x, y, z) = event.values
                 val gForce = sqrt(x * x + y * y + z * z) - SensorManager.GRAVITY_EARTH
-                lastAccelMagnitude = kotlin.math.abs(gForce)
+                type = MotionSensorType.ACCEL
+                magnitude = kotlin.math.abs(gForce)
             }
             Sensor.TYPE_GYROSCOPE -> {
                 val (x, y, z) = event.values
-                lastGyroMagnitude = sqrt(x * x + y * y + z * z)
+                type = MotionSensorType.GYRO
+                magnitude = sqrt(x * x + y * y + z * z)
             }
             else -> return
         }
 
-        // Rearm only once the motion has genuinely settled back down on both axes --
-        // this is what forces an oscillation (out-and-back) instead of one sustained push.
-        if (!armed && lastAccelMagnitude < accelThreshold * rearmFraction && lastGyroMagnitude < gyroThresholdRadS * rearmFraction) {
-            armed = true
-        }
+        val newCount = counter.onSample(type, magnitude, System.currentTimeMillis()) ?: return
+        onProgress(newCount)
 
-        if (armed && lastAccelMagnitude > accelThreshold && lastGyroMagnitude > gyroThresholdRadS) {
-            val currentTime = System.currentTimeMillis()
-            if (currentTime - lastRepTime < repDebounceMs) return
-
-            armed = false
-            lastRepTime = currentTime
-            repCount++
-            onProgress(repCount)
-
-            if (repCount >= repsRequired) {
-                isFinished = true
-                stop()
-                repCount = 0
-                onComplete()
-            }
+        if (newCount >= repsRequired) {
+            isFinished = true
+            stop()
+            onComplete()
         }
     }
 
