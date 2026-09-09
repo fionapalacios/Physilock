@@ -40,13 +40,21 @@ data class RotationalArmRepConfig(
 
         // Vigorous variants keep today's exact thresholds (multiplier 1.0). Curl is a
         // smaller-radius motion than a full swing/rotation. Sway/Stretch are
-        // intentionally low-amplitude challenges -- lower thresholds, but still gated
-        // by the real co-occurrence/rearm checks below, so passive jitter still can't
-        // complete them, just at a gentler amplitude than the vigorous variants.
+        // intentionally lower-amplitude challenges than the vigorous ones, gated by the
+        // real co-occurrence/rearm checks below so passive jitter can't complete them --
+        // but 2026-09-09 on-device testing found 0.55 too low: picking the phone up off
+        // a table and setting it down produces a single co-occurring accel+gyro spike
+        // that's physically similar to a deliberate light sway, and completed the
+        // challenge. Raised to 0.75 (just below curl) so ordinary handling stays below
+        // threshold while a real deliberate sway/stretch still clears it -- there's no
+        // amplitude value that perfectly separates "picked up the phone" from "a very
+        // light sway" (see the RotationalArmDetector split's "Future consideration" doc
+        // in ChallengeType.kt -- that needs real orientation-aware shape detection, out
+        // of scope here), so this is a calibration best-effort, not a structural fix.
         private fun amplitudeMultiplierFor(variant: ChallengeType?): Float = when (variant) {
             ChallengeType.ARM_SWING_FRONT_BACK, ChallengeType.ARM_FULL_ROTATION, ChallengeType.ARM_SIDE_RAISE -> 1.0f
             ChallengeType.ARM_BICEP_CURL -> 0.85f
-            ChallengeType.ARM_SWAY, ChallengeType.ARM_STRETCH -> 0.55f
+            ChallengeType.ARM_SWAY, ChallengeType.ARM_STRETCH -> 0.75f
             else -> 1.0f
         }
 

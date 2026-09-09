@@ -108,7 +108,7 @@ private fun cardSpecFor(type: ChallengeType): ChallengeCardSpec = when (type) {
         title = "Side Arm Raise",
         description = "Raise your arm out to the side to shoulder height, then lower",
         icon = Icons.AutoMirrored.Filled.TrendingUp,
-        accentColor = com.example.physi_lock.ui.theme.TertiaryTan
+        accentColor = com.example.physi_lock.ui.theme.MutedText
     )
     ChallengeType.ARM_BICEP_CURL -> ChallengeCardSpec(
         title = "Bicep Curl",
@@ -120,13 +120,13 @@ private fun cardSpecFor(type: ChallengeType): ChallengeCardSpec = when (type) {
         title = "Arm Sway",
         description = "Sway your arm gently side to side",
         icon = Icons.Default.Waves,
-        accentColor = com.example.physi_lock.ui.theme.SecondarySage
+        accentColor = DeepOlive
     )
     ChallengeType.ARM_STRETCH -> ChallengeCardSpec(
         title = "Arm Stretch",
         description = "Stretch your arm out, hold, then release",
         icon = Icons.Default.SelfImprovement,
-        accentColor = DeepOlive
+        accentColor = SageAccent
     )
 }
 

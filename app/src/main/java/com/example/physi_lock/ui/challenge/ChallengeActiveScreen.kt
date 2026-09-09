@@ -105,7 +105,7 @@ private fun visualFor(type: ChallengeType): ChallengeVisual = when (type) {
         title = "Side Arm Raise",
         description = "Raise your arm out to the side to shoulder height, then lower it.",
         icon = Icons.AutoMirrored.Filled.TrendingUp,
-        accentColor = TertiaryTan,
+        accentColor = com.example.physi_lock.ui.theme.MutedText,
         quote = "Lift, hold, lower — feel it work."
     )
     ChallengeType.ARM_BICEP_CURL -> ChallengeVisual(
