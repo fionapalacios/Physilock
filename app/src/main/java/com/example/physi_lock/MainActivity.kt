@@ -35,9 +35,11 @@ import com.example.physi_lock.ui.theme.PhysiLockTheme
 import kotlinx.coroutines.launch
 
 // Prototype-testing flow: Landing -> Auth (Login/Register, Register includes a real Student/Work
-// Usage Mode picker) -> [Verify Email, register-only] -> Onboarding -> Home/AdminHome. Verify
-// Email only runs on a fresh email/password registration (see project memory
-// "project-auth-screens"); login and Google sign-in skip straight from Onboarding to Home.
+// Usage Mode picker) -> [Verify Email, if unverified] -> Onboarding -> Home/AdminHome. Verify
+// Email always runs on fresh email/password registration, and is re-checked (via
+// proceedPastAuth below) on every subsequent login, Google sign-in, and session-resume, so a
+// user who backs out of it once can't reach Home permanently on the same unverified account.
+// Google sign-in accounts are always pre-verified by Firebase, so they pass straight through.
 private enum class AppStage {
     LANDING, AUTH_LOGIN, AUTH_REGISTER, FORGOT_PASSWORD, VERIFY_EMAIL, ONBOARDING, HOME, ADMIN_HOME
 }
@@ -56,6 +58,43 @@ class MainActivity : ComponentActivity() {
             val coroutineScope = rememberCoroutineScope()
             val context = LocalContext.current
 
+            var pendingVerificationEmail by remember { mutableStateOf("") }
+            var verifyEmailChecking by remember { mutableStateOf(false) }
+            var verifyEmailError by remember { mutableStateOf<String?>(null) }
+            var passwordResetSending by remember { mutableStateOf(false) }
+            var passwordResetSent by remember { mutableStateOf(false) }
+            var passwordResetError by remember { mutableStateOf<String?>(null) }
+
+            // Single post-auth gate used by every path that lands on an Account (interactive
+            // login, Google sign-in, and session-resume below) so unverified users can't reach
+            // Home by any route -- closes the bug where VerifyEmailScreen's back button logged
+            // the user out, but logging back in with the same unverified account skipped the
+            // check entirely and reached Home permanently. Admin accounts are exempt (they're
+            // provisioned directly in the console, not through this email/password flow, and
+            // already skip Onboarding). Fails open (treats as verified) if the check itself
+            // can't run -- e.g. offline session-resume via the cached account, where there's no
+            // network to ask Firebase and no cached verified-flag to fall back on; enforcement
+            // only matters while online, which is exactly when the check can succeed.
+            suspend fun proceedPastAuth(account: Account, verifiedStage: AppStage) {
+                currentAccount = account
+                if (account.role == Role.ADMIN) {
+                    stage = AppStage.ADMIN_HOME
+                    return
+                }
+                val verified = try {
+                    authViewModel.checkEmailVerified()
+                } catch (e: Exception) {
+                    true
+                }
+                stage = if (verified) {
+                    verifiedStage
+                } else {
+                    pendingVerificationEmail = account.email
+                    verifyEmailError = null
+                    AppStage.VERIFY_EMAIL
+                }
+            }
+
             // Persistent login: Firebase Auth keeps its session on disk independently of this
             // screen's own (rememberSaveable) stage — closing/swiping away the app and
             // reopening it otherwise always restarted at Landing, forcing a re-login every
@@ -69,19 +108,11 @@ class MainActivity : ComponentActivity() {
                         null
                     }
                     if (account != null && stage == AppStage.LANDING) {
-                        currentAccount = account
-                        stage = if (account.role == Role.ADMIN) AppStage.ADMIN_HOME else AppStage.HOME
+                        proceedPastAuth(account, AppStage.HOME)
                     }
                 }
                 sessionChecked = true
             }
-
-            var pendingVerificationEmail by remember { mutableStateOf("") }
-            var verifyEmailChecking by remember { mutableStateOf(false) }
-            var verifyEmailError by remember { mutableStateOf<String?>(null) }
-            var passwordResetSending by remember { mutableStateOf(false) }
-            var passwordResetSent by remember { mutableStateOf(false) }
-            var passwordResetError by remember { mutableStateOf<String?>(null) }
 
             PhysiLockTheme {
                 if (!sessionChecked) {
@@ -109,8 +140,7 @@ class MainActivity : ComponentActivity() {
                                         authError = "Invalid username/email or password."
                                     } else {
                                         authError = null
-                                        currentAccount = account
-                                        stage = if (account.role == Role.ADMIN) AppStage.ADMIN_HOME else AppStage.ONBOARDING
+                                        proceedPastAuth(account, AppStage.ONBOARDING)
                                     }
                                 } catch (e: Exception) {
                                     authError = e.message ?: "Sign in failed."
@@ -130,8 +160,7 @@ class MainActivity : ComponentActivity() {
                                         authError = "Google sign-in failed."
                                     } else {
                                         authError = null
-                                        currentAccount = account
-                                        stage = if (account.role == Role.ADMIN) AppStage.ADMIN_HOME else AppStage.ONBOARDING
+                                        proceedPastAuth(account, AppStage.ONBOARDING)
                                     }
                                 } catch (e: GetCredentialCancellationException) {
                                     // User dismissed the account picker — not an error, no banner.
@@ -180,8 +209,7 @@ class MainActivity : ComponentActivity() {
                                         authError = "Google sign-in failed."
                                     } else {
                                         authError = null
-                                        currentAccount = account
-                                        stage = if (account.role == Role.ADMIN) AppStage.ADMIN_HOME else AppStage.ONBOARDING
+                                        proceedPastAuth(account, AppStage.ONBOARDING)
                                     }
                                 } catch (e: GetCredentialCancellationException) {
                                     // User dismissed the account picker — not an error, no banner.
