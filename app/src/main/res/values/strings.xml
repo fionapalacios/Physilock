@@ -1,5 +1,3 @@
 <resources>
     <string name="app_name">Physi-Lock</string>
-    <!-- Placeholder: normally auto-generated from google-services.json (Firebase/Google Sign-In disabled) -->
-    <string name="default_web_client_id" translatable="false"></string>
 </resources>
