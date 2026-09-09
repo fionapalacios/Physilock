@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
@@ -78,7 +79,8 @@ fun AdminCategoriesSection(
     categoryEntries: List<AppCategory>,
     onSetCategory: (InstalledAppInfo, String) -> Unit,
     onRemoveCategory: (InstalledAppInfo) -> Unit,
-    onAddManualApp: (String, String) -> Unit
+    onAddManualApp: (String, String) -> Unit,
+    onAutoCategorize: () -> Unit
 ) {
     if (apps.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -113,6 +115,28 @@ fun AdminCategoriesSection(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .border(0.8.dp, DeepOlive.copy(alpha = 0.20f), RoundedCornerShape(15.dp))
+                .clickable(onClick = onAutoCategorize)
+                .padding(vertical = 13.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = DeepOlive, modifier = Modifier.size(15.dp))
+            Spacer(modifier = Modifier.width(7.5.dp))
+            Text(
+                text = "Auto-categorize uncategorized apps",
+                fontFamily = Nunito,
+                fontWeight = FontWeight.Bold,
+                fontSize = 14.sp,
+                color = DeepOlive
+            )
+        }
+
+        Spacer(modifier = Modifier.height(11.dp))
+
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(7.5.dp),
             modifier = Modifier.fillMaxWidth()
