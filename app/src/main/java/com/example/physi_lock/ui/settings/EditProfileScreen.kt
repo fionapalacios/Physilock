@@ -40,6 +40,7 @@ import androidx.compose.ui.unit.sp
 import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.ui.components.AuthFieldLabel
 import com.example.physi_lock.ui.components.AuthTextField
+import com.example.physi_lock.ui.components.PasswordRequirementsChecklist
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.Nunito
@@ -241,6 +242,7 @@ private fun ChangePasswordSection(
         var currentPassword by remember { mutableStateOf("") }
         var newPassword by remember { mutableStateOf("") }
         var confirmPassword by remember { mutableStateOf("") }
+        var newPasswordFieldFocused by remember { mutableStateOf(false) }
         var validationError by remember { mutableStateOf<String?>(null) }
 
         LaunchedEffect(resultSuccess, resultMessage) {
@@ -264,8 +266,12 @@ private fun ChangePasswordSection(
             onValueChange = { newPassword = it },
             placeholder = "New password (min 6 characters)",
             leadingIcon = Icons.Default.Lock,
-            isPassword = true
+            isPassword = true,
+            onFocusChanged = { newPasswordFieldFocused = it }
         )
+        if (newPasswordFieldFocused) {
+            PasswordRequirementsChecklist(password = newPassword)
+        }
         Spacer(modifier = Modifier.height(8.dp))
         AuthTextField(
             value = confirmPassword,

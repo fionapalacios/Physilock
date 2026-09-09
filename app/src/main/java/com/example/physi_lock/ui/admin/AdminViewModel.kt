@@ -9,26 +9,33 @@ import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.data.entity.AppCategory
 import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.dao.AppUsageTotal
+import com.example.physi_lock.data.dao.DailyAppUsage
+import com.example.physi_lock.data.dao.DailyCount
 import com.example.physi_lock.data.entity.DefaultSettings
 import com.example.physi_lock.data.context.NetworkConnectivityObserver
 import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.data.model.Role
-import com.example.physi_lock.data.entity.toAccount
 import com.example.physi_lock.ui.settings.InstalledAppInfo
+import com.google.firebase.firestore.FirebaseFirestore
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.TextStyle
 import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.channels.awaitClose
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 /** One line of the "Top Apps (min/day, last 7 days)" chart -- minutesByDay is aligned to
  *  AdminAnalytics.dailyLabels (index 0 = 7 days ago .. index 6 = today). */
@@ -49,7 +56,7 @@ data class AdminAnalytics(
 
 class AdminViewModel(application: Application) : AndroidViewModel(application) {
     private val db = PhysiLockDatabase.getInstance(application)
-    private val cachedAccountDao = db.cachedAccountDao()
+    private val firestore = FirebaseFirestore.getInstance()
     private val appCategoryDao = db.appCategoryDao()
     private val defaultSettingsDao = db.defaultSettingsDao()
     private val appUsageLogDao = db.appUsageLogDao()
@@ -74,28 +81,48 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     val isOnline: StateFlow<Boolean> = connectivityObserver.observe()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), true)
 
-    // 1. Manage User Accounts
-    // DEMO MODE: reads/writes the local Room cache (the same one DemoAccountRepository uses
-    // for login) instead of Firestore, since there's no real backend to query -- see
-    // PhysiLockApplication's placeholder Firebase init. accountsError/retryAccounts are kept
-    // for API compatibility with AdminAccountsSection; a local Room Flow doesn't fail the way
-    // a Firestore listener can, so there's nothing to surface or retry here. Swap back to a
-    // Firestore-backed accounts flow once a real backend exists.
+    // 1. Manage User Accounts (real-time from Firestore)
     private val _accountsError = MutableStateFlow<String?>(null)
     val accountsError: StateFlow<String?> = _accountsError.asStateFlow()
+    private val accountsRetryTrigger = MutableStateFlow(0)
 
-    fun retryAccounts() {}
-
-    val accounts: StateFlow<List<Account>> = cachedAccountDao.getAll()
-        .map { cached -> cached.map { it.toAccount() } }
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val accounts: StateFlow<List<Account>> = accountsRetryTrigger
+        .flatMapLatest { accountsFlow() }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+
+    /** Re-establishes the Firestore listener — Admin's "couldn't load accounts, tap to
+     *  retry" action, in place of the previous silent-forever-stale behavior. */
+    fun retryAccounts() {
+        accountsRetryTrigger.value++
+    }
+
+    private fun accountsFlow(): Flow<List<Account>> = callbackFlow {
+        _accountsError.value = null
+        val registration = firestore.collection("users")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    // Don't close the channel -- keep the last-known accounts list visible
+                    // (via the outer StateFlow's cached value) rather than blanking the UI,
+                    // and surface the error so the screen can offer a real retry action.
+                    _accountsError.value = error.localizedMessage ?: "Couldn't load accounts"
+                    return@addSnapshotListener
+                }
+                _accountsError.value = null
+                val accounts = snapshot?.documents?.mapNotNull { doc ->
+                    doc.toObject(Account::class.java)?.copy(id = doc.id)
+                }.orEmpty()
+                trySend(accounts)
+            }
+        awaitClose { registration.remove() }
+    }
 
     fun setAccountActive(account: Account, active: Boolean) {
         viewModelScope.launch {
             try {
-                val cached = cachedAccountDao.findById(account.id)
-                    ?: throw IllegalStateException("Account not found")
-                cachedAccountDao.upsert(cached.copy(isActive = active))
+                firestore.collection("users").document(account.id)
+                    .update("isActive", active)
+                    .await()
             } catch (e: Exception) {
                 _actionError.value = "Couldn't update ${account.fullName}'s status: ${e.localizedMessage ?: "unknown error"}"
             }
@@ -105,7 +132,9 @@ class AdminViewModel(application: Application) : AndroidViewModel(application) {
     fun deleteAccount(account: Account) {
         viewModelScope.launch {
             try {
-                cachedAccountDao.deleteById(account.id)
+                firestore.collection("users").document(account.id)
+                    .delete()
+                    .await()
             } catch (e: Exception) {
                 _actionError.value = "Couldn't delete ${account.fullName}: ${e.localizedMessage ?: "unknown error"}"
             }

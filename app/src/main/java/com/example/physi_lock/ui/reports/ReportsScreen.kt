@@ -1,8 +1,10 @@
 package com.example.physi_lock.ui.reports
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -18,6 +20,16 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Bedtime
+import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.EmojiEvents
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Schedule
+import androidx.compose.material.icons.filled.Warning
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -27,6 +39,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -36,6 +54,7 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.dao.AppUsageTotal
 import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
+import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.Nunito
@@ -69,7 +88,16 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
     val dailyLimitMinutes by reportsViewModel.dailyLimitMinutes.collectAsState(initial = 480)
     val todaysPredictions by reportsViewModel.todaysPredictions.collectAsState(initial = emptyList())
     val usagePatterns by reportsViewModel.usagePatterns.collectAsState(initial = UsagePatterns())
+    val riskLevel by reportsViewModel.riskLevel.collectAsState(initial = "Moderate")
+    val riskScorePercent by reportsViewModel.riskScorePercent.collectAsState(initial = 0.5f)
+    val bypassAttemptsToday by reportsViewModel.bypassAttemptsToday.collectAsState(initial = 0)
+    val doomscrollEpisodesToday by reportsViewModel.doomscrollEpisodesToday.collectAsState(initial = 0)
+    var showRiskSheet by remember { mutableStateOf(false) }
 
+    val todayMinutes = weeklyUsage.lastOrNull { it.isToday }?.minutes ?: 0
+    val excessiveHoursFlagged = todaysPredictions.count { it.isExcessive }
+
+    Box(modifier = Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -85,13 +113,24 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
             fontWeight = FontWeight.Medium,
             color = PrimaryGreen
         )
-        Text(
-            text = "Usage Reports",
-            fontFamily = Nunito,
-            fontSize = 20.sp,
-            fontWeight = FontWeight.ExtraBold,
-            color = PrimaryDark
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "Usage Reports",
+                fontFamily = Nunito,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PrimaryDark
+            )
+            RiskScoreBadge(
+                riskLevel = riskLevel,
+                riskScorePercent = riskScorePercent,
+                onClick = { showRiskSheet = true }
+            )
+        }
 
         Spacer(modifier = Modifier.height(15.dp))
 
@@ -100,11 +139,10 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
         Spacer(modifier = Modifier.height(15.dp))
 
         if (period == ReportPeriod.WEEKLY) {
-            WeeklyBreakdownContent(weeklyBreakdown)
+            WeeklyBreakdownContent(weeklyBreakdown, dailyLimitMinutes)
             return@Column
         }
 
-        val todayMinutes = weeklyUsage.lastOrNull { it.isToday }?.minutes ?: 0
         val avgMinutes = weeklyUsage.map { it.minutes }.average().takeIf { !it.isNaN() } ?: 0.0
         val totalMinutes = weeklyUsage.sumOf { it.minutes }
         val daysTracked = weeklyUsage.count { it.minutes > 0 }
@@ -356,12 +394,190 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
             }
         }
     }
+
+    if (showRiskSheet) {
+        RiskScoreSheet(
+            riskLevel = riskLevel,
+            riskScorePercent = riskScorePercent,
+            todayMinutes = todayMinutes,
+            dailyLimitMinutes = dailyLimitMinutes,
+            doomscrollEpisodesToday = doomscrollEpisodesToday,
+            excessiveHoursFlagged = excessiveHoursFlagged,
+            hoursPredictedSoFar = todaysPredictions.size,
+            bypassAttemptsToday = bypassAttemptsToday,
+            onDismiss = { showRiskSheet = false }
+        )
+    }
+    }
 }
 
 private fun formatMinutes(minutes: Int): String {
     val hours = minutes / 60
     val mins = minutes % 60
     return if (hours > 0) "${hours}h ${mins}m" else "${mins}m"
+}
+
+/** Tappable "Risk: 62%" pill lifted from the teammate's comparison `UsageTab` mockup
+ *  (2026-09-04 finding) -- opens [RiskScoreSheet] below. Reuses the same risk score
+ *  Home's ring already computes (see ReportsViewModel), not a separate calculation. */
+@Composable
+private fun RiskScoreBadge(riskLevel: String, riskScorePercent: Float, onClick: () -> Unit) {
+    Row(
+        modifier = Modifier
+            .background(PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(19.dp))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 11.dp, vertical = 6.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp)
+    ) {
+        Icon(
+            imageVector = Icons.Default.Warning,
+            contentDescription = null,
+            tint = PrimaryDark,
+            modifier = Modifier.size(13.dp)
+        )
+        Text(
+            text = "Risk: ${(riskScorePercent * 100).roundToInt()}% ($riskLevel)",
+            fontFamily = Nunito,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.Bold,
+            color = PrimaryDark
+        )
+    }
+}
+
+/** Risk Score breakdown panel -- the one genuinely new piece the comparison `UsageTab`
+ *  mockup had (tap "Risk: 62" -> circular meter + 4 behavioral indicators). All 4
+ *  indicators below are real: screen time and excessive-hours come from the same data
+ *  already loaded elsewhere on this screen, and doomscroll episodes / bypass attempts
+ *  come from [com.example.physi_lock.ml.RiskFeatureExtractor]'s real MotionInterventionLog
+ *  counts -- the mockup's own "Bypass attempts: 3 today" indicator was flagged 2026-09-04
+ *  as having no real counter, which turned out to be wrong: that counter already existed,
+ *  just wasn't surfaced in Reports yet. Same custom-scrim-sheet pattern as
+ *  EndFocusSessionSheet, not Material3's ModalBottomSheet. */
+@Composable
+private fun RiskScoreSheet(
+    riskLevel: String,
+    riskScorePercent: Float,
+    todayMinutes: Int,
+    dailyLimitMinutes: Int,
+    doomscrollEpisodesToday: Int,
+    excessiveHoursFlagged: Int,
+    hoursPredictedSoFar: Int,
+    bypassAttemptsToday: Int,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(DeepOlive.copy(alpha = 0.35f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onDismiss
+            ),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = {}
+                )
+                .background(BackgroundLight, RoundedCornerShape(topStart = 22.5.dp, topEnd = 22.5.dp))
+                .padding(22.5.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "Behavioral Risk Score",
+                fontFamily = Nunito,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = PrimaryDark
+            )
+            Spacer(modifier = Modifier.height(15.dp))
+            CircularProgressRing(
+                progress = riskScorePercent,
+                trackColor = TertiaryTan,
+                progressColor = PrimaryDark,
+                ringSize = 88.dp,
+                strokeWidth = 10.dp,
+                outlineColor = PrimaryDark
+            ) {
+                Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(
+                        text = "${(riskScorePercent * 100).roundToInt()}%",
+                        fontFamily = Nunito,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.ExtraBold,
+                        color = PrimaryDark
+                    )
+                    Text(
+                        text = riskLevel,
+                        fontFamily = Nunito,
+                        fontSize = 11.sp,
+                        color = DeepOlive
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.height(20.dp))
+
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                RiskIndicatorRow(
+                    label = "Screen time today",
+                    value = "${formatMinutes(todayMinutes)} / ${formatMinutes(dailyLimitMinutes)} limit"
+                )
+                RiskIndicatorRow(
+                    label = "Doomscroll episodes today",
+                    value = doomscrollEpisodesToday.toString()
+                )
+                RiskIndicatorRow(
+                    label = "Excessive-usage hours flagged",
+                    value = if (hoursPredictedSoFar > 0) {
+                        "$excessiveHoursFlagged of $hoursPredictedSoFar hours today"
+                    } else {
+                        "Not yet available today"
+                    }
+                )
+                RiskIndicatorRow(
+                    label = "Bypass attempts today",
+                    value = bypassAttemptsToday.toString()
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RiskIndicatorRow(label: String, value: String) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(AuthTabsBackground, RoundedCornerShape(15.dp))
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Text(
+            text = label,
+            fontFamily = Nunito,
+            fontSize = 13.sp,
+            color = DeepOlive,
+            modifier = Modifier.weight(1f)
+        )
+        Text(
+            text = value,
+            fontFamily = Nunito,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            color = PrimaryDark
+        )
+    }
 }
 
 /** Ported from the teammate's sprint-2-ui-navigation branch ReportsScreen (`PeriodTabs`),
@@ -402,7 +618,7 @@ private fun PeriodTabs(selected: ReportPeriod, onSelected: (ReportPeriod) -> Uni
  *  4-week bar chart + stat cards, scoped intentionally smaller than the Daily view: Top
  *  Apps/Category Breakdown/Insights/AI Insights stay Daily-only, not duplicated per-week. */
 @Composable
-private fun WeeklyBreakdownContent(weeks: List<WeekUsage>) {
+private fun WeeklyBreakdownContent(weeks: List<WeekUsage>, dailyLimitMinutes: Int) {
     if (weeks.isEmpty()) {
         Column(
             modifier = Modifier
@@ -466,7 +682,10 @@ private fun WeeklyBreakdownContent(weeks: List<WeekUsage>) {
             )
         }
         Spacer(modifier = Modifier.height(11.dp))
-        WeeklyUsageChart(weeks)
+        val weeklyGoalMinutes = dailyLimitMinutes * 7
+        WeeklyUsageChart(weeks, weeklyGoalMinutes)
+        Spacer(modifier = Modifier.height(4.dp))
+        WeeklyUsageLegend(weeklyGoalMinutes)
         Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = "Top Apps, Category Breakdown, and Insights stay scoped to the last 7 days above.",
@@ -477,40 +696,67 @@ private fun WeeklyBreakdownContent(weeks: List<WeekUsage>) {
     }
 }
 
+/** Ported from the teammate's ReportsScreen `WeeklyUsageChart` (dashed goal line + connected
+ *  dots, in place of the plain bars this used to render) -- weeklyGoalMinutes is real (the
+ *  Daily limit config × 7), not their hardcoded 35h mock. */
 @Composable
-private fun WeeklyUsageChart(weeks: List<WeekUsage>) {
-    val maxMinutes = (weeks.maxOfOrNull { it.totalMinutes } ?: 0).coerceAtLeast(1)
+private fun WeeklyUsageChart(weeks: List<WeekUsage>, weeklyGoalMinutes: Int) {
+    val maxDataMinutes = weeks.maxOfOrNull { it.totalMinutes } ?: 0
+    val axisMax = (maxOf(maxDataMinutes, weeklyGoalMinutes).coerceAtLeast(1) * 6 / 5)
 
     Row(modifier = Modifier.fillMaxWidth()) {
         Column(
             modifier = Modifier.height(chartHeight).width(32.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            listOf(maxMinutes, maxMinutes * 2 / 3, maxMinutes / 3, 0).forEach { minutes ->
-                Text(
-                    text = formatMinutes(minutes),
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 9.sp,
-                    color = PrimaryGreen
-                )
-            }
+            Text(text = formatMinutes(axisMax), fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = PrimaryGreen)
+            Text(text = formatMinutes(0), fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = PrimaryGreen)
         }
         Spacer(modifier = Modifier.width(7.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Row(
-                modifier = Modifier.fillMaxWidth().height(chartHeight),
-                horizontalArrangement = Arrangement.SpaceEvenly
+            val primaryDarkColor = PrimaryDark
+            val primaryGreenColor = PrimaryGreen
+            val backgroundColor = AuthTabsBackground
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(chartHeight)
             ) {
-                weeks.forEach { week ->
-                    val barColor = if (week.isCurrentWeek) PrimaryDark else PrimaryGreen
-                    Box(modifier = Modifier.weight(1f).fillMaxHeight(), contentAlignment = Alignment.BottomCenter) {
-                        Box(
-                            modifier = Modifier
-                                .width(28.dp)
-                                .fillMaxHeight((week.totalMinutes.toFloat() / maxMinutes).coerceIn(0f, 1f))
-                                .background(barColor.copy(alpha = 0.85f), RoundedCornerShape(topStart = 3.dp, topEnd = 3.dp))
-                        )
-                    }
+                fun yFor(minutes: Int): Float =
+                    size.height * (1f - (minutes.toFloat() / axisMax).coerceIn(0f, 1f))
+                val stepX = size.width / (weeks.size + 1)
+                val points = weeks.mapIndexed { index, week ->
+                    Offset(stepX * (index + 1), yFor(week.totalMinutes))
+                }
+
+                val goalY = yFor(weeklyGoalMinutes)
+                drawLine(
+                    color = primaryDarkColor,
+                    start = Offset(0f, goalY),
+                    end = Offset(size.width, goalY),
+                    strokeWidth = 2.dp.toPx(),
+                    pathEffect = PathEffect.dashPathEffect(floatArrayOf(8f, 6f), 0f)
+                )
+
+                for (i in 0 until points.size - 1) {
+                    drawLine(
+                        color = primaryGreenColor,
+                        start = points[i],
+                        end = points[i + 1],
+                        strokeWidth = 2.5.dp.toPx(),
+                        cap = StrokeCap.Round
+                    )
+                }
+
+                points.forEach { offset ->
+                    drawCircle(color = primaryGreenColor, radius = 5.dp.toPx(), center = offset)
+                    drawCircle(
+                        color = primaryDarkColor,
+                        radius = 5.dp.toPx(),
+                        center = offset,
+                        style = Stroke(width = 2.dp.toPx())
+                    )
+                    drawCircle(color = backgroundColor, radius = 1.5.dp.toPx(), center = offset)
                 }
             }
             Spacer(modifier = Modifier.height(4.dp))
@@ -527,6 +773,19 @@ private fun WeeklyUsageChart(weeks: List<WeekUsage>) {
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun WeeklyUsageLegend(weeklyGoalMinutes: Int) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        Box(modifier = Modifier.width(16.dp).height(2.dp).background(PrimaryDark, RoundedCornerShape(1.dp)))
+        Text(
+            text = "${formatMinutes(weeklyGoalMinutes)} goal line",
+            fontFamily = FontFamily.Monospace,
+            fontSize = 12.sp,
+            color = DeepOlive
+        )
     }
 }
 
@@ -787,20 +1046,47 @@ private fun PredictionRow(prediction: ExcessiveUsagePredictionLog) {
     }
 }
 
+/** Keyword-matched against ReportsViewModel.buildInsights/buildUsagePatterns's fixed set of
+ *  real sentences -- our insights are plain strings, not the teammate's typed InsightItem
+ *  model, so this maps sentence content to the icon+tint their design paired with each one. */
+private fun insightIconFor(text: String): Pair<ImageVector, Color> = when {
+    "above your" in text -> Icons.AutoMirrored.Filled.TrendingUp to AccentLavender
+    "below your" in text -> Icons.AutoMirrored.Filled.TrendingDown to PrimaryGreen
+    "Highest usage" in text -> Icons.Default.EmojiEvents to AccentLavender
+    "over today's daily limit" in text -> Icons.Default.Warning to AccentLavender
+    "under today's daily limit" in text -> Icons.Default.CheckCircle to PrimaryGreen
+    "most active around" in text -> Icons.Default.Schedule to AccentLavender
+    "weekends than weekdays" in text -> Icons.Default.Bedtime to AccentLavender
+    "weekdays than weekends" in text -> Icons.AutoMirrored.Filled.TrendingUp to PrimaryGreen
+    else -> Icons.Default.Info to SecondarySage
+}
+
+/** Ported visual style from the teammate's ReportsScreen `InsightRow` (icon in a tinted
+ *  box, instead of this being a plain text row) -- see [insightIconFor]. */
 @Composable
 private fun InsightRow(insight: String) {
+    val (icon, tint) = insightIconFor(insight)
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .background(PrimaryGreen.copy(alpha = 0.10f), RoundedCornerShape(15.dp))
-            .border(1.dp, PrimaryGreen.copy(alpha = 0.25f), RoundedCornerShape(15.dp))
-            .padding(horizontal = 12.dp, vertical = 10.dp)
+            .background(tint.copy(alpha = 0.10f), RoundedCornerShape(15.dp))
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        horizontalArrangement = Arrangement.spacedBy(9.dp)
     ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = tint,
+            modifier = Modifier
+                .padding(top = 1.dp)
+                .size(15.dp)
+        )
         Text(
             text = insight,
             fontFamily = Nunito,
             fontSize = 13.sp,
-            color = DeepOlive
+            color = DeepOlive,
+            modifier = Modifier.weight(1f)
         )
     }
 }

@@ -13,6 +13,21 @@ class UsageStatsRepository(private val context: Context) {
     private val usageStatsManager =
         context.getSystemService(Context.USAGE_STATS_SERVICE) as UsageStatsManager
 
+    // UsageStatsManager reports the device's home screen/launcher as just another
+    // "app" with real foreground time (visible between app switches, widget/search
+    // use, etc.) -- resolved once and excluded below so it doesn't show up as noise
+    // in Usage Today / Reports / the daily-limit total, matching the convention
+    // every comparable screen-time app (Digital Wellbeing included) follows despite
+    // reading the same underlying API (2026-09-04).
+    private val launcherPackageName: String? by lazy {
+        try {
+            val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+            context.packageManager.resolveActivity(homeIntent, 0)?.activityInfo?.packageName
+        } catch (e: Exception) {
+            null
+        }
+    }
+
     fun getTodayUsage(): List<AppUsageSummary> {
         val cal = Calendar.getInstance().apply {
             set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0)
@@ -29,7 +44,7 @@ class UsageStatsRepository(private val context: Context) {
             UsageStatsManager.INTERVAL_DAILY, startMillis, endMillis
         )
         return stats
-            .filter { it.totalTimeInForeground > 0 }
+            .filter { it.totalTimeInForeground > 0 && it.packageName != launcherPackageName }
             .map { AppUsageSummary(it.packageName, it.totalTimeInForeground) }
             .sortedByDescending { it.totalTimeMs }
     }

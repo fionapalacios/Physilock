@@ -22,6 +22,18 @@ sealed class ChangePasswordResult {
     data class Error(val message: String) : ChangePasswordResult()
 }
 
+/** Delete Account (Settings): distinguishes the specific failure so SettingsScreen can show
+ *  an accurate message -- see [FirebaseAccountRepository.deleteAccount]. Mirrors
+ *  [ChangePasswordResult]'s shape. */
+sealed class DeleteAccountResult {
+    data object Success : DeleteAccountResult()
+    data object WrongPassword : DeleteAccountResult()
+    /** Google-linked account with no fresh ID token supplied yet -- caller should trigger
+     *  a Google reauth prompt and retry with the resulting token. */
+    data object NeedsGoogleReauth : DeleteAccountResult()
+    data class Error(val message: String) : DeleteAccountResult()
+}
+
 class FirebaseAccountRepository(
     private val auth: FirebaseAuth = FirebaseAuth.getInstance(),
     private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
@@ -159,6 +171,49 @@ class FirebaseAccountRepository(
             ChangePasswordResult.WrongCurrentPassword
         } catch (e: Exception) {
             ChangePasswordResult.Error(e.localizedMessage ?: "Couldn't change password")
+        }
+    }
+
+    /**
+     * Real Firebase account deletion (Settings > Delete Account). Firebase requires a recent
+     * sign-in before this sensitive operation, same as [changePassword] -- password-based
+     * accounts reauthenticate with [currentPassword]; Google-linked accounts (no password
+     * provider) need a fresh [googleIdToken] instead, since there's no password to re-enter
+     * (returns [DeleteAccountResult.NeedsGoogleReauth] if the caller hasn't supplied one yet,
+     * so the UI can trigger the Google sign-in prompt and retry with the resulting token).
+     * Cleans up the Firestore `users/{uid}` profile and the `usernames/{username}` lookup
+     * doc as best-effort before deleting the Auth user itself -- a failed Firestore cleanup
+     * doesn't block the deletion, since there's no recoverable account left either way once
+     * the Auth user is gone.
+     */
+    suspend fun deleteAccount(currentPassword: String? = null, googleIdToken: String? = null): DeleteAccountResult {
+        val user = auth.currentUser ?: return DeleteAccountResult.Error("Not signed in")
+
+        return try {
+            if (hasPasswordProvider()) {
+                val email = user.email ?: return DeleteAccountResult.Error("No email on file")
+                if (currentPassword == null) return DeleteAccountResult.Error("Password required")
+                user.reauthenticate(EmailAuthProvider.getCredential(email, currentPassword)).await()
+            } else {
+                if (googleIdToken == null) return DeleteAccountResult.NeedsGoogleReauth
+                user.reauthenticate(GoogleAuthProvider.getCredential(googleIdToken, null)).await()
+            }
+
+            val uid = user.uid
+            try {
+                val account = fetchAccount(uid)
+                usersCollection.document(uid).delete().await()
+                account?.let { deleteUsernameLookup(it.username) }
+            } catch (e: Exception) {
+                // Best-effort -- see kdoc above.
+            }
+
+            user.delete().await()
+            DeleteAccountResult.Success
+        } catch (e: FirebaseAuthInvalidCredentialsException) {
+            DeleteAccountResult.WrongPassword
+        } catch (e: Exception) {
+            DeleteAccountResult.Error(e.localizedMessage ?: "Couldn't delete account")
         }
     }
 

@@ -1,5 +1,7 @@
 package com.example.physi_lock.ui.home
 
+import android.content.Intent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -21,11 +23,14 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.filled.MenuBook
+import androidx.compose.material.icons.automirrored.filled.TrendingDown
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.PhoneAndroid
 import androidx.compose.material.icons.filled.Psychology
+import androidx.compose.material.icons.filled.Shield
 import androidx.compose.material.icons.filled.TrackChanges
 import androidx.compose.material.icons.filled.WarningAmber
 import androidx.compose.material3.Card
@@ -56,9 +61,12 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
+import com.example.physi_lock.service.AppMonitorService
+import com.example.physi_lock.ui.challenge.OveruseInterventionActivity
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.components.NotificationsOverlay
 import com.example.physi_lock.ui.components.NotificationsViewModel
+import com.example.physi_lock.ui.components.rememberAppIconBitmap
 import com.example.physi_lock.ui.components.toEntry
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
@@ -86,10 +94,12 @@ fun HomeScreen(
     displayName: String = "Alex",
     onManageAppLock: () -> Unit = {},
     onNavigateToFocus: () -> Unit = {},
+    onNavigateToDeepWork: () -> Unit = {},
     onNavigateToGoals: () -> Unit = {},
     onNavigateToMove: () -> Unit = {},
     onNavigateToReflection: () -> Unit = {}
 ) {
+    val context = LocalContext.current
     val lifecycleOwner = LocalLifecycleOwner.current
     val notificationLogs by notificationsViewModel.notifications.collectAsState()
     var showNotifications by remember { mutableStateOf(false) }
@@ -102,6 +112,7 @@ fun HomeScreen(
     val doomscrollAlert by homeViewModel.doomscrollAlert.collectAsState(initial = null)
     val hasReflectedToday by homeViewModel.hasReflectedToday.collectAsState(initial = false)
     val continuousUsageMinutes by homeViewModel.continuousUsageMinutes.collectAsState(initial = null)
+    val yesterdayDeltaMinutes by homeViewModel.yesterdayDeltaMinutes.collectAsState(initial = null)
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -127,7 +138,7 @@ fun HomeScreen(
             onNotificationsClick = { showNotifications = true }
         )
         Spacer(modifier = Modifier.height(16.dp))
-        ScreenTimeCard(todayMinutes = todayMinutes, dailyLimitMinutes = dailyLimitMinutes)
+        ScreenTimeCard(todayMinutes = todayMinutes, dailyLimitMinutes = dailyLimitMinutes, yesterdayDeltaMinutes = yesterdayDeltaMinutes)
         continuousUsageMinutes?.let { minutes ->
             Spacer(modifier = Modifier.height(12.dp))
             BreakReminderBanner(minutes = minutes, onFocusClick = onNavigateToFocus)
@@ -141,10 +152,25 @@ fun HomeScreen(
             riskLevel = riskLevel,
             riskScorePercent = riskScorePercent,
             onManageAppLock = onManageAppLock,
-            onNavigateToFocus = onNavigateToFocus
+            onNavigateToFocus = onNavigateToFocus,
+            onNavigateToDeepWork = onNavigateToDeepWork
         )
         Spacer(modifier = Modifier.height(12.dp))
-        AppUsageCard(appUsageToday = appUsageToday)
+        AppUsageCard(
+            appUsageToday = appUsageToday,
+            onOverLimitAppClick = { item ->
+                // Real risk-tiered motion challenge (2026-09-06), replacing the old
+                // "just opens App Lock Rules" placeholder -- same OveruseInterventionActivity
+                // the doomscroll reflection prompt's "Take a Break" leads into, using the
+                // same real risk level already computed for the risk ring above.
+                val intent = Intent(context, OveruseInterventionActivity::class.java).apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                    putExtra(AppMonitorService.EXTRA_PACKAGE_NAME, item.packageName)
+                    putExtra(OveruseInterventionActivity.EXTRA_RISK_TIER, riskLevel.uppercase())
+                }
+                context.startActivity(intent)
+            }
+        )
         doomscrollAlert?.let { alert ->
             Spacer(modifier = Modifier.height(12.dp))
             DoomscrollAlertBanner(alert = alert, onClick = onNavigateToMove)
@@ -163,7 +189,8 @@ fun HomeScreen(
         NotificationsOverlay(
             notifications = notificationLogs.map { it.toEntry() },
             onDismiss = { showNotifications = false },
-            onMarkAllRead = { notificationsViewModel.markAllRead() }
+            onMarkAllRead = { notificationsViewModel.markAllRead() },
+            onMarkRead = { id -> notificationsViewModel.markRead(id) }
         )
     }
     }
@@ -240,7 +267,7 @@ private fun formatMinutes(minutes: Int): String {
 }
 
 @Composable
-private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int) {
+private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int, yesterdayDeltaMinutes: Int?) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = PrimaryDark),
@@ -278,13 +305,37 @@ private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int) {
                     fontSize = 14.sp,
                     color = SecondarySage
                 )
+                yesterdayDeltaMinutes?.let { delta ->
+                    if (delta != 0) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Icon(
+                                imageVector = if (delta < 0) Icons.AutoMirrored.Filled.TrendingDown else Icons.AutoMirrored.Filled.TrendingUp,
+                                contentDescription = null,
+                                tint = if (delta < 0) Orchid else AccentLavender,
+                                modifier = Modifier.size(13.dp)
+                            )
+                            Text(
+                                text = if (delta < 0) {
+                                    "${-delta} min less than yesterday"
+                                } else {
+                                    "$delta min more than yesterday"
+                                },
+                                fontFamily = Nunito,
+                                fontSize = 13.sp,
+                                color = Orchid
+                            )
+                        }
+                    }
+                }
             }
             CircularProgressRing(
                 progress = progress,
                 trackColor = BackgroundLight.copy(alpha = 0.15f),
                 progressColor = SecondarySage,
                 ringSize = 84.dp,
-                strokeWidth = 9.dp
+                strokeWidth = 9.dp,
+                outlineColor = DeepOlive
             ) {
                 Text(
                     text = "${(progress * 100).toInt()}%",
@@ -491,7 +542,8 @@ private fun RiskAndActionsRow(
     riskLevel: String,
     riskScorePercent: Float,
     onManageAppLock: () -> Unit,
-    onNavigateToFocus: () -> Unit
+    onNavigateToFocus: () -> Unit,
+    onNavigateToDeepWork: () -> Unit
 ) {
     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         Card(
@@ -515,7 +567,8 @@ private fun RiskAndActionsRow(
                     trackColor = TertiaryTan,
                     progressColor = PrimaryDark,
                     ringSize = 60.dp,
-                    strokeWidth = 8.dp
+                    strokeWidth = 8.dp,
+                    outlineColor = PrimaryDark
                 ) {
                     Text(
                         text = riskLevel,
@@ -545,6 +598,12 @@ private fun RiskAndActionsRow(
                 title = "Focus Mode",
                 subtitle = "Block distracting apps",
                 onClick = onNavigateToFocus
+            )
+            ActionTile(
+                icon = Icons.Default.Shield,
+                title = "Deep Focus",
+                subtitle = "Stricter, timed, shake to exit",
+                onClick = onNavigateToDeepWork
             )
             ActionTile(
                 icon = Icons.Default.Lock,
@@ -597,7 +656,7 @@ private fun ActionTile(
  *  version was redundant with the "Lock Apps" tile above, which already opens App Lock
  *  Rules directly, so its own "Manage Locks" CTA was dropped). */
 @Composable
-private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.AppUsageTotal>) {
+private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.AppUsageTotal>, onOverLimitAppClick: (com.example.physi_lock.data.dao.AppUsageTotal) -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -631,36 +690,57 @@ private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.App
             )
         } else {
             appUsageToday.forEach { item ->
+                val isOverLimit = item.totalDurationMs > TimeUnit.HOURS.toMillis(3)
                 AppUsageRow(
+                    packageName = item.packageName,
                     appName = item.appName,
                     durationMs = item.totalDurationMs,
-                    isOverLimit = item.totalDurationMs > TimeUnit.HOURS.toMillis(3)
+                    isOverLimit = isOverLimit,
+                    onClick = if (isOverLimit) ({ onOverLimitAppClick(item) }) else null
                 )
             }
         }
     }
 }
 
+/** [onClick] opens the real risk-tiered Overuse Intervention challenge (2026-09-06) --
+ *  previously just navigated to App Lock Rules, since there was no real "unlock" action for
+ *  an app merely over a soft usage threshold. See OveruseInterventionActivity. */
 @Composable
 private fun AppUsageRow(
+    packageName: String,
     appName: String,
     durationMs: Long,
-    isOverLimit: Boolean
+    isOverLimit: Boolean,
+    onClick: (() -> Unit)? = null
 ) {
     val progress = (durationMs.toFloat() / TimeUnit.HOURS.toMillis(3).toFloat()).coerceIn(0f, 1f)
-    Column(modifier = Modifier.fillMaxWidth()) {
+    val iconBitmap = rememberAppIconBitmap(packageName)
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+    ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Icon(
-                    imageVector = Icons.Default.PhoneAndroid,
-                    contentDescription = null,
-                    tint = if (isOverLimit) AccentLavender else PrimaryGreen,
-                    modifier = Modifier.size(15.dp)
-                )
+                if (iconBitmap != null) {
+                    Image(
+                        bitmap = iconBitmap,
+                        contentDescription = null,
+                        modifier = Modifier.size(15.dp)
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Default.PhoneAndroid,
+                        contentDescription = null,
+                        tint = if (isOverLimit) AccentLavender else PrimaryGreen,
+                        modifier = Modifier.size(15.dp)
+                    )
+                }
                 Text(
                     text = appName,
                     fontFamily = Nunito,

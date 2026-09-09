@@ -19,6 +19,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.data.model.Account
+import com.example.physi_lock.ui.focus.DeepWorkRoute
 import com.example.physi_lock.ui.focus.FocusModeRoute
 import com.example.physi_lock.ui.theme.BackgroundLight
 import kotlinx.coroutines.flow.first
@@ -36,6 +37,7 @@ sealed class Screen(val route: String) {
     object Move : Screen("move")
     object Settings : Screen("settings")
     object Focus : Screen("focus")
+    object DeepWork : Screen("deep_work")
     object Goals : Screen("goals")
     object AppLockRules : Screen("app_lock_rules")
     object Reflection : Screen("reflection")
@@ -75,7 +77,9 @@ fun NavGraph(
         // way out is "End Focus Session" (see FocusModeRoute's BackHandler). Showing the
         // bottom nav here let the user just tap "Home" and leave with no confirmation at all.
         bottomBar = {
-            if (currentRoute?.destination?.route != Screen.Focus.route) {
+            if (currentRoute?.destination?.route != Screen.Focus.route &&
+                currentRoute?.destination?.route != Screen.DeepWork.route
+            ) {
                 BottomNavBar(navController)
             }
         }
@@ -92,6 +96,7 @@ fun NavGraph(
                         navController.navigate(Screen.AppLockRules.route)
                     },
                     onNavigateToFocus = { navController.navigate(Screen.Focus.route) },
+                    onNavigateToDeepWork = { navController.navigate(Screen.DeepWork.route) },
                     onNavigateToGoals = { navController.navigate(Screen.Goals.route) },
                     onNavigateToMove = { navController.navigate(Screen.Move.route) },
                     onNavigateToReflection = { navController.navigate(Screen.Reflection.route) }
@@ -116,6 +121,16 @@ fun NavGraph(
                     onEndFocusClick = {
                         navController.navigate(Screen.Home.route) {
                             popUpTo(Screen.Focus.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+            composable(Screen.DeepWork.route) {
+                DeepWorkRoute(
+                    onEndClick = {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.DeepWork.route) { inclusive = true }
                             launchSingleTop = true
                         }
                     }

@@ -110,7 +110,7 @@ private fun NavGlyph(glyph: List<GlyphRect>, strokeWidth: Dp, tint: Color, modif
 }
 
 @Composable
-fun AdminHomeScreen(viewModel: AdminViewModel = viewModel(), onLogout: () -> Unit) {
+fun AdminHomeScreen(onLogout: () -> Unit = {}, viewModel: AdminViewModel = viewModel()) {
     var tab by remember { mutableStateOf(AdminTab.ACCOUNTS) }
 
     val isOnline by viewModel.isOnline.collectAsState()
@@ -205,8 +205,7 @@ fun AdminHomeScreen(viewModel: AdminViewModel = viewModel(), onLogout: () -> Uni
                         categoryEntries = categoryEntries,
                         onSetCategory = viewModel::setCategory,
                         onRemoveCategory = viewModel::removeAppCategory,
-                        onAddManualApp = viewModel::addManualApp,
-                        onAutoCategorize = viewModel::autoCategorizeUncategorized
+                        onAddManualApp = viewModel::addManualApp
                     )
                 }
                 AdminTab.DEFAULTS -> {

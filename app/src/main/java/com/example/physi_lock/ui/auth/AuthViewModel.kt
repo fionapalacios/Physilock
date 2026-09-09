@@ -4,15 +4,19 @@ import android.app.Application
 import android.content.Context
 import androidx.credentials.ClearCredentialStateRequest
 import androidx.credentials.CredentialManager
+import androidx.credentials.CustomCredential
+import androidx.credentials.GetCredentialRequest
 import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.viewModelScope
+import com.example.physi_lock.R
 import com.example.physi_lock.data.model.Account
-import com.example.physi_lock.data.entity.LoginEvent
-import com.example.physi_lock.data.dao.LoginEventDao
 import com.example.physi_lock.data.db.PhysiLockDatabase
-import com.example.physi_lock.data.auth.DemoAccountRepository
+import com.example.physi_lock.data.auth.FirebaseAccountRepository
+import com.example.physi_lock.data.auth.HybridAccountRepository
+import com.google.android.libraries.identity.googleid.GetGoogleIdOption
+import com.google.android.libraries.identity.googleid.GoogleIdTokenCredential
+import com.example.physi_lock.data.entity.LoginEvent
+import com.example.physi_lock.data.entity.UserConfiguration
 import java.time.LocalDate
-import kotlinx.coroutines.launch
 
 data class AuthFormState(
     val username: String = "",
@@ -23,64 +27,59 @@ data class AuthFormState(
     val usageMode: String = "STUDENT_MODE" // "STUDENT_MODE" or "WORK_MODE" — see UserConfiguration
 )
 
-/**
- * DEMO MODE: no real `google-services.json` is configured yet (see PhysiLockApplication's
- * placeholder Firebase init), so auth runs fully offline against the local Room cache via
- * [DemoAccountRepository] instead of hitting the (fake) Firebase project. Email verification,
- * password reset, and Google sign-in all require a real backend and are stubbed out below.
- *
- * Once a real backend is wired up, swap [repository] for
- * `HybridAccountRepository(FirebaseAccountRepository())` and restore the real implementations
- * of [sendPasswordReset], [resendVerificationEmail], [checkEmailVerified], and [signInWithGoogle]
- * (see FirebaseAccountRepository for the Firebase-backed versions).
- */
 class AuthViewModel(application: Application) : AndroidViewModel(application) {
-    private val loginEventDao: LoginEventDao = PhysiLockDatabase.getInstance(application).loginEventDao()
-    private val repository = DemoAccountRepository(
-        cache = PhysiLockDatabase.getInstance(application).cachedAccountDao(),
-        prefs = application.getSharedPreferences("demo_auth", Context.MODE_PRIVATE)
+    // Google sign-in is inherently online-only (Credential Manager needs the network),
+    // so it talks to Firebase directly rather than through the offline-fallback wrapper.
+    private val firebaseRepository = FirebaseAccountRepository()
+    private val db = PhysiLockDatabase.getInstance(application)
+    private val repository = HybridAccountRepository(
+        remote = firebaseRepository,
+        cache = db.cachedAccountDao()
     )
+    private val loginEventDao = db.loginEventDao()
 
-    init {
-        // Lets Admin Console be reached in demo mode without a real backend to promote an
-        // account to Role.ADMIN — sign in with DemoAccountRepository.DEMO_ADMIN_USERNAME /
-        // DEMO_ADMIN_PASSWORD.
-        viewModelScope.launch { repository.seedDemoAdminIfNeeded() }
-    }
-
-    // Backs Admin Analytics' "Daily Active Users" chart -- one row per account per calendar
-    // day it was seen signed in. Insert is IGNORE-on-conflict (see LoginEventDao), so calling
-    // this from every entry point below (fresh login, registration, or an already-signed-in
-    // session just resuming on app launch) is safe without checking for an existing row first.
-    private suspend fun recordDailyActive(account: Account?) {
-        if (account == null) return
-        loginEventDao.insert(
-            LoginEvent(accountId = account.id, dateKey = LocalDate.now().toString(), timestamp = System.currentTimeMillis())
-        )
+    // Backs Admin Analytics' "Daily Active Users" chart -- see LoginEvent. Fire-and-forget
+    // is fine here: a failed insert just drops that account from today's DAU count, which
+    // isn't worth surfacing to the user or blocking their sign-in over.
+    private suspend fun recordLoginEvent(accountId: String) {
+        try {
+            loginEventDao.insert(
+                LoginEvent(
+                    accountId = accountId,
+                    dateKey = LocalDate.now().toString(),
+                    timestamp = System.currentTimeMillis()
+                )
+            )
+        } catch (e: Exception) {
+            // Best-effort -- see comment above.
+        }
     }
 
     suspend fun login(identifier: String, password: String): Account? =
-        repository.login(identifier, password).also { recordDailyActive(it) }
+        repository.login(identifier, password)?.also { recordLoginEvent(it.id) }
 
     /** Resolves an already-signed-in session on app launch, so returning users skip Login entirely. */
     suspend fun getCurrentAccount(): Account? =
-        repository.getCurrentAccount().also { recordDailyActive(it) }
+        repository.getCurrentAccount()?.also { recordLoginEvent(it.id) }
 
     suspend fun register(form: AuthFormState): Account? =
-        repository.register(form).also { recordDailyActive(it) }
+        repository.register(form)?.also { recordLoginEvent(it.id) }
 
-    suspend fun sendPasswordReset(email: String): Unit =
-        throw IllegalStateException("Password reset isn't available in demo mode.")
+    /** Firebase's native link-based reset flow — throws on failure (network/invalid email). */
+    suspend fun sendPasswordReset(email: String) = firebaseRepository.sendPasswordResetEmail(email)
 
-    /** No-op in demo mode — demo accounts are treated as already verified, see [checkEmailVerified]. */
-    suspend fun resendVerificationEmail() {}
+    suspend fun resendVerificationEmail() = firebaseRepository.sendEmailVerification()
 
-    /** Demo accounts skip real email verification entirely. */
-    suspend fun checkEmailVerified(): Boolean = true
+    /** Re-checks the current Firebase user's verified state against the server (post link-click). */
+    suspend fun checkEmailVerified(): Boolean {
+        firebaseRepository.reloadCurrentUser()
+        return firebaseRepository.isCurrentUserEmailVerified()
+    }
 
     /**
-     * Ends the demo session. [context] is optional — pass it (an Activity context) to also
-     * clear Credential Manager's cached Google account state left over from a real backend.
+     * Ends the Firebase session. [context] is optional — pass it (an Activity context)
+     * to also clear Credential Manager's cached Google account state, so the picker
+     * doesn't silently auto-resume the same account on the next sign-in attempt.
      */
     suspend fun logout(context: Context? = null) {
         repository.logout()
@@ -88,11 +87,58 @@ class AuthViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 CredentialManager.create(context).clearCredentialState(ClearCredentialStateRequest())
             } catch (e: Exception) {
-                // Best-effort — the demo sign-out above is what actually ends the session.
+                // Best-effort — the Firebase sign-out above is what actually ends the session.
             }
         }
     }
 
-    suspend fun signInWithGoogle(context: Context): Account? =
-        throw IllegalStateException("Google sign-in isn't available in demo mode.")
+    /** [context] must be an Activity context — required by Credential Manager's UI. */
+    suspend fun signInWithGoogle(context: Context): Account? {
+        val credentialManager = CredentialManager.create(context)
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(false)
+            .setServerClientId(context.getString(R.string.default_web_client_id))
+            .build()
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+
+        val result = credentialManager.getCredential(context = context, request = request)
+        val credential = result.credential
+        if (credential is CustomCredential &&
+            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+        ) {
+            val googleIdTokenCredential = GoogleIdTokenCredential.createFrom(credential.data)
+            return firebaseRepository.signInWithGoogleIdToken(
+                idToken = googleIdTokenCredential.idToken,
+                displayName = googleIdTokenCredential.displayName,
+                email = googleIdTokenCredential.id
+            )?.also { recordLoginEvent(it.id) }
+        }
+        return null
+    }
+
+    /** Delete Account's reauth step for Google-linked accounts (no password to re-enter):
+     *  same Credential Manager prompt [signInWithGoogle] uses, but returns just the fresh
+     *  ID token rather than signing in -- the caller passes it straight to
+     *  [FirebaseAccountRepository.deleteAccount]'s `googleIdToken` param. */
+    suspend fun getFreshGoogleIdToken(context: Context): String? {
+        val credentialManager = CredentialManager.create(context)
+        val googleIdOption = GetGoogleIdOption.Builder()
+            .setFilterByAuthorizedAccounts(true)
+            .setServerClientId(context.getString(R.string.default_web_client_id))
+            .build()
+        val request = GetCredentialRequest.Builder()
+            .addCredentialOption(googleIdOption)
+            .build()
+
+        val result = credentialManager.getCredential(context = context, request = request)
+        val credential = result.credential
+        if (credential is CustomCredential &&
+            credential.type == GoogleIdTokenCredential.TYPE_GOOGLE_ID_TOKEN_CREDENTIAL
+        ) {
+            return GoogleIdTokenCredential.createFrom(credential.data).idToken
+        }
+        return null
+    }
 }

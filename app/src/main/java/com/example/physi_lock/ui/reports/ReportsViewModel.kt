@@ -9,6 +9,8 @@ import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.data.repository.UsageStatsRepository
 import com.example.physi_lock.data.repository.categoryTotals
+import com.example.physi_lock.ml.RiskFeatureExtractor
+import com.example.physi_lock.ml.RiskScoringEngine
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.ZoneId
@@ -59,6 +61,7 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val db = PhysiLockDatabase.getInstance(application)
     private val userConfigDao = db.userConfigurationDao()
     private val usageStatsRepository = UsageStatsRepository(application)
+    private val riskFeatureExtractor = RiskFeatureExtractor(application)
 
     // Module 2 (AI-Based Behavior Analysis): Logistic Regression II's real output log
     // (see AppMonitorService.checkExcessiveUsagePrediction / ml/README.md) — unlike
@@ -88,7 +91,37 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
     private val _dailyLimitMinutes = MutableStateFlow(480)
     val dailyLimitMinutes: StateFlow<Int> = _dailyLimitMinutes.asStateFlow()
 
+    // Risk Score panel (2026-09-06): same Module 2 Random Forest classifier Home's risk
+    // ring already runs (see HomeViewModel.refreshRiskScore), surfaced here as a tappable
+    // breakdown instead of just a headline number. bypassAttemptsToday/doomscrollEpisodesToday
+    // come straight off the same RiskFeatures the classifier scores, not a separate query --
+    // both are genuine counts (MotionInterventionLogDao), not the placeholder "no real counter
+    // exists" this item was flagged as blocked on 2026-09-04.
+    private val _riskLevel = MutableStateFlow("Moderate")
+    val riskLevel: StateFlow<String> = _riskLevel.asStateFlow()
+
+    private val _riskScorePercent = MutableStateFlow(0.5f)
+    val riskScorePercent: StateFlow<Float> = _riskScorePercent.asStateFlow()
+
+    private val _bypassAttemptsToday = MutableStateFlow(0)
+    val bypassAttemptsToday: StateFlow<Int> = _bypassAttemptsToday.asStateFlow()
+
+    private val _doomscrollEpisodesToday = MutableStateFlow(0)
+    val doomscrollEpisodesToday: StateFlow<Int> = _doomscrollEpisodesToday.asStateFlow()
+
     init {
+        viewModelScope.launch {
+            try {
+                val features = riskFeatureExtractor.extractTodayFeatures()
+                val assessment = RiskScoringEngine.score(features)
+                _riskLevel.value = assessment.level.label
+                _riskScorePercent.value = assessment.score.toFloat()
+                _bypassAttemptsToday.value = features.bypassAttemptCount.toInt()
+                _doomscrollEpisodesToday.value = features.doomscrollEpisodeCount.toInt()
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
         viewModelScope.launch {
             val today = LocalDate.now()
             // Oldest to newest, ending with today. Extended to 28 days (2026-08-27) to also

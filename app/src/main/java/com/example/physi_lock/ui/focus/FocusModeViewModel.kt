@@ -34,6 +34,11 @@ class FocusModeViewModel(application: Application) : AndroidViewModel(applicatio
     val activeSession: StateFlow<FocusSession?> = focusSessionDao.getActiveSession()
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
+    // Wellness Nudges (2026-09-06): gates the rotating focusQuotes line in FocusModeScreen.
+    val wellnessNudgesEnabled: StateFlow<Boolean> = userConfigDao.getActiveConfiguration()
+        .map { it?.wellnessNudgesEnabled ?: true }
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), true)
+
     private val _elapsedSeconds = MutableStateFlow(0L)
     val elapsedSeconds: StateFlow<Long> = _elapsedSeconds.asStateFlow()
 

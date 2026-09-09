@@ -14,14 +14,17 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.example.physi_lock.MainActivity
 import com.example.physi_lock.R
+import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.entity.AppUsageLog
+import com.example.physi_lock.data.entity.DeepWorkSchedule
+import com.example.physi_lock.data.entity.DeepWorkSession
 import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
 import com.example.physi_lock.data.entity.MotionInterventionLog
 import com.example.physi_lock.data.entity.NotificationLog
 import com.example.physi_lock.data.db.PhysiLockDatabase
-import com.example.physi_lock.data.entity.ScheduleBlock
 import com.example.physi_lock.data.repository.UsageStatsRepository
 import com.example.physi_lock.data.context.currentWifiSsid
+import com.example.physi_lock.data.context.lastKnownLocation
 import com.example.physi_lock.ml.DoomscrollDetector
 import com.example.physi_lock.ml.DoomscrollInputs
 import com.example.physi_lock.ml.ExcessiveUsageDetector
@@ -29,7 +32,11 @@ import com.example.physi_lock.ml.ExcessiveUsageFeatureExtractor
 import com.example.physi_lock.ml.RiskFeatureExtractor
 import com.example.physi_lock.ml.RiskLevel
 import com.example.physi_lock.ml.RiskScoringEngine
+import com.example.physi_lock.ui.challenge.OveruseInterventionActivity
+import com.example.physi_lock.ui.lock.BedtimeLockActivity
 import com.example.physi_lock.ui.lock.LockActivity
+import com.example.physi_lock.ui.lock.ModeLockActivity
+import com.example.physi_lock.ui.reflection.DoomscrollReflectionActivity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -40,6 +47,7 @@ import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import com.example.physi_lock.data.entity.FocusSession
+import com.example.physi_lock.data.entity.UserConfiguration
 
 class AppMonitorService : AccessibilityService() {
 
@@ -60,6 +68,7 @@ class AppMonitorService : AccessibilityService() {
         fun getContinuousUsageStartTime(): Long? = continuousUsageStartTimeShared
 
         const val EXTRA_PACKAGE_NAME = "extra_package_name"
+        const val EXTRA_BEDTIME_END_MINUTE = "extra_bedtime_end_minute"
         const val CHALLENGE_UNLOCK_DURATION_MS = 20 * 60 * 1000L // 20 minutes
 
         // packageName -> unlock expiry epoch ms. Reassigned (not mutated) on every
@@ -83,6 +92,21 @@ class AppMonitorService : AccessibilityService() {
             return true
         }
 
+        // Doomscroll "5 more minutes" (2026-09-06): unlike temporaryUnlocks above, this
+        // doesn't grant access to anything -- doomscrolling was never a blocking mechanism,
+        // just a notification. This only suppresses the reflection-prompt overlay from
+        // firing again for a while, separate from checkDoomscrolling's own
+        // DOOMSCROLL_ALERT_COOLDOWN_MS (which guards a *positive* detection from re-alerting
+        // on the same continuing binge; this guards against re-alerting at all after the
+        // user explicitly asked for more time). Same companion-object pattern as
+        // temporaryUnlocks, for the same reason: DoomscrollReflectionActivity runs in a
+        // different context and needs to reach this live service state.
+        @Volatile private var doomscrollSnoozeUntil: Long = 0L
+
+        fun snoozeDoomscrollAlerts(durationMs: Long) {
+            doomscrollSnoozeUntil = System.currentTimeMillis() + durationMs
+        }
+
         // Not derived from the manuscript or existing code — a break in accessibility
         // events longer than this is treated as the user having stepped away, which
         // resets the continuous-usage clock for the break reminder.
@@ -95,8 +119,6 @@ class AppMonitorService : AccessibilityService() {
         // checkOveruseAlert actually queries it rather than on every event.
         private const val OVERUSE_CHECK_THROTTLE_MS = 60 * 1000L
 
-        private const val DOOMSCROLL_ALERT_CHANNEL_ID = "doomscroll_alert_channel"
-        private const val DOOMSCROLL_ALERT_NOTIFICATION_ID = 1003
         // Doomscroll checks run against in-memory session state (cheap), so this only
         // needs to throttle how chatty the model calls are, not IPC cost.
         private const val DOOMSCROLL_CHECK_THROTTLE_MS = 15 * 1000L
@@ -107,18 +129,16 @@ class AppMonitorService : AccessibilityService() {
         // DoomscrollDetector.kt) doesn't need every-scroll-event freshness.
         private const val RISK_REFRESH_INTERVAL_MS = 5 * 60 * 1000L
 
+        // Deep Work Blocks (Work Mode redesign): checked once a minute -- frequent enough
+        // that a scheduled window starts/ends close to on-time, cheap enough (in-memory
+        // list scan + at most one DB read/write) to not matter running constantly.
+        private const val DEEP_WORK_SCHEDULE_CHECK_INTERVAL_MS = 60 * 1000L
+
         private const val EXCESSIVE_USAGE_PREDICTION_CHANNEL_ID = "excessive_usage_prediction_channel"
         private const val EXCESSIVE_USAGE_PREDICTION_NOTIFICATION_ID = 1004
         // One EXCESSIVE_USAGE_PREDICTION row per hour is enough — checking more
         // often than this wouldn't change the hour-bucketed prediction anyway.
         private const val EXCESSIVE_USAGE_CHECK_INTERVAL_MS = 15 * 60 * 1000L
-
-        private const val FOCUS_BLOCK_CHANNEL_ID = "focus_block_channel"
-        private const val FOCUS_BLOCK_NOTIFICATION_ID = 1005
-        // A blocked app can be repeatedly relaunched (e.g. from a home-screen widget);
-        // this throttles the notification/log spam without affecting the actual block,
-        // which always fires on every attempt.
-        private const val FOCUS_BLOCK_NOTIFICATION_THROTTLE_MS = 60 * 1000L
 
         // Persistent "session running" notification (2026-08-29, per YPT/Digital Wellbeing
         // comparison) -- Focus Mode lets the user leave to use non-blocked apps, so the
@@ -170,7 +190,18 @@ class AppMonitorService : AccessibilityService() {
     // categories for tracking/reporting, the User decides what gets blocked.
     @Volatile private var focusModeActive: Boolean = false
     @Volatile private var focusBlockedPackages: Set<String> = emptySet()
-    private var lastFocusBlockNotifyTime: Long = 0L
+    // Deep Work Mode (2026-09-04): a stricter tier than Focus Mode -- see DeepWorkSession
+    // kdoc. deepWorkBlockedPackages is Admin-category-derived (ALL Social Media/
+    // Entertainment apps), deliberately not the User-owned focusBlockedPackages set above,
+    // so it's a genuinely broader/uncustomizable block during a Deep Work session.
+    @Volatile private var deepWorkActive: Boolean = false
+    @Volatile private var deepWorkBlockedPackages: Set<String> = emptySet()
+    // Student Mode Pomodoro (2026-09-07): pomodoroPhase is null when no session is active,
+    // "WORK" or "BREAK" otherwise -- only "WORK" blocks (see the priority-chain branch
+    // below). pomodoroBlockedPackages is User-owned (PomodoroBlockedApp), same reasoning
+    // as focusBlockedPackages above.
+    @Volatile private var pomodoroPhase: String? = null
+    @Volatile private var pomodoroBlockedPackages: Set<String> = emptySet()
     // Module 7 (Context-Aware AI): Wi-Fi-network-matched Context Alerts. Not GPS
     // geofencing -- real location-based locking is a Future Enhancement per the
     // manuscript, out of MVP scope; this matches by Wi-Fi network name instead, which
@@ -180,16 +211,27 @@ class AppMonitorService : AccessibilityService() {
     @Volatile private var contextAlertsEnabled: Boolean = false
     @Volatile private var contextAlertWifiSsid: String? = null
     @Volatile private var cachedWifiSsid: String? = null
+    @Volatile private var contextAlertLatitude: Double? = null
+    @Volatile private var contextAlertLongitude: Double? = null
+    @Volatile private var contextAlertRadiusMeters: Int = 100
+    @Volatile private var cachedLocation: android.location.Location? = null
     private var lastContextAlertNotifyTime: Long = 0L
-    // Student/Work Mode real schedule-based enforcement: userMode wasn't previously
-    // mirrored here (nothing before this needed it at enforcement time). scheduleBlocks
-    // holds every block for both modes (filtered by mode at check time, since the active
-    // mode can change while the service keeps running); allowlistedPackages is Student
-    // Mode's "stays reachable during a block" set. Same live-Flow-collector pattern as
-    // lockedPackages/focusBlockedPackages above.
+    // userMode drives both Work Mode's Work Hours window and (historically) Student
+    // Mode's class-schedule blocking; allowlistedPackages is Bedtime Mode's "stays
+    // reachable during the window" set (Student Mode's old allowlist-inversion model was
+    // replaced by Pomodoro's blocklist 2026-09-07, but the table/set is shared with Bedtime
+    // so it stays). Same live-Flow-collector pattern as lockedPackages/focusBlockedPackages.
     @Volatile private var userMode: String = "STUDENT_MODE"
-    @Volatile private var scheduleBlocks: List<ScheduleBlock> = emptyList()
     @Volatile private var allowlistedPackages: Set<String> = emptySet()
+    // 2026-09-07: real enable/disable toggle (see UserConfiguration.bedtimeModeEnabled kdoc).
+    @Volatile private var bedtimeModeEnabled: Boolean = true
+    @Volatile private var bedtimeStartMinute: Int = 23 * 60
+    @Volatile private var bedtimeEndMinute: Int = 7 * 60
+    @Volatile private var workHoursStartMinute: Int = 9 * 60
+    @Volatile private var workHoursEndMinute: Int = 17 * 60
+    // Work Mode redesign: named windows that auto-start/end a real DeepWorkSession --
+    // see checkDeepWorkSchedules(). Same live-Flow-collector pattern as scheduleBlocks.
+    @Volatile private var deepWorkSchedules: List<DeepWorkSchedule> = emptyList()
     private var lastScheduleBlockNotifyTime: Long = 0L
     private val serviceScope = CoroutineScope(Dispatchers.IO)
     private lateinit var database: PhysiLockDatabase
@@ -221,9 +263,7 @@ class AppMonitorService : AccessibilityService() {
         excessiveUsageFeatureExtractor = ExcessiveUsageFeatureExtractor(this)
         createBreakReminderNotificationChannel()
         createOveruseAlertNotificationChannel()
-        createDoomscrollAlertNotificationChannel()
         createExcessiveUsagePredictionNotificationChannel()
-        createFocusBlockNotificationChannel()
         createContextAlertNotificationChannel()
         createScheduleBlockNotificationChannel()
         createFocusSessionNotificationChannel()
@@ -248,17 +288,38 @@ class AppMonitorService : AccessibilityService() {
                 doomscrollingSensitivity = config?.doomscrollingSensitivity ?: "MODERATE"
                 contextAlertsEnabled = config?.contextAlertsEnabled ?: false
                 contextAlertWifiSsid = config?.contextAlertWifiSsid
+                contextAlertLatitude = config?.contextAlertLatitude
+                contextAlertLongitude = config?.contextAlertLongitude
+                contextAlertRadiusMeters = config?.contextAlertRadiusMeters ?: 100
                 userMode = config?.userMode ?: "STUDENT_MODE"
+                bedtimeModeEnabled = config?.bedtimeModeEnabled ?: true
+                bedtimeStartMinute = config?.bedtimeStartMinute ?: (23 * 60)
+                bedtimeEndMinute = config?.bedtimeEndMinute ?: (7 * 60)
+                workHoursStartMinute = config?.workHoursStartMinute ?: (9 * 60)
+                workHoursEndMinute = config?.workHoursEndMinute ?: (17 * 60)
             }
         }
 
-        // Student/Work Mode: live-reload schedule blocks (both modes) and Student
-        // Mode's study app allowlist, same pattern as lockedPackages/focusBlockedPackages.
+        // Work Mode redesign: live-reload Deep Work Blocks, same pattern as scheduleBlocks.
         serviceScope.launch {
-            database.scheduleBlockDao().getAll().collect { blocks ->
-                scheduleBlocks = blocks
+            database.deepWorkScheduleDao().getAll().collect { schedules ->
+                deepWorkSchedules = schedules
             }
         }
+
+        // Auto-start/stop a real Deep Work session when the current time enters/exits an
+        // active DeepWorkSchedule window -- decoupled from accessibility events (a window
+        // can start even if the user isn't switching apps), same periodic-loop shape as
+        // the risk-score refresh below.
+        serviceScope.launch {
+            while (true) {
+                checkDeepWorkSchedules()
+                delay(DEEP_WORK_SCHEDULE_CHECK_INTERVAL_MS)
+            }
+        }
+
+        // Bedtime Mode's "stays reachable during the window" allowlist, same pattern as
+        // lockedPackages/focusBlockedPackages.
         serviceScope.launch {
             database.allowlistedAppDao().getAll().collect { apps ->
                 allowlistedPackages = apps.map { it.packageName }.toSet()
@@ -290,6 +351,33 @@ class AppMonitorService : AccessibilityService() {
             }
         }
 
+        // Deep Work Mode (2026-09-04): same live-reload pattern as Focus Mode above.
+        serviceScope.launch {
+            database.deepWorkSessionDao().getActiveSession().collectLatest { session ->
+                deepWorkActive = session != null
+            }
+        }
+        serviceScope.launch {
+            database.appCategoryDao().getAll().collect { categories ->
+                deepWorkBlockedPackages = categories
+                    .filter { it.category == AppCategoryType.SOCIAL_MEDIA || it.category == AppCategoryType.ENTERTAINMENT }
+                    .map { it.packageName }
+                    .toSet()
+            }
+        }
+
+        // Student Mode Pomodoro (2026-09-07): same live-reload pattern as Deep Work above.
+        serviceScope.launch {
+            database.pomodoroSessionDao().getActiveSession().collectLatest { session ->
+                pomodoroPhase = session?.phase
+            }
+        }
+        serviceScope.launch {
+            database.pomodoroBlockedAppDao().getAll().collect { apps ->
+                pomodoroBlockedPackages = apps.map { it.packageName }.toSet()
+            }
+        }
+
         startRiskRefreshLoop()
         startExcessiveUsagePredictionLoop()
         startWifiSsidRefreshLoop()
@@ -305,6 +393,10 @@ class AppMonitorService : AccessibilityService() {
             while (true) {
                 try {
                     cachedWifiSsid = currentWifiSsid(this@AppMonitorService)
+                    // Context Alert's GPS trigger (2026-09-04): same cadence/rationale as the
+                    // Wi-Fi read above -- a cheap periodic cache read backing the per-event
+                    // check below, not a live location request.
+                    cachedLocation = lastKnownLocation(this@AppMonitorService)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
@@ -406,17 +498,6 @@ class AppMonitorService : AccessibilityService() {
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
 
-    private fun createDoomscrollAlertNotificationChannel() {
-        val channel = NotificationChannel(
-            DOOMSCROLL_ALERT_CHANNEL_ID,
-            "Doomscrolling Detection",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Warns when scrolling patterns suggest doomscrolling"
-        }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
-
     private fun createExcessiveUsagePredictionNotificationChannel() {
         val channel = NotificationChannel(
             EXCESSIVE_USAGE_PREDICTION_CHANNEL_ID,
@@ -424,17 +505,6 @@ class AppMonitorService : AccessibilityService() {
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
             description = "Warns when this hour is predicted to be an excessive-usage hour"
-        }
-        getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
-    }
-
-    private fun createFocusBlockNotificationChannel() {
-        val channel = NotificationChannel(
-            FOCUS_BLOCK_CHANNEL_ID,
-            "Focus Mode",
-            NotificationManager.IMPORTANCE_HIGH
-        ).apply {
-            description = "Notifies when an app is blocked during an active Focus Mode session"
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -629,6 +699,7 @@ class AppMonitorService : AccessibilityService() {
     // one continuing scroll binge doesn't spam repeat notifications.
     private fun checkDoomscrolling(packageName: String, currentTime: Long) {
         if (!doomscrollingDetectionEnabled) return
+        if (currentTime < doomscrollSnoozeUntil) return
         if (currentTime - lastDoomscrollCheckTime < DOOMSCROLL_CHECK_THROTTLE_MS) return
         lastDoomscrollCheckTime = currentTime
         if (currentTime - lastDoomscrollAlertTime < DOOMSCROLL_ALERT_COOLDOWN_MS) return
@@ -653,7 +724,15 @@ class AppMonitorService : AccessibilityService() {
 
         if (!isDoomscrolling) return
         lastDoomscrollAlertTime = currentTime
-        postDoomscrollAlertNotification()
+
+        // Real full-screen reflection prompt (2026-09-06) -- was a passive notification
+        // only (postDoomscrollAlertNotification, now removed). See DoomscrollReflectionActivity.
+        val intent = Intent(this, DoomscrollReflectionActivity::class.java).apply {
+            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            putExtra(EXTRA_PACKAGE_NAME, packageName)
+            putExtra(OveruseInterventionActivity.EXTRA_RISK_TIER, cachedRiskLevel.name)
+        }
+        startActivity(intent)
 
         serviceScope.launch {
             try {
@@ -669,39 +748,6 @@ class AppMonitorService : AccessibilityService() {
                 e.printStackTrace()
             }
         }
-    }
-
-    private fun postDoomscrollAlertNotification() {
-        if (ActivityCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-
-        val contentIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            },
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, DOOMSCROLL_ALERT_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
-            .setContentTitle("Doomscrolling detected")
-            .setContentText("Your scrolling pattern looks like a doomscroll — maybe take a break?")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(contentIntent)
-            .setAutoCancel(true)
-            .build()
-
-        NotificationManagerCompat.from(this).notify(DOOMSCROLL_ALERT_NOTIFICATION_ID, notification)
-        logNotification(
-            type = "DOOMSCROLL_ALERT",
-            title = "Doomscrolling detected",
-            description = "Your scrolling pattern looks like a doomscroll — maybe take a break?"
-        )
     }
 
     private fun postExcessiveUsagePredictionNotification() {
@@ -774,53 +820,158 @@ class AppMonitorService : AccessibilityService() {
 
         // Check if app should be locked (Module 3/4's challenge-based lock takes
         // priority over Focus Mode's plain block for apps that are both).
-        val scheduleBlock = activeScheduleBlock()
         if (packageName in lockedPackages && !isTemporarilyUnlocked(packageName, currentTime)) {
             val intent = Intent(this, LockActivity::class.java).apply {
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
                 putExtra(EXTRA_PACKAGE_NAME, packageName)
             }
             startActivity(intent)
-        } else if (userMode == "STUDENT_MODE" && scheduleBlock != null &&
-            packageName !in allowlistedPackages && !isSystemPackage(packageName)
-        ) {
-            handleScheduleBlock(
-                currentTime,
-                title = "Class Mode active",
-                description = "${getAppName(packageName)} is blocked during ${scheduleBlock.label}"
-            )
-        } else if (userMode == "WORK_MODE" && scheduleBlock != null && packageName in focusBlockedPackages) {
+        } else if (deepWorkActive && packageName in deepWorkBlockedPackages) {
+            // Real full-screen overlay (2026-09-06) -- was routed through handleScheduleBlock
+            // (performGlobalAction(HOME) + notification, still used by Work Mode below).
+            // Purely informational: shaking the device from the Deep Work screen's exit gate
+            // stays the only real way out, this just replaces the silent home-kick.
+            val intent = Intent(this, ModeLockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
+                putExtra(ModeLockActivity.EXTRA_TITLE, "Deep Work Active")
+                putExtra(ModeLockActivity.EXTRA_MESSAGE, "Blocked for the rest of this session")
+            }
+            startActivity(intent)
+        } else if (pomodoroPhase == "WORK" && packageName in pomodoroBlockedPackages) {
+            // Student Mode Pomodoro (2026-09-07): a real committed session like Deep Work,
+            // not a passive schedule -- same full-screen overlay treatment. Only the WORK
+            // phase blocks; the BREAK phase deliberately doesn't, matching real Pomodoro
+            // technique (a break is meant to be an actual break). Ending the session (or
+            // waiting for the WORK phase to end) stays the only real way in.
+            val intent = Intent(this, ModeLockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
+                putExtra(ModeLockActivity.EXTRA_TITLE, "Study Session Active")
+                putExtra(ModeLockActivity.EXTRA_MESSAGE, "Blocked during your Pomodoro study session")
+            }
+            startActivity(intent)
+        } else if (bedtimeModeEnabled && isWithinBedtimeWindow() && packageName !in allowlistedPackages && !isSystemPackage(packageName)) {
+            // Real hard-block lock screen (2026-09-06) -- was performGlobalAction(HOME) +
+            // a notification only (handleScheduleBlock, still used by Work Mode below).
+            // Same startActivity(NEW_TASK|CLEAR_TASK) mechanism LockActivity uses. Gated on
+            // bedtimeModeEnabled (2026-09-07) so the new Settings toggle actually does something.
+            val intent = Intent(this, BedtimeLockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
+                putExtra(EXTRA_BEDTIME_END_MINUTE, bedtimeEndMinute)
+            }
+            startActivity(intent)
+        } else if (userMode == "WORK_MODE" && isWithinWorkHours() && packageName in focusBlockedPackages) {
+            // Work Mode redesign (2026-09-07): condition changed from the old per-day
+            // ScheduleBlock check to isWithinWorkHours() (single Mon-Fri window) -- the
+            // home-kick+notification mechanism itself (handleScheduleBlock) is unchanged.
             handleScheduleBlock(
                 currentTime,
                 title = "Work Hours active",
-                description = "${getAppName(packageName)} is blocked during ${scheduleBlock.label}"
+                description = "${getAppName(packageName)} is blocked during Work Hours"
             )
         } else if (focusModeActive && packageName in focusBlockedPackages) {
-            handleFocusBlock(packageName, currentTime)
-        } else if (contextAlertsEnabled && packageName in focusBlockedPackages && isOnWatchedWifi()) {
+            // Real full-screen overlay (2026-09-06) -- was performGlobalAction(HOME) + a
+            // throttled notification (handleFocusBlock/postFocusBlockNotification, now
+            // removed). Purely informational: ending the Focus session stays the only real
+            // way out, this just replaces the silent home-kick.
+            val intent = Intent(this, ModeLockActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                putExtra(EXTRA_PACKAGE_NAME, packageName)
+                putExtra(ModeLockActivity.EXTRA_TITLE, "Focus Mode Active")
+                putExtra(ModeLockActivity.EXTRA_MESSAGE, "Blocked while your focus session is running")
+            }
+            startActivity(intent)
+        } else if (contextAlertsEnabled && packageName in focusBlockedPackages &&
+            (isOnWatchedWifi() || isNearWatchedLocation())
+        ) {
             handleContextAlert(packageName, currentTime)
         }
     }
 
-    // Student/Work Mode (real schedule-based enforcement): a ScheduleBlock is active
-    // right now for the active mode, or null. Cheap synchronous check against the
-    // cached list only -- no DB access on the accessibility-event thread, same
-    // constraint as the rest of this priority chain.
-    private fun activeScheduleBlock(): ScheduleBlock? {
+    // Bedtime Mode (real, 2026-09-04): a daily minutes-since-midnight window, so it can
+    // (and by default does, 11 PM-7 AM) wrap past midnight. Cheap synchronous
+    // cached-fields-only check -- no DB access on the accessibility-event thread.
+    private fun isWithinBedtimeWindow(): Boolean {
+        val calendar = Calendar.getInstance()
+        val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        return if (bedtimeStartMinute <= bedtimeEndMinute) {
+            minuteOfDay >= bedtimeStartMinute && minuteOfDay < bedtimeEndMinute
+        } else {
+            minuteOfDay >= bedtimeStartMinute || minuteOfDay < bedtimeEndMinute
+        }
+    }
+
+    // Work Mode redesign (2026-09-07): replaces the old per-day ScheduleBlock check for
+    // Work Mode with a single daily window applied Mon-Fri only (matching the comparison
+    // mockup's static "Monday - Friday" label -- it has no day picker). Same
+    // cached-fields-only cheap check as isWithinBedtimeWindow.
+    private fun isWithinWorkHours(): Boolean {
         val calendar = Calendar.getInstance()
         val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        if (dayOfWeek == Calendar.SUNDAY || dayOfWeek == Calendar.SATURDAY) return false
         val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
-        return scheduleBlocks.firstOrNull { block ->
-            block.mode == userMode && block.dayOfWeek == dayOfWeek &&
-                minuteOfDay >= block.startMinute && minuteOfDay < block.endMinute
+        return if (workHoursStartMinute <= workHoursEndMinute) {
+            minuteOfDay >= workHoursStartMinute && minuteOfDay < workHoursEndMinute
+        } else {
+            minuteOfDay >= workHoursStartMinute || minuteOfDay < workHoursEndMinute
+        }
+    }
+
+    // Work Mode redesign: auto-starts a real DeepWorkSession (triggeredBy="SCHEDULE") when
+    // the current time enters an active DeepWorkSchedule window, and auto-ends it (crediting
+    // the same 1-min-per-5 rate DeepWorkViewModel.endSession uses) once no window is active
+    // anymore -- but only for a session this checker itself started. A session the user
+    // started by hand (triggeredBy="MANUAL", e.g. from Home) is never touched here, and a
+    // schedule window never starts a second session on top of either kind already running.
+    private suspend fun checkDeepWorkSchedules() {
+        if (userMode != "WORK_MODE") return
+        val calendar = Calendar.getInstance()
+        val dayOfWeek = calendar.get(Calendar.DAY_OF_WEEK)
+        if (dayOfWeek == Calendar.SUNDAY || dayOfWeek == Calendar.SATURDAY) return
+        val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+
+        val activeWindow = deepWorkSchedules.firstOrNull { schedule ->
+            schedule.active && minuteOfDay >= schedule.startMinute && minuteOfDay < schedule.endMinute
+        }
+
+        try {
+            val currentSession = database.deepWorkSessionDao().getActiveSessionOnce()
+            if (activeWindow != null) {
+                if (currentSession == null) {
+                    database.deepWorkSessionDao().insert(
+                        DeepWorkSession(
+                            startTimeMillis = System.currentTimeMillis(),
+                            durationSecs = (activeWindow.endMinute - minuteOfDay) * 60,
+                            triggeredBy = "SCHEDULE"
+                        )
+                    )
+                }
+            } else if (currentSession != null && currentSession.triggeredBy == "SCHEDULE") {
+                val endTime = System.currentTimeMillis()
+                val creditMinutes = ((endTime - currentSession.startTimeMillis) / 300_000L).toInt()
+                database.deepWorkSessionDao().endSession(currentSession.id, endTime, endedEarly = false, creditMinutesEarned = creditMinutes)
+                if (creditMinutes > 0) {
+                    val cfg = database.userConfigurationDao().getActiveConfigurationOnce() ?: UserConfiguration()
+                    database.userConfigurationDao().upsert(
+                        cfg.copy(
+                            focusCreditBalanceMinutes = cfg.focusCreditBalanceMinutes + creditMinutes,
+                            lastUpdatedTime = System.currentTimeMillis()
+                        )
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
         }
     }
 
     // Work Mode "quiet hours": passive nudge notifications (Break Reminder, Overuse
-    // Alert, Excessive Usage Prediction) are held while a Work Mode schedule block is
-    // active -- Doomscroll Alert, Context Alert, and the schedule block notification
-    // itself are unaffected, since those are active-intervention signals, not FYI nudges.
-    private fun isQuietHours(): Boolean = userMode == "WORK_MODE" && activeScheduleBlock() != null
+    // Alert, Excessive Usage Prediction) are held while Work Hours is active --
+    // Doomscroll Alert, Context Alert, and the schedule block notification itself are
+    // unaffected, since those are active-intervention signals, not FYI nudges.
+    private fun isQuietHours(): Boolean = userMode == "WORK_MODE" && isWithinWorkHours()
 
     // Safety filter for Student Mode's allowlist-inverted blocking (block everything
     // NOT allowlisted) -- must never kick the launcher, dialer, Settings, or system UI
@@ -842,6 +993,18 @@ class AppMonitorService : AccessibilityService() {
     private fun isOnWatchedWifi(): Boolean {
         val watched = contextAlertWifiSsid ?: return false
         return cachedWifiSsid != null && cachedWifiSsid == watched
+    }
+
+    // Context Alert's GPS trigger (2026-09-04, see UserConfiguration.contextAlertLatitude
+    // kdoc): same passive-notification-only semantics as isOnWatchedWifi above, just a
+    // distance check instead of a name match.
+    private fun isNearWatchedLocation(): Boolean {
+        val lat = contextAlertLatitude ?: return false
+        val lng = contextAlertLongitude ?: return false
+        val here = cachedLocation ?: return false
+        val results = FloatArray(1)
+        android.location.Location.distanceBetween(here.latitude, here.longitude, lat, lng, results)
+        return results[0] <= contextAlertRadiusMeters
     }
 
     private fun handleContextAlert(packageName: String, currentTime: Long) {
@@ -882,50 +1045,6 @@ class AppMonitorService : AccessibilityService() {
             type = "CONTEXT_ALERT",
             title = "Context Alert",
             description = "You opened $appName while connected to $ssid"
-        )
-    }
-
-    // Focus Mode (Module 6): unlike Adaptive/App Lock's challenge-to-unlock, an app
-    // blocked during Focus Mode is simply kicked back to the home screen — there's no
-    // "solve a challenge to get in" bypass, the only way in is ending the session.
-    private fun handleFocusBlock(packageName: String, currentTime: Long) {
-        performGlobalAction(GLOBAL_ACTION_HOME)
-        if (currentTime - lastFocusBlockNotifyTime < FOCUS_BLOCK_NOTIFICATION_THROTTLE_MS) return
-        lastFocusBlockNotifyTime = currentTime
-        postFocusBlockNotification(packageName)
-    }
-
-    private fun postFocusBlockNotification(packageName: String) {
-        if (ActivityCompat.checkSelfPermission(
-                this, Manifest.permission.POST_NOTIFICATIONS
-            ) != PackageManager.PERMISSION_GRANTED
-        ) {
-            return
-        }
-
-        val appName = getAppName(packageName)
-        val contentIntent = PendingIntent.getActivity(
-            this, 0,
-            Intent(this, MainActivity::class.java).apply {
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-            },
-            PendingIntent.FLAG_IMMUTABLE
-        )
-
-        val notification = NotificationCompat.Builder(this, FOCUS_BLOCK_CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_round)
-            .setContentTitle("Focus Mode Active")
-            .setContentText("You're in a Focus Mode session — $appName is blocked.")
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
-            .setContentIntent(contentIntent)
-            .setAutoCancel(true)
-            .build()
-
-        NotificationManagerCompat.from(this).notify(FOCUS_BLOCK_NOTIFICATION_ID, notification)
-        logNotification(
-            type = "FOCUS_BLOCK",
-            title = "Focus Mode Active",
-            description = "You're in a Focus Mode session — $appName is blocked."
         )
     }
 

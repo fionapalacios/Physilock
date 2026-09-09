@@ -21,7 +21,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AutoAwesome
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.Search
@@ -48,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.physi_lock.data.entity.AppCategory
 import com.example.physi_lock.data.entity.AppCategoryType
+import com.example.physi_lock.ui.components.AppIconAvatar
 import com.example.physi_lock.ui.settings.InstalledAppInfo
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.CardCream
@@ -72,36 +72,13 @@ private val CategoryChips = listOf(
     CategoryChipSpec(AppCategoryType.OTHER, "Other")
 )
 
-private fun emojiFor(appName: String): String {
-    val n = appName.lowercase()
-    return when {
-        "instagram" in n -> "📸"
-        "tiktok" in n -> "🎵"
-        "youtube" in n -> "▶️"
-        "facebook" in n -> "👤"
-        "twitter" in n || n == "x" -> "🐦"
-        "reddit" in n -> "🤖"
-        "snapchat" in n -> "👻"
-        "netflix" in n -> "🎬"
-        "spotify" in n -> "🎧"
-        "news" in n -> "📰"
-        "amazon" in n -> "🛒"
-        "duolingo" in n -> "🦉"
-        "pubg" in n -> "🎮"
-        "roblox" in n -> "🧱"
-        "headspace" in n -> "🧘"
-        else -> "📱"
-    }
-}
-
 @Composable
 fun AdminCategoriesSection(
     apps: List<InstalledAppInfo>,
     categoryEntries: List<AppCategory>,
     onSetCategory: (InstalledAppInfo, String) -> Unit,
     onRemoveCategory: (InstalledAppInfo) -> Unit,
-    onAddManualApp: (String, String) -> Unit,
-    onAutoCategorize: () -> Unit
+    onAddManualApp: (String, String) -> Unit
 ) {
     if (apps.isEmpty()) {
         Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -136,26 +113,6 @@ fun AdminCategoriesSection(
     }
 
     Column(modifier = Modifier.fillMaxSize()) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clickable(onClick = onAutoCategorize)
-                .padding(vertical = 4.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(Icons.Filled.AutoAwesome, contentDescription = null, tint = SageAccent, modifier = Modifier.size(14.dp))
-            Spacer(modifier = Modifier.width(6.dp))
-            Text(
-                text = "Auto-categorize uncategorized apps",
-                fontFamily = Nunito,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                color = SageAccent
-            )
-        }
-
-        Spacer(modifier = Modifier.height(9.dp))
-
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(7.5.dp),
             modifier = Modifier.fillMaxWidth()
@@ -365,7 +322,14 @@ private fun AppCategoryCard(
             .padding(11.25.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Text(text = emojiFor(app.appName), fontSize = 22.sp)
+        AppIconAvatar(
+            packageName = app.packageName,
+            appName = app.appName,
+            size = 32.dp,
+            fontSize = 13.sp,
+            backgroundColor = SecondarySage.copy(alpha = 0.20f),
+            contentColor = DeepOlive
+        )
         Spacer(modifier = Modifier.width(11.dp))
         Text(
             text = app.appName,

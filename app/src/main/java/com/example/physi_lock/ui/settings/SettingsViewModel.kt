@@ -78,8 +78,32 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setContextAlertsEnabled(enabled: Boolean) =
         update { it.copy(contextAlertsEnabled = enabled) }
 
+    fun setWellnessNudgesEnabled(enabled: Boolean) =
+        update { it.copy(wellnessNudgesEnabled = enabled) }
+
     fun setContextAlertWifiSsid(ssid: String?) =
         update { it.copy(contextAlertWifiSsid = ssid?.takeIf { s -> s.isNotBlank() }) }
+
+    fun setContextAlertLocation(latitude: Double, longitude: Double, radiusMeters: Int) =
+        update { it.copy(contextAlertLatitude = latitude, contextAlertLongitude = longitude, contextAlertRadiusMeters = radiusMeters) }
+
+    fun clearContextAlertLocation() =
+        update { it.copy(contextAlertLatitude = null, contextAlertLongitude = null) }
+
+    fun setBedtimeStartMinute(minuteOfDay: Int) =
+        update { it.copy(bedtimeStartMinute = minuteOfDay) }
+
+    fun setBedtimeEndMinute(minuteOfDay: Int) =
+        update { it.copy(bedtimeEndMinute = minuteOfDay) }
+
+    fun setBedtimeModeEnabled(enabled: Boolean) =
+        update { it.copy(bedtimeModeEnabled = enabled) }
+
+    fun setWorkHoursStartMinute(minuteOfDay: Int) =
+        update { it.copy(workHoursStartMinute = minuteOfDay) }
+
+    fun setWorkHoursEndMinute(minuteOfDay: Int) =
+        update { it.copy(workHoursEndMinute = minuteOfDay) }
 
     /** Settings > Reset to Default Settings — overwrites every threshold/toggle back to
      * [UserConfiguration]'s built-in defaults, keeping only the account's chosen usage mode. */

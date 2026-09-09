@@ -21,14 +21,3 @@ data class CachedAccount(
     val passwordSalt: String,
     val lastSyncedAt: Long
 )
-
-fun CachedAccount.toAccount() = Account(
-    id = id,
-    username = username,
-    fullName = fullName,
-    email = email,
-    occupation = occupation,
-    role = role,
-    createdAt = createdAt,
-    isActive = isActive
-)

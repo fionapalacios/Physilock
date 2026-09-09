@@ -54,6 +54,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -65,19 +66,27 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.data.auth.ChangePasswordResult
+import com.example.physi_lock.data.auth.DeleteAccountResult
 import com.example.physi_lock.data.auth.FirebaseAccountRepository
+import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.sensor.ChallengeSensitivity
+import com.example.physi_lock.ui.auth.AuthViewModel
+import com.example.physi_lock.ui.components.AuthTextField
+import com.example.physi_lock.ui.components.ConfirmSheet
 import com.example.physi_lock.ui.focus.FocusBlockedAppsScreen
 import com.example.physi_lock.ui.permissions.permissionSteps
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.ErrorRed
+import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
 import com.example.physi_lock.ui.theme.SoftSand
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Visual design ported from the teammate's sprint-2-ui-navigation branch (SettingsScreen.kt) —
@@ -92,15 +101,19 @@ import kotlinx.coroutines.launch
  * existed briefly (real functionality this repo had that their design doesn't cover) but was
  * removed per instruction to strictly follow their UI; Motion Lock Sensitivity's current value
  * is still visible read-only in StudentModeScreen/WorkModeScreen, just no longer editable from
- * here. Rows with no real backend yet (Bedtime Mode, Wellness Nudges, Whitelist Manager,
- * Permissions, Delete Account) are kept visible with a plain "Coming soon" subtitle rather
- * than dropped, per the instruction not to skip ported UI just because the logic behind it
- * isn't built. About/Reset-to-Default (easy to make real, so made real rather than left as
- * dead taps) are additions beyond their row list. "Location Context" briefly became real
- * 2026-08-25 (Module 7, see ContextAlertsScreen.kt) but was reverted to a plain "Coming soon"
- * row per instruction — Context Alerts isn't a final design yet and the user plans to bring
- * their own API-based approach. ContextAlertsScreen.kt/the AppMonitorService wiring/DB columns
- * are left intact, just unreachable from here for now, rather than deleted.
+ * here. Wellness Nudges was a "Coming soon" placeholder until 2026-09-06, when it was wired to
+ * a real UserConfiguration.wellnessNudgesEnabled flag gating the existing mindful quotes Focus
+ * Mode/Deep Work Mode already show during a session, rather than inventing new content.
+ * About/Reset-to-Default (easy to make real, so made real
+ * rather than left as dead taps) are additions beyond their row list. Whitelist Manager and
+ * Permissions were made real 2026-08-29; Bedtime Mode, About, Sign Out confirmation, and
+ * Delete Account's confirm UI (not its actual deletion — see the ConfirmSheet block below)
+ * 2026-09-04. "Location Context" briefly became real 2026-08-25 (Module 7, see
+ * ContextAlertsScreen.kt), was reverted to "Coming soon" per instruction (Context Alerts
+ * wasn't a final design yet, user was going to bring their own API-based approach), then made
+ * real again 2026-09-04 once that approach arrived: real GPS via a Leaflet.js map picker,
+ * alongside the existing Wi-Fi-name matching — see ContextAlertsScreen.kt /
+ * AppMonitorService.isNearWatchedLocation.
  */
 private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student")
 
@@ -109,7 +122,9 @@ private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student
 // teammate's row list, leaving the interval with a toggle but no way to actually change it.
 // A preset picker (tap the row) restores that control without reintroducing the dropped
 // card. Presets are a proposed default, not manuscript-derived.
-private val breakReminderIntervalPresets = listOf(15, 30, 45, 60, 90)
+// internal (not private): WorkModeScreen's own inline Break Reminder picker (Work Mode
+// redesign, 2026-09-07) reuses this exact same preset list rather than duplicating it.
+internal val breakReminderIntervalPresets = listOf(15, 30, 45, 60, 90)
 
 private data class SettingsRow(
     val icon: ImageVector,
@@ -140,6 +155,8 @@ fun SettingsScreen(
     val context = LocalContext.current
     val coroutineScope = rememberCoroutineScope()
     val accountRepository = remember { FirebaseAccountRepository() }
+    val authViewModel: AuthViewModel = viewModel()
+    val config by settingsViewModel.configuration.collectAsState()
 
     var showAppLockRules by remember { mutableStateOf(false) }
     var showFocusBlockedApps by remember { mutableStateOf(false) }
@@ -147,19 +164,22 @@ fun SettingsScreen(
     var showStudentMode by remember { mutableStateOf(false) }
     var showWorkMode by remember { mutableStateOf(false) }
     var showWhitelistManager by remember { mutableStateOf(false) }
+    var showBedtimeMode by remember { mutableStateOf(false) }
     var showPermissions by remember { mutableStateOf(false) }
-    var showAboutDialog by remember { mutableStateOf(false) }
+    var showAboutScreen by remember { mutableStateOf(false) }
     var showResetConfirm by remember { mutableStateOf(false) }
+    var showSignOutConfirm by remember { mutableStateOf(false) }
+    var showDeleteAccountConfirm by remember { mutableStateOf(false) }
+    var showDeleteReauthStep by remember { mutableStateOf(false) }
+    var deleteAccountPassword by remember { mutableStateOf("") }
+    var deleteAccountError by remember { mutableStateOf<String?>(null) }
+    var deleteAccountInProgress by remember { mutableStateOf(false) }
     var showBreakIntervalPicker by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeMessage by remember { mutableStateOf<String?>(null) }
     var passwordChangeSuccess by remember { mutableStateOf(false) }
 
-    // Rows with no real backend — local-only state, exactly as unpersisted as the
-    // teammate's own version of these same toggles. Location Context rejoined this list
-    // 2026-08-26 (reverted from its brief real implementation, see the class kdoc above).
-    var wellnessNudgesEnabled by remember { mutableStateOf(true) }
-    var locationContextEnabled by remember { mutableStateOf(false) }
+    var showContextAlerts by remember { mutableStateOf(false) }
 
     if (showAppLockRules) {
         BackHandler { showAppLockRules = false }
@@ -176,6 +196,31 @@ fun SettingsScreen(
     if (showWhitelistManager) {
         BackHandler { showWhitelistManager = false }
         WhitelistManagerScreen(onBackClick = { showWhitelistManager = false })
+        return
+    }
+
+    if (showBedtimeMode) {
+        BackHandler { showBedtimeMode = false }
+        BedtimeModeScreen(onBackClick = { showBedtimeMode = false })
+        return
+    }
+
+    if (showAboutScreen) {
+        BackHandler { showAboutScreen = false }
+        AboutScreen(onBackClick = { showAboutScreen = false })
+        return
+    }
+
+    if (showContextAlerts) {
+        BackHandler { showContextAlerts = false }
+        ContextAlertsScreen(
+            config = config,
+            onToggleEnabled = { settingsViewModel.setContextAlertsEnabled(it) },
+            onSaveSsid = { settingsViewModel.setContextAlertWifiSsid(it) },
+            onSaveLocation = { lat, lng, radius -> settingsViewModel.setContextAlertLocation(lat, lng, radius) },
+            onClearLocation = { settingsViewModel.clearContextAlertLocation() },
+            onBackClick = { showContextAlerts = false }
+        )
         return
     }
 
@@ -240,7 +285,6 @@ fun SettingsScreen(
         return
     }
 
-    val config by settingsViewModel.configuration.collectAsState()
     val streakDays by settingsViewModel.streakDays.collectAsState()
     // Deliberately not `remember`-ed: recomputed on every recomposition (cheap, 5 checks) so
     // coming back from PermissionsScreen after granting one reflects the fresh count.
@@ -346,23 +390,47 @@ fun SettingsScreen(
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
                     title = "Location Context",
-                    subtitle = "Coming soon",
-                    trailing = SettingsTrailing.Toggle(locationContextEnabled) { locationContextEnabled = it }
+                    subtitle = if (!config.contextAlertsEnabled) {
+                        "Off"
+                    } else {
+                        val hasWifi = !config.contextAlertWifiSsid.isNullOrBlank()
+                        val hasLocation = config.contextAlertLatitude != null
+                        when {
+                            hasWifi && hasLocation -> "On — watching a Wi-Fi network and a map location"
+                            hasWifi -> "On — watching \"${config.contextAlertWifiSsid}\" Wi-Fi"
+                            hasLocation -> "On — watching a pinned map location"
+                            else -> "On — set a Wi-Fi network or map location below"
+                        }
+                    },
+                    trailing = SettingsTrailing.Toggle(config.contextAlertsEnabled) {
+                        settingsViewModel.setContextAlertsEnabled(it)
+                    },
+                    onClick = { showContextAlerts = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Bedtime,
                     iconBackground = DeepOlive.copy(alpha = 0.08f),
                     iconTint = DeepOlive,
                     title = "Bedtime Mode",
-                    subtitle = "Coming soon"
+                    subtitle = if (config.bedtimeModeEnabled) {
+                        "On — ${settingsHourLabel(config.bedtimeStartMinute / 60)} – ${settingsHourLabel(config.bedtimeEndMinute / 60)}"
+                    } else {
+                        "Off"
+                    },
+                    trailing = SettingsTrailing.Toggle(config.bedtimeModeEnabled) {
+                        settingsViewModel.setBedtimeModeEnabled(it)
+                    },
+                    onClick = { showBedtimeMode = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.SelfImprovement,
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
                     title = "Wellness Nudges",
-                    subtitle = "Coming soon",
-                    trailing = SettingsTrailing.Toggle(wellnessNudgesEnabled) { wellnessNudgesEnabled = it }
+                    subtitle = "Toggle on to show mindful quotes during Focus & Deep Work sessions",
+                    trailing = SettingsTrailing.Toggle(config.wellnessNudgesEnabled) {
+                        settingsViewModel.setWellnessNudgesEnabled(it)
+                    }
                 )
             )
         )
@@ -417,7 +485,7 @@ fun SettingsScreen(
                     iconBackground = DeepOlive.copy(alpha = 0.13f),
                     iconTint = DeepOlive,
                     title = "About",
-                    onClick = { showAboutDialog = true }
+                    onClick = { showAboutScreen = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.Restore,
@@ -433,15 +501,15 @@ fun SettingsScreen(
                     iconTint = ErrorRed,
                     title = "Sign Out",
                     titleColor = ErrorRed,
-                    onClick = onLogout
+                    onClick = { showSignOutConfirm = true }
                 ),
                 SettingsRow(
                     icon = Icons.Default.DeleteForever,
                     iconBackground = ErrorRed.copy(alpha = 0.07f),
                     iconTint = ErrorRed,
                     title = "Delete Account",
-                    subtitle = "Coming soon",
-                    titleColor = ErrorRed
+                    titleColor = ErrorRed,
+                    onClick = { showDeleteAccountConfirm = true }
                 )
             )
         )
@@ -458,35 +526,102 @@ fun SettingsScreen(
         )
     }
 
-    if (showAboutDialog) {
-        AlertDialog(
-            onDismissRequest = { showAboutDialog = false },
-            title = { Text("About Physi-Lock") },
-            text = {
-                Text(
-                    "Physi-Lock v${appVersionName(context)}\n\n" +
-                        "AI-powered screen time control that rewards physical movement and protects your mental wellness."
-                )
+    if (showResetConfirm) {
+        ConfirmSheet(
+            title = "Reset to Default Settings?",
+            body = "This will restore all app settings to defaults. Your account and usage data will not be affected.",
+            confirmLabel = "Reset to Default",
+            onConfirm = {
+                settingsViewModel.resetToDefaults()
+                showResetConfirm = false
             },
-            confirmButton = {
-                TextButton(onClick = { showAboutDialog = false }) { Text("Close") }
-            }
+            onCancel = { showResetConfirm = false }
         )
     }
 
-    if (showResetConfirm) {
-        AlertDialog(
-            onDismissRequest = { showResetConfirm = false },
-            title = { Text("Reset to default settings?") },
-            text = { Text("This resets your daily limit, break reminders, alerts, and motion sensitivity back to their defaults. Your usage mode stays the same.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    settingsViewModel.resetToDefaults()
-                    showResetConfirm = false
-                }) { Text("Reset") }
+    if (showSignOutConfirm) {
+        ConfirmSheet(
+            title = "Sign out?",
+            body = "Your progress and settings will be saved locally on this device.",
+            confirmLabel = "Sign Out",
+            onConfirm = {
+                showSignOutConfirm = false
+                onLogout()
             },
-            dismissButton = {
-                TextButton(onClick = { showResetConfirm = false }) { Text("Cancel") }
+            onCancel = { showSignOutConfirm = false }
+        )
+    }
+
+    if (showDeleteAccountConfirm) {
+        ConfirmSheet(
+            title = "Delete Account?",
+            body = "This will permanently delete your account and all usage data. This action cannot be undone.",
+            confirmLabel = "Delete Account",
+            onConfirm = {
+                showDeleteAccountConfirm = false
+                deleteAccountError = null
+                showDeleteReauthStep = true
+            },
+            onCancel = { showDeleteAccountConfirm = false }
+        )
+    }
+
+    if (showDeleteReauthStep) {
+        // Real Firebase deletion (2026-09-06) -- Firebase requires a recent sign-in before
+        // this sensitive operation, same as Change Password. Password-based accounts
+        // reauthenticate here with the current password; Google-linked accounts reauth via
+        // a fresh Google sign-in prompt instead, since there's no password to re-enter.
+        // On success, the local Room DB is wiped entirely (see FirebaseAccountRepository.
+        // deleteAccount kdoc for why a full wipe is the right scope here) and onLogout()
+        // reuses the same sign-out+navigate-to-login flow Sign Out already does.
+        val requiresPassword = remember { accountRepository.hasPasswordProvider() }
+        DeleteAccountReauthSheet(
+            requiresPassword = requiresPassword,
+            password = deleteAccountPassword,
+            onPasswordChange = { deleteAccountPassword = it },
+            error = deleteAccountError,
+            inProgress = deleteAccountInProgress,
+            onConfirm = {
+                deleteAccountError = null
+                deleteAccountInProgress = true
+                coroutineScope.launch {
+                    val result = if (requiresPassword) {
+                        accountRepository.deleteAccount(currentPassword = deleteAccountPassword)
+                    } else {
+                        val token = try {
+                            authViewModel.getFreshGoogleIdToken(context)
+                        } catch (e: Exception) {
+                            null
+                        }
+                        if (token == null) {
+                            DeleteAccountResult.Error("Google sign-in was cancelled or failed.")
+                        } else {
+                            accountRepository.deleteAccount(googleIdToken = token)
+                        }
+                    }
+                    deleteAccountInProgress = false
+                    when (result) {
+                        is DeleteAccountResult.Success -> {
+                            showDeleteReauthStep = false
+                            deleteAccountPassword = ""
+                            withContext(Dispatchers.IO) {
+                                PhysiLockDatabase.getInstance(context).clearAllTables()
+                            }
+                            onLogout()
+                        }
+                        is DeleteAccountResult.WrongPassword ->
+                            deleteAccountError = "Current password is incorrect."
+                        is DeleteAccountResult.NeedsGoogleReauth ->
+                            deleteAccountError = "Google sign-in required. Try again."
+                        is DeleteAccountResult.Error ->
+                            deleteAccountError = result.message
+                    }
+                }
+            },
+            onCancel = {
+                showDeleteReauthStep = false
+                deleteAccountPassword = ""
+                deleteAccountError = null
             }
         )
     }
@@ -525,7 +660,122 @@ fun SettingsScreen(
     }
 }
 
-private fun appVersionName(context: android.content.Context): String = try {
+/** Delete Account's reauth step -- same bottom-sheet-over-scrim visual pattern as
+ *  [ConfirmSheet], with a password field spliced in for accounts that have one to
+ *  re-enter (Google-linked accounts have nothing to type, just a "Confirm with Google"
+ *  button that re-triggers the Google sign-in prompt). */
+@Composable
+private fun DeleteAccountReauthSheet(
+    requiresPassword: Boolean,
+    password: String,
+    onPasswordChange: (String) -> Unit,
+    error: String?,
+    inProgress: Boolean,
+    onConfirm: () -> Unit,
+    onCancel: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.45f))
+            .clickable(onClick = onCancel),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp))
+                .background(BackgroundLight)
+                .clickable(enabled = false) {}
+                .padding(24.dp)
+        ) {
+            Text(
+                text = "Confirm Deletion",
+                fontFamily = Nunito,
+                fontSize = 18.sp,
+                fontWeight = FontWeight.ExtraBold,
+                color = DeepOlive
+            )
+            Spacer(modifier = Modifier.height(6.dp))
+            Text(
+                text = if (requiresPassword) {
+                    "Enter your password to permanently delete your account."
+                } else {
+                    "Confirm your Google account to permanently delete your account."
+                },
+                fontFamily = Nunito,
+                fontSize = 14.sp,
+                color = SecondarySage,
+                lineHeight = 20.sp
+            )
+
+            if (requiresPassword) {
+                Spacer(modifier = Modifier.height(15.dp))
+                AuthTextField(
+                    value = password,
+                    onValueChange = onPasswordChange,
+                    placeholder = "Current password",
+                    leadingIcon = Icons.Default.Lock,
+                    isPassword = true
+                )
+            }
+
+            if (error != null) {
+                Spacer(modifier = Modifier.height(10.dp))
+                Text(
+                    text = error,
+                    fontFamily = Nunito,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = ErrorRed
+                )
+            }
+
+            Spacer(modifier = Modifier.height(20.dp))
+            val canConfirm = !inProgress && (!requiresPassword || password.isNotBlank())
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(if (canConfirm) ErrorRed else ErrorRed.copy(alpha = 0.4f))
+                    .clickable(enabled = canConfirm, onClick = onConfirm)
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(
+                    text = if (inProgress) "Deleting…" else if (requiresPassword) "Delete Account" else "Confirm with Google",
+                    fontFamily = Nunito,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = BackgroundLight
+                )
+            }
+            Spacer(modifier = Modifier.height(10.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(DeepOlive.copy(alpha = 0.06f))
+                    .clickable(enabled = !inProgress, onClick = onCancel)
+                    .padding(vertical = 14.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(text = "Cancel", fontFamily = Nunito, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = MutedText)
+            }
+        }
+    }
+}
+
+private fun settingsHourLabel(hour: Int): String {
+    val displayHour = when {
+        hour == 0 -> 12
+        hour > 12 -> hour - 12
+        else -> hour
+    }
+    return "$displayHour ${if (hour < 12) "AM" else "PM"}"
+}
+
+internal fun appVersionName(context: android.content.Context): String = try {
     context.packageManager.getPackageInfo(context.packageName, 0).versionName ?: "1.0"
 } catch (e: Exception) {
     "1.0"
