@@ -24,6 +24,10 @@ import com.example.physi_lock.sensor.RotationalArmDetector
 import com.example.physi_lock.sensor.StepChallengeDetector
 import com.example.physi_lock.sensor.StepChallengeMode
 import com.example.physi_lock.ui.components.CircularProgressRing
+import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.MutedText
+import com.example.physi_lock.ui.theme.SageAccent
+import com.example.physi_lock.ui.theme.TertiaryTan
 
 // Sensor-driving + progress-ring UI shared by the forced lock-trigger screen
 // (LockScreen, full-screen/no-back) and the voluntary Challenges hub
@@ -36,10 +40,10 @@ fun ChallengeProgressContent(
     sensitivity: ChallengeSensitivity,
     onComplete: () -> Unit,
     modifier: Modifier = Modifier,
-    ringColor: Color = Color(0xFF4CAF50),
-    trackColor: Color = Color.White.copy(alpha = 0.1f),
-    textColor: Color = Color.White,
-    secondaryTextColor: Color = Color.LightGray
+    ringColor: Color = SageAccent,
+    trackColor: Color = TertiaryTan,
+    textColor: Color = DeepOlive,
+    secondaryTextColor: Color = MutedText
 ) {
     val context = LocalContext.current
 

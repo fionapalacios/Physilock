@@ -40,7 +40,6 @@ import com.example.physi_lock.data.model.Account
 import com.example.physi_lock.data.model.Role
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.CardCream
-import com.example.physi_lock.ui.theme.Danger
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.ErrorRed

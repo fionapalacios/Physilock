@@ -45,7 +45,6 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -55,13 +54,15 @@ import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.data.dao.AppUsageTotal
 import com.example.physi_lock.data.entity.ExcessiveUsagePredictionLog
 import com.example.physi_lock.ui.components.CircularProgressRing
+import com.example.physi_lock.ui.components.SkeletonBox
+import com.example.physi_lock.ui.components.categoryIcon
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
-import com.example.physi_lock.ui.theme.SoftSand
 import com.example.physi_lock.ui.theme.TertiaryTan
 import kotlin.math.abs
 import kotlin.math.roundToInt
@@ -69,7 +70,7 @@ import kotlin.math.roundToInt
 private val PrimaryDark = DeepOlive
 private val PrimaryGreen = SageAccent
 private val AccentLavender = Orchid
-private val AuthTabsBackground = SoftSand
+private val AuthTabsBackground = BackgroundLight
 
 /** DAILY = the existing 7-day per-day chart; WEEKLY = the real 4-week aggregate view
  *  (2026-08-27, see ReportsViewModel.buildWeeklyBreakdown) — replaces the old static
@@ -92,6 +93,7 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
     val riskScorePercent by reportsViewModel.riskScorePercent.collectAsState(initial = 0.5f)
     val bypassAttemptsToday by reportsViewModel.bypassAttemptsToday.collectAsState(initial = 0)
     val doomscrollEpisodesToday by reportsViewModel.doomscrollEpisodesToday.collectAsState(initial = 0)
+    val initialLoadComplete by reportsViewModel.initialLoadComplete.collectAsState(initial = false)
     var showRiskSheet by remember { mutableStateOf(false) }
 
     val todayMinutes = weeklyUsage.lastOrNull { it.isToday }?.minutes ?: 0
@@ -101,14 +103,14 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SoftSand)
+            .background(BackgroundLight)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 15.dp)
             .padding(top = 12.dp, bottom = 24.dp)
     ) {
         Text(
             text = "ANALYTICS",
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             color = PrimaryGreen
@@ -137,6 +139,11 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
         PeriodTabs(selected = period, onSelected = { period = it })
 
         Spacer(modifier = Modifier.height(15.dp))
+
+        if (!initialLoadComplete) {
+            ReportsSkeletonContent()
+            return@Column
+        }
 
         if (period == ReportPeriod.WEEKLY) {
             WeeklyBreakdownContent(weeklyBreakdown, dailyLimitMinutes)
@@ -187,7 +194,7 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
                 )
                 Text(
                     text = "mins / day",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 12.sp,
                     color = PrimaryGreen
                 )
@@ -253,7 +260,7 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
                 ) {
                     Text(
                         text = "AI-POWERED",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Medium,
                         color = AccentLavender
@@ -409,6 +416,25 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
         )
     }
     }
+}
+
+/** Cold-start placeholder shaped to roughly match the real Daily-view card layout (stat
+ *  cards, chart card, category/insights cards) so nothing visibly jumps when real content
+ *  swaps in -- see ReportsViewModel.initialLoadComplete. Chrome above this (header, risk
+ *  badge, period tabs) stays real/visible throughout, only the data-dependent cards below
+ *  are skeletonized. */
+@Composable
+private fun ReportsSkeletonContent() {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.dp)) {
+        SkeletonBox(modifier = Modifier.weight(1f).height(72.dp), shape = RoundedCornerShape(15.dp))
+        SkeletonBox(modifier = Modifier.weight(1f).height(72.dp), shape = RoundedCornerShape(15.dp))
+    }
+    Spacer(modifier = Modifier.height(15.dp))
+    SkeletonBox(modifier = Modifier.fillMaxWidth().height(180.dp), shape = RoundedCornerShape(22.dp))
+    Spacer(modifier = Modifier.height(15.dp))
+    SkeletonBox(modifier = Modifier.fillMaxWidth().height(120.dp), shape = RoundedCornerShape(22.dp))
+    Spacer(modifier = Modifier.height(15.dp))
+    SkeletonBox(modifier = Modifier.fillMaxWidth().height(140.dp), shape = RoundedCornerShape(22.dp))
 }
 
 private fun formatMinutes(minutes: Int): String {
@@ -676,7 +702,7 @@ private fun WeeklyBreakdownContent(weeks: List<WeekUsage>, dailyLimitMinutes: In
             )
             Text(
                 text = "mins / week",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 color = PrimaryGreen
             )
@@ -709,8 +735,8 @@ private fun WeeklyUsageChart(weeks: List<WeekUsage>, weeklyGoalMinutes: Int) {
             modifier = Modifier.height(chartHeight).width(32.dp),
             verticalArrangement = Arrangement.SpaceBetween
         ) {
-            Text(text = formatMinutes(axisMax), fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = PrimaryGreen)
-            Text(text = formatMinutes(0), fontFamily = FontFamily.Monospace, fontSize = 9.sp, color = PrimaryGreen)
+            Text(text = formatMinutes(axisMax), fontFamily = DmMono, fontSize = 9.sp, color = PrimaryGreen)
+            Text(text = formatMinutes(0), fontFamily = DmMono, fontSize = 9.sp, color = PrimaryGreen)
         }
         Spacer(modifier = Modifier.width(7.dp))
         Column(modifier = Modifier.weight(1f)) {
@@ -766,7 +792,7 @@ private fun WeeklyUsageChart(weeks: List<WeekUsage>, weeklyGoalMinutes: Int) {
                         text = week.weekLabel,
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 9.sp,
                         color = DeepOlive
                     )
@@ -782,7 +808,7 @@ private fun WeeklyUsageLegend(weeklyGoalMinutes: Int) {
         Box(modifier = Modifier.width(16.dp).height(2.dp).background(PrimaryDark, RoundedCornerShape(1.dp)))
         Text(
             text = "${formatMinutes(weeklyGoalMinutes)} goal line",
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 12.sp,
             color = DeepOlive
         )
@@ -799,7 +825,7 @@ private fun StatCard(label: String, value: String, delta: String, modifier: Modi
     ) {
         Text(
             text = label,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = PrimaryGreen
@@ -836,7 +862,7 @@ private fun DailyUsageChart(days: List<DayUsage>, dailyLimitMinutes: Int) {
             listOf(maxMinutes, maxMinutes * 2 / 3, maxMinutes / 3, 0).forEach { minutes ->
                 Text(
                     text = "${minutes}m",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 9.sp,
                     color = PrimaryGreen
                 )
@@ -872,7 +898,7 @@ private fun DailyUsageChart(days: List<DayUsage>, dailyLimitMinutes: Int) {
                         text = day.dayLabel,
                         modifier = Modifier.weight(1f),
                         textAlign = TextAlign.Center,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 10.sp,
                         color = DeepOlive
                     )
@@ -897,7 +923,7 @@ private fun LegendDot(color: androidx.compose.ui.graphics.Color, label: String) 
         Box(modifier = Modifier.size(8.dp).background(color, RoundedCornerShape(2.dp)))
         Text(
             text = label,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 12.sp,
             color = DeepOlive
         )
@@ -925,7 +951,7 @@ private fun TopAppRow(app: AppUsageTotal, allApps: List<AppUsageTotal>) {
             )
             Text(
                 text = formatMinutes(minutes),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 color = DeepOlive
             )
@@ -967,7 +993,12 @@ private fun CategoryRow(category: CategoryUsage) {
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = category.emoji, fontSize = 16.sp)
+                Icon(
+                    imageVector = categoryIcon(category.category),
+                    contentDescription = null,
+                    tint = color,
+                    modifier = Modifier.size(16.dp)
+                )
                 Text(
                     text = category.label,
                     fontFamily = Nunito,
@@ -978,7 +1009,7 @@ private fun CategoryRow(category: CategoryUsage) {
             }
             Text(
                 text = "${formatMinutes((category.durationMs / 60_000L).toInt())} · ${category.percent}%",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 color = DeepOlive
             )
@@ -1025,7 +1056,7 @@ private fun PredictionRow(prediction: ExcessiveUsagePredictionLog) {
     ) {
         Text(
             text = formatHour(prediction.hour),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = PrimaryDark

@@ -30,15 +30,15 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.physi_lock.ui.theme.BackgroundLight
+import com.example.physi_lock.ui.theme.DeepForest
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
@@ -46,8 +46,10 @@ import com.example.physi_lock.ui.theme.SecondarySage
 import com.example.physi_lock.data.entity.FocusSession
 
 /** Ported from the teammate's sprint-2-ui-navigation branch; visuals only, session/timer/
- *  blocking backend is real as of 2026-08-25 — see [FocusModeRoute] and [FocusModeViewModel]. */
-private val FocusTimerBackground = Color(0xFF2E3820)
+ *  blocking backend is real as of 2026-08-25 — see [FocusModeRoute] and [FocusModeViewModel].
+ *  Background corrected 2026-09-10 to Figma's real "Deep Forest" (#1F2A14) token — the
+ *  hardcoded #2E3820 it used before didn't match any real design-system value. */
+private val FocusTimerBackground = DeepForest
 
 private val focusQuotes = listOf(
     "Your mind is sharper without the noise.",
@@ -92,7 +94,7 @@ fun FocusModeScreen(
                 )
                 Text(
                     text = "FOCUS MODE ACTIVE",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     lineHeight = 21.sp,
@@ -119,7 +121,7 @@ fun FocusModeScreen(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = "${"%02d".format(minutes)}:${"%02d".format(seconds)}",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 28.sp,
                         fontWeight = FontWeight.Medium,
                         lineHeight = 28.sp,
@@ -128,7 +130,7 @@ fun FocusModeScreen(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "focused",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 12.sp,
                         color = SageAccent
                     )
@@ -154,7 +156,7 @@ fun FocusModeScreen(
 
             Text(
                 text = "BLOCKED DURING FOCUS",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 18.sp,

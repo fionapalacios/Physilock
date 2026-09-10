@@ -43,6 +43,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.Nunito
+import com.example.physi_lock.ui.theme.Olive
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
@@ -52,7 +53,7 @@ import com.example.physi_lock.ui.theme.TertiaryTan
  *  Permissions screen, so both ever show the exact same live-checked state instead of
  *  drifting into two separate ideas of what's granted. Moved out of OnboardingScreen.kt
  *  2026-08-29 when Settings' "Permissions" row grew a real screen of its own. */
-val OliveAccent = Color(0xFF6B7A4E)
+val OliveAccent = Olive
 
 data class PermissionStep(
     val title: String,

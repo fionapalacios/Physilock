@@ -21,6 +21,7 @@ import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.TrendingUp
 import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.SelfImprovement
@@ -37,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -48,10 +48,11 @@ import com.example.physi_lock.sensor.ChallengeType
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
+import com.example.physi_lock.ui.theme.CardCream
 import com.example.physi_lock.ui.theme.SageAccent
-import com.example.physi_lock.ui.theme.SoftSand
 import com.example.physi_lock.ui.theme.TertiaryTan
 
 /**
@@ -165,7 +166,7 @@ fun ChallengeActiveScreen(
             )
             Text(
                 text = "CHALLENGE ACTIVE",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 19.5.sp,
@@ -276,7 +277,7 @@ fun ChallengeActiveScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SoftSand, RoundedCornerShape(15.dp))
+                    .background(CardCream, RoundedCornerShape(15.dp))
                     .border(1.06.dp, DeepOlive.copy(alpha = 0.08f), RoundedCornerShape(15.dp))
                     .padding(horizontal = 18.75.dp, vertical = 15.dp)
             ) {
@@ -304,7 +305,12 @@ fun ChallengeActiveScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.5.dp)
             ) {
-                Text(text = "🎁", fontSize = 14.sp)
+                Icon(
+                    imageVector = Icons.Filled.CardGiftcard,
+                    contentDescription = null,
+                    tint = visual.accentColor,
+                    modifier = Modifier.size(14.dp)
+                )
                 Text(
                     text = "Unlocks $appName for 20 min",
                     fontFamily = Nunito,
@@ -332,7 +338,7 @@ fun ChallengeActiveScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Claim +${challengeType.xpReward} XP 🎉",
+                        text = "Claim +${challengeType.xpReward} XP",
                         textAlign = TextAlign.Center,
                         fontFamily = Nunito,
                         fontSize = 15.sp,

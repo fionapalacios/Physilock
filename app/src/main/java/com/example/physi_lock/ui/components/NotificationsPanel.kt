@@ -37,7 +37,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -45,6 +44,7 @@ import androidx.compose.ui.unit.sp
 import com.example.physi_lock.data.entity.NotificationLog
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
@@ -283,7 +283,7 @@ private fun NotificationDetailModal(entry: NotificationEntry, onDismiss: () -> U
             Spacer(modifier = Modifier.height(9.dp))
             Text(
                 text = entry.fullTimestamp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 color = SageAccent
             )
@@ -383,7 +383,7 @@ private fun NotificationRow(entry: NotificationEntry, onOpen: () -> Unit, onMark
             Spacer(modifier = Modifier.height(3.dp))
             Text(
                 text = entry.timestamp,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
                 color = SageAccent

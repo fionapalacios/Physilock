@@ -33,7 +33,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -41,9 +40,9 @@ import com.example.physi_lock.data.context.isLocationPermissionGranted
 import com.example.physi_lock.data.entity.UserConfiguration
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
-import com.example.physi_lock.ui.theme.SoftSand
 
 /**
  * "Location" (Module 7 -- no teammate UI to port, this module wasn't built by them either).
@@ -79,7 +78,7 @@ fun LocationScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SoftSand)
+            .background(BackgroundLight)
             .verticalScroll(rememberScrollState())
     ) {
         Row(
@@ -270,7 +269,7 @@ private fun LocationAnchorCard(
     SettingsCard {
         Text(
             text = label.uppercase(),
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
             color = SageAccent
@@ -289,7 +288,7 @@ private fun LocationAnchorCard(
                 Column {
                     Text(
                         text = "Pinned: %.5f, %.5f".format(latitude, longitude),
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 12.sp,
                         color = DeepOlive
                     )
@@ -361,7 +360,7 @@ private fun LocationAnchorCard(
                 } else {
                     "No location pinned yet"
                 },
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 color = DeepOlive.copy(alpha = 0.7f)
             )
@@ -477,7 +476,7 @@ private fun TimeField(label: String, minuteOfDay: Int, onSelect: (Int) -> Unit, 
             .padding(horizontal = 14.dp, vertical = 11.dp)
     ) {
         Column {
-            Text(text = label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = SageAccent)
+            Text(text = label, fontFamily = DmMono, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = SageAccent)
             Spacer(modifier = Modifier.height(3.dp))
             Text(text = formatMinuteOfDay(minuteOfDay), fontFamily = Nunito, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = DeepOlive)
         }

@@ -37,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -47,9 +46,9 @@ import com.example.physi_lock.data.entity.UserConfiguration
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
-import com.example.physi_lock.ui.theme.SoftSand
 
 private fun hourLabel(hour: Int): String {
     val displayHour = when {
@@ -103,7 +102,7 @@ fun WorkModeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SoftSand)
+            .background(BackgroundLight)
             .verticalScroll(rememberScrollState())
     ) {
         Row(
@@ -189,7 +188,7 @@ fun WorkModeScreen(
             SettingsCard {
                 Text(
                     text = "YOUR CURRENT SETTINGS",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = SageAccent
@@ -283,9 +282,9 @@ private fun WorkHourField(label: String, hour: Int, onSelect: (Int) -> Unit, mod
             .padding(horizontal = 12.dp, vertical = 10.dp)
     ) {
         Column {
-            Text(text = label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = SageAccent)
+            Text(text = label, fontFamily = DmMono, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = SageAccent)
             Spacer(modifier = Modifier.height(2.dp))
-            Text(text = hourLabel(hour), fontFamily = FontFamily.Monospace, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = DeepOlive)
+            Text(text = hourLabel(hour), fontFamily = DmMono, fontSize = 15.sp, fontWeight = FontWeight.Bold, color = DeepOlive)
         }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             (0..23).forEach { h ->
@@ -451,7 +450,7 @@ private fun BreakReminderSection(enabled: Boolean, currentMinutes: Long, onSelec
                 ) {
                     Text(
                         text = "${minutes}m",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isSelected) BackgroundLight else DeepOlive

@@ -37,7 +37,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -52,7 +51,9 @@ import com.example.physi_lock.sensor.StepChallengeMode
 import com.example.physi_lock.service.AppMonitorService
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.theme.BackgroundLight
+import com.example.physi_lock.ui.theme.DeepForest
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
@@ -60,7 +61,9 @@ import com.example.physi_lock.ui.theme.SageAccent
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val OveruseBackground = Color(0xFF1F2A14)
+// Was already the exact hex Figma's "Deep Forest" token uses -- pointed at the real
+// named token 2026-09-10 instead of a re-hardcoded duplicate.
+private val OveruseBackground = DeepForest
 
 private data class OveruseStep(
     val id: String,
@@ -198,7 +201,7 @@ fun OveruseInterventionScreen(
                 ) {
                     Text(
                         text = meta.label,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
                         color = meta.color
@@ -296,12 +299,12 @@ private fun CooldownContent(appName: String, secsRemaining: Int) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = formatCooldown(secsRemaining),
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 22.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = BackgroundLight
                 )
-                Text(text = "cooldown", fontFamily = FontFamily.Monospace, fontSize = 10.sp, color = SageAccent)
+                Text(text = "cooldown", fontFamily = DmMono, fontSize = 10.sp, color = SageAccent)
             }
         }
         Spacer(modifier = Modifier.height(20.dp))
@@ -388,7 +391,7 @@ private fun StepContent(
                 )
                 Text(
                     text = "$reps / ${step.targetReps}",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 18.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = tint

@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restore
@@ -58,7 +59,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -77,13 +77,15 @@ import com.example.physi_lock.ui.focus.FocusBlockedAppsScreen
 import com.example.physi_lock.ui.permissions.permissionSteps
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.CardCream
+import com.example.physi_lock.ui.theme.DmMono
+import com.example.physi_lock.ui.theme.Ember
 import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
-import com.example.physi_lock.ui.theme.SoftSand
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -527,7 +529,7 @@ fun SettingsScreen(
             text = "Physi-Lock · v${appVersionName(context)} · © 2026",
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 13.sp,
             color = SageAccent
         )
@@ -824,13 +826,21 @@ private fun ProfileCard(currentAccount: Account?, streakDays: Int, onClick: () -
             )
             if (streakDays > 0) {
                 Spacer(modifier = Modifier.height(5.dp))
-                Text(
-                    text = "· $streakDays-day streak 🔥",
-                    fontFamily = Nunito,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = SecondarySage
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "· $streakDays-day streak",
+                        fontFamily = Nunito,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SecondarySage
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.LocalFireDepartment,
+                        contentDescription = null,
+                        tint = Ember,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
             }
         }
         Icon(
@@ -851,7 +861,7 @@ private fun UsageModeCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SoftSand, RoundedCornerShape(22.dp))
+            .background(CardCream, RoundedCornerShape(22.dp))
             .border(0.79.dp, DeepOlive.copy(alpha = 0.14f), RoundedCornerShape(22.dp))
             .padding(15.dp)
     ) {
@@ -953,7 +963,7 @@ private fun SettingsSectionCard(heading: String, rows: List<SettingsRow>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SoftSand, RoundedCornerShape(22.dp))
+            .background(CardCream, RoundedCornerShape(22.dp))
             .border(0.79.dp, DeepOlive.copy(alpha = 0.14f), RoundedCornerShape(22.dp))
             .padding(horizontal = 15.dp)
     ) {
@@ -1045,17 +1055,20 @@ internal fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SoftSand, RoundedCornerShape(22.dp))
+            .background(CardCream, RoundedCornerShape(22.dp))
             .border(0.79.dp, DeepOlive.copy(alpha = 0.14f), RoundedCornerShape(22.dp))
             .padding(15.dp),
         content = content
     )
 }
 
+// uncheckedTrackColor corrected 2026-09-11 to the real design system's --switch-background
+// token (#BAC892, solid SecondarySage) -- was a DeepOlive-alpha approximation instead of the
+// actual specified color.
 @Composable
 internal fun brandedSwitchColors() = SwitchDefaults.colors(
     checkedThumbColor = BackgroundLight,
     checkedTrackColor = DeepOlive,
     uncheckedThumbColor = BackgroundLight,
-    uncheckedTrackColor = DeepOlive.copy(alpha = 0.3f)
+    uncheckedTrackColor = SecondarySage
 )

@@ -44,6 +44,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val usageStatsRepository = UsageStatsRepository(application)
     private val riskFeatureExtractor = RiskFeatureExtractor(application)
 
+    // Drives the skeleton-loader → real-content swap on Home's first load (2026-09-10) --
+    // false until refreshTodayScreenTime's first real fetch completes, never flips back to
+    // false on subsequent ON_RESUME refreshes (those update in place, no re-skeletonizing).
+    private val _initialLoadComplete = MutableStateFlow(false)
+    val initialLoadComplete: StateFlow<Boolean> = _initialLoadComplete.asStateFlow()
+
     private val _todayScreenTimeMinutes = MutableStateFlow(0)
     val todayScreenTimeMinutes: StateFlow<Int> = _todayScreenTimeMinutes.asStateFlow()
 
@@ -208,6 +214,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 _yesterdayDeltaMinutes.value = null
             }
+
+            _initialLoadComplete.value = true
         }
     }
 }

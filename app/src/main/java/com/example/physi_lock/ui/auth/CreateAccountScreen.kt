@@ -21,8 +21,10 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.School
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material.icons.filled.Work
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -33,6 +35,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -58,9 +61,9 @@ import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.data.entity.UserConfiguration
 import com.example.physi_lock.data.model.Account
 
-private enum class UsageMode(val emoji: String, val label: String, val configValue: String) {
-    STUDENT("📚", "Student", "STUDENT_MODE"),
-    WORK("💼", "Work", "WORK_MODE")
+private enum class UsageMode(val icon: ImageVector, val label: String, val configValue: String) {
+    STUDENT(Icons.Filled.School, "Student", "STUDENT_MODE"),
+    WORK(Icons.Filled.Work, "Work", "WORK_MODE")
 }
 
 /**
@@ -333,12 +336,11 @@ private fun UsageModePill(
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(3.75.dp)
     ) {
-        Text(
-            text = mode.emoji,
-            textAlign = TextAlign.Center,
-            fontSize = 18.sp,
-            lineHeight = 27.sp,
-            modifier = Modifier.fillMaxWidth()
+        Icon(
+            imageVector = mode.icon,
+            contentDescription = null,
+            tint = if (isSelected) BackgroundLight else DeepOlive,
+            modifier = Modifier.size(20.dp)
         )
         Text(
             text = mode.label,

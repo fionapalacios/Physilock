@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -41,6 +40,7 @@ import com.example.physi_lock.ui.components.AuthFieldLabel
 import com.example.physi_lock.ui.components.AuthTextField
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
@@ -97,7 +97,7 @@ fun ForgotPasswordScreen(
                 Column {
                     Text(
                         text = "FORGOT PASSWORD",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         lineHeight = 18.sp,
@@ -297,7 +297,7 @@ private fun ForgotPasswordSteps(currentStepIndex: Int, modifier: Modifier = Modi
                     ) {
                         Text(
                             text = "${index + 1}",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = DmMono,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Medium,
                             lineHeight = 16.5.sp,
@@ -307,7 +307,7 @@ private fun ForgotPasswordSteps(currentStepIndex: Int, modifier: Modifier = Modi
                     Spacer(modifier = Modifier.height(3.75.dp))
                     Text(
                         text = label,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Medium,
                         lineHeight = 15.sp,

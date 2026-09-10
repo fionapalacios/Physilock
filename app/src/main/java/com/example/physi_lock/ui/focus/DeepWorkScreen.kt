@@ -46,7 +46,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -55,7 +54,9 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.sensor.ChallengeSensitivity
 import com.example.physi_lock.sensor.RotationalArmDetector
 import com.example.physi_lock.ui.theme.BackgroundLight
+import com.example.physi_lock.ui.theme.DeepForest
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
@@ -68,9 +69,16 @@ import kotlinx.coroutines.delay
  *  at exactly 5 reps regardless of the user's Motion Lock Sensitivity setting (this is a
  *  safety confirmation gate, not a difficulty-scaled challenge). See [DeepWorkSession] /
  *  [DeepWorkViewModel] / AppMonitorService.deepWorkBlockedPackages for the real session/
- *  enforcement backend. */
-private val DeepWorkBackground = Color(0xFF0F1A09)
-private val DeepWorkSheetBackground = Color(0xFF1A2710)
+ *  enforcement backend.
+ *
+ *  Background corrected 2026-09-10 to Figma's real "Deep Forest" (#1F2A14) token, shared with
+ *  Focus Mode -- the hardcoded #0F1A09 it used before was actually Bedtime's color, and the
+ *  sheet's #1A2710 was an unspecified ad hoc shade. The exit sheet sits on its own full-screen
+ *  black scrim (see [DeepWorkExitSheet]), not directly on [DeepWorkBackground], so it reuses
+ *  the same solid DeepForest tone rather than a translucent wash (which would read as nearly
+ *  invisible against black) -- Figma doesn't specify a distinct sheet shade. */
+private val DeepWorkBackground = DeepForest
+private val DeepWorkSheetBackground = DeepForest
 private val DeepWorkExitGateReps = 5
 
 private val deepWorkMessages = listOf(
@@ -125,7 +133,7 @@ fun DeepWorkScreen(
                     Box(modifier = Modifier.size(8.dp).background(SageAccent, CircleShape))
                     Text(
                         text = "DEEP WORK ACTIVE",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = SageAccent
@@ -168,7 +176,7 @@ fun DeepWorkScreen(
 
                 Text(
                     text = "ALL SOCIAL & ENTERTAINMENT BLOCKED",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 12.sp,
                     color = MutedText.copy(alpha = 0.8f),
                     textAlign = TextAlign.Center
@@ -195,7 +203,7 @@ fun DeepWorkScreen(
             if (done) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 20.dp, vertical = 24.dp)) {
                     Text(
-                        text = "Deep Work session complete! 🎉",
+                        text = "Deep Work session complete!",
                         fontFamily = Nunito,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
@@ -283,12 +291,12 @@ private fun PulsingFocusRing(progress: Float, done: Boolean, remainingSecs: Long
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = formatCountdown(remainingSecs),
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.ExtraBold,
                     color = BackgroundLight
                 )
-                Text(text = "remaining", fontFamily = FontFamily.Monospace, fontSize = 11.sp, color = SageAccent)
+                Text(text = "remaining", fontFamily = DmMono, fontSize = 11.sp, color = SageAccent)
             }
         }
     }
@@ -430,7 +438,7 @@ private fun ShakeGateContent(onComplete: () -> Unit, onCancel: () -> Unit) {
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
         Text(
             text = "SHAKE $shakeCount / $DeepWorkExitGateReps",
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 12.sp,
             color = SageAccent,
             modifier = Modifier.padding(bottom = 12.dp)
@@ -592,7 +600,7 @@ private fun DeepWorkDurationPicker(
             Spacer(modifier = Modifier.height(28.dp))
             Text(
                 text = "ALL SOCIAL & ENTERTAINMENT BLOCKED",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 color = MutedText.copy(alpha = 0.8f),
                 textAlign = TextAlign.Center

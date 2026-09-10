@@ -1,6 +1,7 @@
 package com.example.physi_lock.ui.settings
 
 import androidx.compose.animation.animateContentSize
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -30,15 +31,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.physi_lock.R
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.CardCream
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
@@ -128,7 +132,14 @@ fun AboutScreen(onBackClick: () -> Unit) {
                     .background(DeepOlive),
                 contentAlignment = Alignment.Center
             ) {
-                Text(text = "🌿", fontSize = 30.sp)
+                Image(
+                    painter = painterResource(id = R.drawable.logo),
+                    contentDescription = "Physi-Lock logo",
+                    contentScale = ContentScale.Crop,
+                    modifier = Modifier
+                        .size(56.dp)
+                        .clip(RoundedCornerShape(14.dp))
+                )
             }
             Spacer(modifier = Modifier.height(11.dp))
             Text(
@@ -140,7 +151,7 @@ fun AboutScreen(onBackClick: () -> Unit) {
             )
             Text(
                 text = "Version ${appVersionName(context)}",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 13.sp,
                 color = SageAccent,
                 modifier = Modifier.padding(top = 2.dp, bottom = 18.dp)
@@ -161,7 +172,7 @@ fun AboutScreen(onBackClick: () -> Unit) {
             AboutStatRow("Usage Data", "Stored locally")
 
             Text(
-                text = "Made with 🌿 for your mental wellness",
+                text = "Made with care for your mental wellness",
                 fontFamily = Nunito,
                 fontSize = 13.sp,
                 color = SageAccent,
@@ -171,7 +182,7 @@ fun AboutScreen(onBackClick: () -> Unit) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
                     text = "HELP GUIDE",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = SageAccent,
@@ -245,6 +256,6 @@ private fun AboutStatRow(label: String, value: String) {
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
         Text(text = label, fontFamily = Nunito, fontSize = 14.sp, fontWeight = FontWeight.Bold, color = DeepOlive)
-        Text(text = value, fontFamily = FontFamily.Monospace, fontSize = 14.sp, color = MutedText)
+        Text(text = value, fontFamily = DmMono, fontSize = 14.sp, color = MutedText)
     }
 }

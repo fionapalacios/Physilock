@@ -32,15 +32,16 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.data.entity.AppCategoryType
 import com.example.physi_lock.ui.components.AuthTabsBackground
+import com.example.physi_lock.ui.components.categoryIcon
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
@@ -63,7 +64,6 @@ import com.example.physi_lock.data.entity.UserConfiguration
  * originally hardcoded as its slider's starting position.
  */
 private data class CategoryGoalItem(
-    val emoji: String,
     val name: String,
     val categoryType: String?,
     val currentHours: Float,
@@ -74,7 +74,6 @@ private data class CategoryGoalItem(
 )
 
 private val totalScreenTimeGoalTemplate = CategoryGoalItem(
-    emoji = "📱",
     name = "Total Daily Screen Time",
     categoryType = null,
     currentHours = 0f,
@@ -86,7 +85,6 @@ private val totalScreenTimeGoalTemplate = CategoryGoalItem(
 
 private val categoryGoalTemplates = listOf(
     CategoryGoalItem(
-        emoji = "💬",
         name = "Social Media",
         categoryType = AppCategoryType.SOCIAL_MEDIA,
         currentHours = 0f,
@@ -96,7 +94,6 @@ private val categoryGoalTemplates = listOf(
         accentColor = Orchid
     ),
     CategoryGoalItem(
-        emoji = "🎬",
         name = "Entertainment",
         categoryType = AppCategoryType.ENTERTAINMENT,
         currentHours = 0f,
@@ -106,7 +103,6 @@ private val categoryGoalTemplates = listOf(
         accentColor = SageAccent
     ),
     CategoryGoalItem(
-        emoji = "🎮",
         name = "Gaming",
         categoryType = AppCategoryType.GAMES,
         currentHours = 0f,
@@ -201,7 +197,7 @@ fun UsageGoalsScreen(
 
             Text(
                 text = "DAILY LIMITS BY CATEGORY",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 18.sp,
@@ -254,7 +250,7 @@ private fun WeeklyGoalCard(
             )
             Text(
                 text = "WEEKLY SCREEN TIME GOAL",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 18.sp,
@@ -298,7 +294,7 @@ private fun WeeklyGoalCard(
             ) {
                 Text(
                     text = if (isOver) "+${formatHours(diff)}h OVER" else "${formatHours(-diff)}h left",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     lineHeight = 18.sp,
@@ -357,7 +353,7 @@ private fun WeeklyGoalCard(
                     ) {
                         Text(
                             text = "${preset.toInt()}h",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = DmMono,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             lineHeight = 18.sp,
@@ -387,7 +383,12 @@ private fun CategoryGoalCard(item: CategoryGoalItem, goal: Float, onGoalChange: 
             verticalAlignment = Alignment.CenterVertically
         ) {
             Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(7.5.dp)) {
-                Text(text = item.emoji, fontSize = 18.sp)
+                Icon(
+                    imageVector = categoryIcon(item.categoryType),
+                    contentDescription = null,
+                    tint = item.accentColor,
+                    modifier = Modifier.size(18.dp)
+                )
                 Text(
                     text = item.name,
                     fontFamily = Nunito,
@@ -405,7 +406,7 @@ private fun CategoryGoalCard(item: CategoryGoalItem, goal: Float, onGoalChange: 
                 ) {
                     Text(
                         text = "OVER",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         lineHeight = 18.sp,
@@ -432,7 +433,7 @@ private fun CategoryGoalCard(item: CategoryGoalItem, goal: Float, onGoalChange: 
             Row {
                 Text(
                     text = "Current: ",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Normal,
                     lineHeight = 19.5.sp,
@@ -440,7 +441,7 @@ private fun CategoryGoalCard(item: CategoryGoalItem, goal: Float, onGoalChange: 
                 )
                 Text(
                     text = "${formatHours(item.currentHours)}h",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     lineHeight = 19.5.sp,
@@ -450,7 +451,7 @@ private fun CategoryGoalCard(item: CategoryGoalItem, goal: Float, onGoalChange: 
             Row {
                 Text(
                     text = "Goal: ",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Normal,
                     lineHeight = 19.5.sp,
@@ -458,7 +459,7 @@ private fun CategoryGoalCard(item: CategoryGoalItem, goal: Float, onGoalChange: 
                 )
                 Text(
                     text = "${formatHours(goal)}h",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.Medium,
                     lineHeight = 19.5.sp,
@@ -496,7 +497,7 @@ private fun CategoryGoalCard(item: CategoryGoalItem, goal: Float, onGoalChange: 
                     ) {
                         Text(
                             text = "${formatHours(preset)}h",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = DmMono,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             lineHeight = 18.sp,

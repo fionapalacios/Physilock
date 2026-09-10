@@ -31,7 +31,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +39,7 @@ import com.example.physi_lock.ui.components.AppIconAvatar
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
@@ -55,7 +55,7 @@ private fun formatCountdown(secs: Long): String {
 
 private fun phaseLabel(session: PomodoroSession?): String = when {
     session == null -> "Ready to study"
-    session.phase == "BREAK" -> "🌿 Break time!"
+    session.phase == "BREAK" -> "Break time!"
     else -> "Study session"
 }
 
@@ -95,7 +95,7 @@ fun PomodoroTimerCard(
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = "POMODORO TIMER · SESSION ${session?.sessionNumber ?: 1}",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = SageAccent,
@@ -125,14 +125,14 @@ fun PomodoroTimerCard(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = formatCountdown(remainingSeconds),
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 30.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = BackgroundLight
                     )
                     Text(
                         text = if (session?.phase == "BREAK") "break" else "focus",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 11.sp,
                         color = SageAccent
                     )
@@ -211,7 +211,7 @@ fun PomodoroSessionSettingsCard(
 @Composable
 private fun PresetRow(label: String, options: List<Int>, selected: Int, onSelect: (Int) -> Unit) {
     Column {
-        Text(text = label, fontFamily = FontFamily.Monospace, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = SageAccent)
+        Text(text = label, fontFamily = DmMono, fontSize = 11.sp, fontWeight = FontWeight.Medium, color = SageAccent)
         Spacer(modifier = Modifier.height(6.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             options.forEach { minutes ->
@@ -224,7 +224,7 @@ private fun PresetRow(label: String, options: List<Int>, selected: Int, onSelect
                 ) {
                     Text(
                         text = "${minutes}m",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 13.sp,
                         fontWeight = FontWeight.Bold,
                         color = if (isSelected) BackgroundLight else DeepOlive
@@ -335,7 +335,7 @@ fun PomodoroFullscreenOverlay(
         ) {
             Text(
                 text = "POMODORO TIMER · SESSION ${session?.sessionNumber ?: 1}",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 color = SageAccent
@@ -356,14 +356,14 @@ fun PomodoroFullscreenOverlay(
                 Column(horizontalAlignment = Alignment.CenterHorizontally) {
                     Text(
                         text = formatCountdown(remainingSeconds),
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 44.sp,
                         fontWeight = FontWeight.ExtraBold,
                         color = BackgroundLight
                     )
                     Text(
                         text = if (session?.phase == "BREAK") "break" else "focus",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 13.sp,
                         color = SageAccent
                     )

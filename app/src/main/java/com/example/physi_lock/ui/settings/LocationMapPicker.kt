@@ -11,7 +11,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -20,6 +19,7 @@ import androidx.webkit.WebViewClientCompat
 import com.example.physi_lock.data.context.lastKnownLocation
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 
 /** Real map, via Leaflet.js in a WebView -- per the user's explicit ask (2026-09-04), not
  *  a native Compose/Play-Services-Maps widget. Map *tiles* still come from OpenStreetMap's
@@ -160,7 +160,7 @@ fun RadiusChip(label: String, selected: Boolean, onClick: () -> Unit) {
     ) {
         Text(
             text = label,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 12.sp,
             fontWeight = FontWeight.Bold,
             color = if (selected) BackgroundLight else DeepOlive

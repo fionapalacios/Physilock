@@ -37,7 +37,6 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -48,14 +47,17 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.physi_lock.R
 import com.example.physi_lock.ui.theme.BackgroundLight
+import com.example.physi_lock.ui.theme.CardCream
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
+import com.example.physi_lock.ui.theme.PillTrackBackground
 import com.example.physi_lock.ui.theme.SageAccent
 
-val AuthTabsBackground = Color(0xFFF5F3EB)
-val AuthInputFieldBackground = Color(0xFFEEEADE)
+val AuthTabsBackground = CardCream
+val AuthInputFieldBackground = PillTrackBackground
 
 enum class AuthTab { SIGN_IN, REGISTER }
 
@@ -324,7 +326,7 @@ fun AuthOrDivider(modifier: Modifier = Modifier) {
         )
         Text(
             text = "or",
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 13.sp,
             fontWeight = FontWeight.Medium,
             lineHeight = 19.5.sp,

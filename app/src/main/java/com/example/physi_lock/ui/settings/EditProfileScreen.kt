@@ -32,7 +32,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
@@ -43,6 +42,7 @@ import com.example.physi_lock.ui.components.AuthTextField
 import com.example.physi_lock.ui.components.PasswordRequirementsChecklist
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.data.entity.UserConfiguration
@@ -211,7 +211,7 @@ fun EditProfileScreen(
                     fontFamily = Nunito,
                     fontSize = 13.sp,
                     fontWeight = FontWeight.SemiBold,
-                    color = Color(0xFFC0392B)
+                    color = ErrorRed
                 )
             }
         }
@@ -288,7 +288,7 @@ private fun ChangePasswordSection(
                 fontFamily = Nunito,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.SemiBold,
-                color = if (validationError == null && resultSuccess) SageAccent else Color(0xFFC0392B),
+                color = if (validationError == null && resultSuccess) SageAccent else ErrorRed,
                 modifier = Modifier.padding(top = 6.dp)
             )
         }
