@@ -525,14 +525,14 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(15.dp))
 
-        Text(
+        /*Text(
             text = "Physi-Lock · v${appVersionName(context)} · © 2026",
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
             fontFamily = DmMono,
             fontSize = 13.sp,
             color = SageAccent
-        )
+        )*/
     }
 
     if (showResetConfirm) {

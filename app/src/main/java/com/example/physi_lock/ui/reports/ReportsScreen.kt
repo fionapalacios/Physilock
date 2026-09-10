@@ -108,13 +108,6 @@ fun ReportsScreen(reportsViewModel: ReportsViewModel = viewModel()) {
             .padding(horizontal = 15.dp)
             .padding(top = 12.dp, bottom = 24.dp)
     ) {
-        Text(
-            text = "ANALYTICS",
-            fontFamily = DmMono,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            color = PrimaryGreen
-        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

@@ -209,14 +209,6 @@ fun MoveScreen(moveViewModel: MoveViewModel = viewModel()) {
             .padding(top = 12.dp, bottom = 24.dp)
     ) {
         Text(
-            text = "MOTION LOCK",
-            fontFamily = DmMono,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 19.5.sp,
-            color = SageAccent
-        )
-        Text(
             text = "Move to Unlock",
             fontFamily = Nunito,
             fontSize = 20.sp,
