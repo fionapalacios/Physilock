@@ -8,8 +8,10 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -52,7 +54,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
@@ -66,16 +67,17 @@ import com.example.physi_lock.ui.challenge.OveruseInterventionActivity
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.components.NotificationsOverlay
 import com.example.physi_lock.ui.components.NotificationsViewModel
+import com.example.physi_lock.ui.components.SkeletonBox
 import com.example.physi_lock.ui.components.rememberAppIconBitmap
 import com.example.physi_lock.ui.components.toEntry
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
-import com.example.physi_lock.ui.theme.SoftSand
 import com.example.physi_lock.ui.theme.TertiaryTan
 import java.util.Calendar
 import java.util.Locale
@@ -85,7 +87,7 @@ import com.example.physi_lock.data.dao.AppUsageTotal
 private val PrimaryDark = DeepOlive
 private val PrimaryGreen = SageAccent
 private val AccentLavender = Orchid
-private val AuthTabsBackground = SoftSand
+private val AuthTabsBackground = BackgroundLight
 
 @Composable
 fun HomeScreen(
@@ -113,6 +115,7 @@ fun HomeScreen(
     val hasReflectedToday by homeViewModel.hasReflectedToday.collectAsState(initial = false)
     val continuousUsageMinutes by homeViewModel.continuousUsageMinutes.collectAsState(initial = null)
     val yesterdayDeltaMinutes by homeViewModel.yesterdayDeltaMinutes.collectAsState(initial = null)
+    val initialLoadComplete by homeViewModel.initialLoadComplete.collectAsState(initial = false)
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -128,7 +131,7 @@ fun HomeScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SoftSand)
+            .background(BackgroundLight)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 15.dp, vertical = 12.dp)
     ) {
@@ -138,51 +141,55 @@ fun HomeScreen(
             onNotificationsClick = { showNotifications = true }
         )
         Spacer(modifier = Modifier.height(16.dp))
-        ScreenTimeCard(todayMinutes = todayMinutes, dailyLimitMinutes = dailyLimitMinutes, yesterdayDeltaMinutes = yesterdayDeltaMinutes)
-        continuousUsageMinutes?.let { minutes ->
-            Spacer(modifier = Modifier.height(12.dp))
-            BreakReminderBanner(minutes = minutes, onFocusClick = onNavigateToFocus)
-        }
-        predictiveOveruse?.let { prediction ->
-            Spacer(modifier = Modifier.height(12.dp))
-            PredictiveOveruseBanner(prediction = prediction, onFocusClick = onNavigateToFocus)
-        }
-        Spacer(modifier = Modifier.height(12.dp))
-        RiskAndActionsRow(
-            riskLevel = riskLevel,
-            riskScorePercent = riskScorePercent,
-            onManageAppLock = onManageAppLock,
-            onNavigateToFocus = onNavigateToFocus,
-            onNavigateToDeepWork = onNavigateToDeepWork
-        )
-        Spacer(modifier = Modifier.height(12.dp))
-        AppUsageCard(
-            appUsageToday = appUsageToday,
-            onOverLimitAppClick = { item ->
-                // Real risk-tiered motion challenge (2026-09-06), replacing the old
-                // "just opens App Lock Rules" placeholder -- same OveruseInterventionActivity
-                // the doomscroll reflection prompt's "Take a Break" leads into, using the
-                // same real risk level already computed for the risk ring above.
-                val intent = Intent(context, OveruseInterventionActivity::class.java).apply {
-                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                    putExtra(AppMonitorService.EXTRA_PACKAGE_NAME, item.packageName)
-                    putExtra(OveruseInterventionActivity.EXTRA_RISK_TIER, riskLevel.uppercase())
-                }
-                context.startActivity(intent)
+        if (!initialLoadComplete) {
+            HomeSkeletonContent()
+        } else {
+            ScreenTimeCard(todayMinutes = todayMinutes, dailyLimitMinutes = dailyLimitMinutes, yesterdayDeltaMinutes = yesterdayDeltaMinutes)
+            continuousUsageMinutes?.let { minutes ->
+                Spacer(modifier = Modifier.height(12.dp))
+                BreakReminderBanner(minutes = minutes, onFocusClick = onNavigateToFocus)
             }
-        )
-        doomscrollAlert?.let { alert ->
+            predictiveOveruse?.let { prediction ->
+                Spacer(modifier = Modifier.height(12.dp))
+                PredictiveOveruseBanner(prediction = prediction, onFocusClick = onNavigateToFocus)
+            }
             Spacer(modifier = Modifier.height(12.dp))
-            DoomscrollAlertBanner(alert = alert, onClick = onNavigateToMove)
+            RiskAndActionsRow(
+                riskLevel = riskLevel,
+                riskScorePercent = riskScorePercent,
+                onManageAppLock = onManageAppLock,
+                onNavigateToFocus = onNavigateToFocus,
+                onNavigateToDeepWork = onNavigateToDeepWork
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+            AppUsageCard(
+                appUsageToday = appUsageToday,
+                onOverLimitAppClick = { item ->
+                    // Real risk-tiered motion challenge (2026-09-06), replacing the old
+                    // "just opens App Lock Rules" placeholder -- same OveruseInterventionActivity
+                    // the doomscroll reflection prompt's "Take a Break" leads into, using the
+                    // same real risk level already computed for the risk ring above.
+                    val intent = Intent(context, OveruseInterventionActivity::class.java).apply {
+                        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+                        putExtra(AppMonitorService.EXTRA_PACKAGE_NAME, item.packageName)
+                        putExtra(OveruseInterventionActivity.EXTRA_RISK_TIER, riskLevel.uppercase())
+                    }
+                    context.startActivity(intent)
+                }
+            )
+            doomscrollAlert?.let { alert ->
+                Spacer(modifier = Modifier.height(12.dp))
+                DoomscrollAlertBanner(alert = alert, onClick = onNavigateToMove)
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+            GoalsRow(
+                todayMinutes = todayMinutes,
+                dailyLimitMinutes = dailyLimitMinutes,
+                onUsageGoalsClick = onNavigateToGoals,
+                hasReflectedToday = hasReflectedToday,
+                onReflectionClick = onNavigateToReflection
+            )
         }
-        Spacer(modifier = Modifier.height(12.dp))
-        GoalsRow(
-            todayMinutes = todayMinutes,
-            dailyLimitMinutes = dailyLimitMinutes,
-            onUsageGoalsClick = onNavigateToGoals,
-            hasReflectedToday = hasReflectedToday,
-            onReflectionClick = onNavigateToReflection
-        )
     }
 
     if (showNotifications) {
@@ -216,7 +223,7 @@ private fun HomeHeader(
         Column(modifier = Modifier.weight(1f)) {
             Text(
                 text = dayLabel,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 color = PrimaryGreen,
@@ -260,6 +267,26 @@ private fun HomeHeader(
     }
 }
 
+/** Cold-start placeholder shaped to roughly match the real card layout below (ring card,
+ *  risk+actions row, app usage rows, goals row) so nothing visibly jumps when real content
+ *  swaps in -- see HomeViewModel.initialLoadComplete. */
+@Composable
+private fun HomeSkeletonContent() {
+    SkeletonBox(modifier = Modifier.fillMaxWidth().height(118.dp), shape = RoundedCornerShape(24.dp))
+    Spacer(modifier = Modifier.height(12.dp))
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        SkeletonBox(modifier = Modifier.weight(1f).height(150.dp), shape = RoundedCornerShape(18.dp))
+        SkeletonBox(modifier = Modifier.weight(1f).height(150.dp), shape = RoundedCornerShape(18.dp))
+    }
+    Spacer(modifier = Modifier.height(12.dp))
+    SkeletonBox(modifier = Modifier.fillMaxWidth().height(170.dp), shape = RoundedCornerShape(18.dp))
+    Spacer(modifier = Modifier.height(12.dp))
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        SkeletonBox(modifier = Modifier.weight(1f).height(88.dp), shape = RoundedCornerShape(15.dp))
+        SkeletonBox(modifier = Modifier.weight(1f).height(88.dp), shape = RoundedCornerShape(15.dp))
+    }
+}
+
 private fun formatMinutes(minutes: Int): String {
     val hours = minutes / 60
     val mins = minutes % 60
@@ -285,7 +312,7 @@ private fun ScreenTimeCard(todayMinutes: Int, dailyLimitMinutes: Int, yesterdayD
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = "TODAY'S SCREEN TIME",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = PrimaryGreen
@@ -447,7 +474,7 @@ private fun PredictiveOveruseBanner(prediction: PredictiveOveruseUi, onFocusClic
                 ) {
                     Text(
                         text = "AI",
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium,
                         color = AccentLavender
@@ -545,19 +572,23 @@ private fun RiskAndActionsRow(
     onNavigateToFocus: () -> Unit,
     onNavigateToDeepWork: () -> Unit
 ) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+    Row(
+        modifier = Modifier.fillMaxWidth().height(IntrinsicSize.Max),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Card(
-            modifier = Modifier.weight(1f),
+            modifier = Modifier.weight(1f).fillMaxHeight(),
             colors = CardDefaults.cardColors(containerColor = AuthTabsBackground),
             shape = RoundedCornerShape(18.dp)
         ) {
             Column(
-                modifier = Modifier.padding(15.dp),
-                horizontalAlignment = Alignment.CenterHorizontally
+                modifier = Modifier.padding(15.dp).fillMaxHeight(),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Center
             ) {
                 Text(
                     text = "RISK LEVEL",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 12.sp,
                     color = PrimaryGreen
                 )
@@ -592,23 +623,26 @@ private fun RiskAndActionsRow(
             }
         }
 
-        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(
+            modifier = Modifier.weight(1f).fillMaxHeight(),
+            verticalArrangement = Arrangement.spacedBy(10.dp, Alignment.CenterVertically)
+        ) {
             ActionTile(
                 icon = Icons.Default.Bedtime,
                 title = "Focus Mode",
-                subtitle = "Block distracting apps",
+                //subtitle = "Block distracting apps",
                 onClick = onNavigateToFocus
             )
             ActionTile(
                 icon = Icons.Default.Shield,
                 title = "Deep Focus",
-                subtitle = "Stricter, timed, shake to exit",
+                //subtitle = "Stricter, timed, shake to exit",
                 onClick = onNavigateToDeepWork
             )
             ActionTile(
                 icon = Icons.Default.Lock,
                 title = "Lock Apps",
-                subtitle = "Manage restrictions",
+                //subtitle = "Manage restrictions",
                 onClick = onManageAppLock
             )
         }
@@ -619,7 +653,7 @@ private fun RiskAndActionsRow(
 private fun ActionTile(
     icon: ImageVector,
     title: String,
-    subtitle: String,
+    //subtitle: String,
     onClick: () -> Unit
 ) {
     Row(
@@ -640,14 +674,94 @@ private fun ActionTile(
                 fontWeight = FontWeight.Bold,
                 color = BackgroundLight
             )
-            Text(
+            /*Text(
                 text = subtitle,
                 fontFamily = Nunito,
                 fontSize = 12.sp,
                 color = SecondarySage
-            )
+            )*/
         }
         Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = BackgroundLight, modifier = Modifier.size(16.dp))
+    }
+}
+
+/** Ported from the teammate's sprint-2-ui-navigation branch (`DashboardScreen.kt`'s `GoalsRow`/`GoalCard`).
+ *  "Daily Reflection" was a non-clickable "Coming soon" placeholder until Module 5 shipped
+ *  (2026-08-25, see `ui/reflection/ReflectionScreen.kt`) — now real and clickable, with a
+ *  subtitle reflecting whether today's entry actually exists. */
+@Composable
+private fun GoalsRow(
+    todayMinutes: Int,
+    dailyLimitMinutes: Int,
+    onUsageGoalsClick: () -> Unit,
+    hasReflectedToday: Boolean,
+    onReflectionClick: () -> Unit
+) {
+    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.25.dp)) {
+        GoalCard(
+            modifier = Modifier.weight(1f),
+            iconBackground = PrimaryGreen.copy(alpha = 0.13f),
+            icon = Icons.Default.TrackChanges,
+            iconTint = PrimaryGreen,
+            title = "Usage Goals",
+            subtitle = "${formatMinutes(todayMinutes)} / ${formatMinutes(dailyLimitMinutes)} today",
+            onClick = onUsageGoalsClick
+        )
+        GoalCard(
+            modifier = Modifier.weight(1f),
+            iconBackground = AccentLavender.copy(alpha = 0.13f),
+            icon = Icons.AutoMirrored.Filled.MenuBook,
+            iconTint = AccentLavender,
+            title = "Daily Reflection",
+            subtitle = if (hasReflectedToday) "Answered today" else "Tap to reflect",
+            onClick = onReflectionClick
+        )
+    }
+}
+
+@Composable
+private fun GoalCard(
+    modifier: Modifier,
+    iconBackground: Color,
+    icon: ImageVector,
+    iconTint: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit
+) {
+    Column(
+        modifier = modifier
+            .background(AuthTabsBackground, RoundedCornerShape(15.dp))
+            .border(0.79.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(15.dp))
+            .clickable(onClick = onClick)
+            .padding(15.dp)
+    ) {
+        Box(
+            modifier = Modifier
+                .size(34.dp)
+                .background(iconBackground, RoundedCornerShape(10.dp)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(16.dp))
+        }
+        Spacer(modifier = Modifier.height(7.5.dp))
+        Text(
+            text = title,
+            fontFamily = Nunito,
+            fontSize = 14.sp,
+            fontWeight = FontWeight.ExtraBold,
+            lineHeight = 21.sp,
+            color = PrimaryDark
+        )
+        Spacer(modifier = Modifier.height(2.dp))
+        Text(
+            text = subtitle,
+            fontFamily = Nunito,
+            fontSize = 12.sp,
+            fontWeight = FontWeight.SemiBold,
+            lineHeight = 18.sp,
+            color = MutedText
+        )
     }
 }
 
@@ -674,7 +788,7 @@ private fun AppUsageCard(appUsageToday: List<com.example.physi_lock.data.dao.App
             )
             Text(
                 text = "${appUsageToday.size} apps",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 color = PrimaryGreen
             )
@@ -766,7 +880,7 @@ private fun AppUsageRow(
             }
             Text(
                 text = "${formatMinutes(TimeUnit.MILLISECONDS.toMinutes(durationMs).toInt())} today",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 color = DeepOlive
             )
@@ -786,85 +900,5 @@ private fun AppUsageRow(
             )
         }
         Spacer(modifier = Modifier.height(10.dp))
-    }
-}
-
-/** Ported from the teammate's sprint-2-ui-navigation branch (`DashboardScreen.kt`'s `GoalsRow`/`GoalCard`).
- *  "Daily Reflection" was a non-clickable "Coming soon" placeholder until Module 5 shipped
- *  (2026-08-25, see `ui/reflection/ReflectionScreen.kt`) — now real and clickable, with a
- *  subtitle reflecting whether today's entry actually exists. */
-@Composable
-private fun GoalsRow(
-    todayMinutes: Int,
-    dailyLimitMinutes: Int,
-    onUsageGoalsClick: () -> Unit,
-    hasReflectedToday: Boolean,
-    onReflectionClick: () -> Unit
-) {
-    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(11.25.dp)) {
-        GoalCard(
-            modifier = Modifier.weight(1f),
-            iconBackground = PrimaryGreen.copy(alpha = 0.13f),
-            icon = Icons.Default.TrackChanges,
-            iconTint = PrimaryGreen,
-            title = "Usage Goals",
-            subtitle = "${formatMinutes(todayMinutes)} / ${formatMinutes(dailyLimitMinutes)} today",
-            onClick = onUsageGoalsClick
-        )
-        GoalCard(
-            modifier = Modifier.weight(1f),
-            iconBackground = AccentLavender.copy(alpha = 0.13f),
-            icon = Icons.AutoMirrored.Filled.MenuBook,
-            iconTint = AccentLavender,
-            title = "Daily Reflection",
-            subtitle = if (hasReflectedToday) "Answered today" else "Tap to reflect",
-            onClick = onReflectionClick
-        )
-    }
-}
-
-@Composable
-private fun GoalCard(
-    modifier: Modifier,
-    iconBackground: Color,
-    icon: ImageVector,
-    iconTint: Color,
-    title: String,
-    subtitle: String,
-    onClick: () -> Unit
-) {
-    Column(
-        modifier = modifier
-            .background(AuthTabsBackground, RoundedCornerShape(15.dp))
-            .border(0.79.dp, PrimaryDark.copy(alpha = 0.08f), RoundedCornerShape(15.dp))
-            .clickable(onClick = onClick)
-            .padding(15.dp)
-    ) {
-        Box(
-            modifier = Modifier
-                .size(34.dp)
-                .background(iconBackground, RoundedCornerShape(10.dp)),
-            contentAlignment = Alignment.Center
-        ) {
-            Icon(imageVector = icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(16.dp))
-        }
-        Spacer(modifier = Modifier.height(7.5.dp))
-        Text(
-            text = title,
-            fontFamily = Nunito,
-            fontSize = 14.sp,
-            fontWeight = FontWeight.ExtraBold,
-            lineHeight = 21.sp,
-            color = PrimaryDark
-        )
-        Spacer(modifier = Modifier.height(2.dp))
-        Text(
-            text = subtitle,
-            fontFamily = Nunito,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.SemiBold,
-            lineHeight = 18.sp,
-            color = MutedText
-        )
     }
 }

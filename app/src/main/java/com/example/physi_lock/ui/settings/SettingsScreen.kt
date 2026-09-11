@@ -30,6 +30,7 @@ import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.DeleteForever
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.LocalFireDepartment
 import androidx.compose.material.icons.filled.NotificationsActive
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Restore
@@ -58,7 +59,6 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -77,13 +77,15 @@ import com.example.physi_lock.ui.focus.FocusBlockedAppsScreen
 import com.example.physi_lock.ui.permissions.permissionSteps
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.CardCream
+import com.example.physi_lock.ui.theme.DmMono
+import com.example.physi_lock.ui.theme.Ember
 import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
 import com.example.physi_lock.ui.theme.SageAccent
 import com.example.physi_lock.ui.theme.SecondarySage
-import com.example.physi_lock.ui.theme.SoftSand
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -108,12 +110,12 @@ import kotlinx.coroutines.withContext
  * rather than left as dead taps) are additions beyond their row list. Whitelist Manager and
  * Permissions were made real 2026-08-29; Bedtime Mode, About, Sign Out confirmation, and
  * Delete Account's confirm UI (not its actual deletion — see the ConfirmSheet block below)
- * 2026-09-04. "Location Context" briefly became real 2026-08-25 (Module 7, see
- * ContextAlertsScreen.kt), was reverted to "Coming soon" per instruction (Context Alerts
- * wasn't a final design yet, user was going to bring their own API-based approach), then made
- * real again 2026-09-04 once that approach arrived: real GPS via a Leaflet.js map picker,
- * alongside the existing Wi-Fi-name matching — see ContextAlertsScreen.kt /
- * AppMonitorService.isNearWatchedLocation.
+ * 2026-09-04. "Location" (this row was briefly titled "Location Context") became real
+ * 2026-08-25 (Module 7), was reverted to "Coming soon" per instruction (not a final design
+ * yet, user was going to bring their own approach), then made real again 2026-09-04: real
+ * GPS via a Leaflet.js map picker. 2026-09-09: dropped the Wi-Fi-name matching that
+ * originally shipped alongside it and replaced the single generic watched location with two
+ * named anchors (School, Work) — see LocationScreen.kt / AppMonitorService.nearestWatchedLocationName.
  */
 private val userModes = listOf("WORK_MODE" to "Work", "STUDENT_MODE" to "Student")
 
@@ -213,12 +215,19 @@ fun SettingsScreen(
 
     if (showContextAlerts) {
         BackHandler { showContextAlerts = false }
-        ContextAlertsScreen(
+        LocationScreen(
             config = config,
             onToggleEnabled = { settingsViewModel.setContextAlertsEnabled(it) },
-            onSaveSsid = { settingsViewModel.setContextAlertWifiSsid(it) },
-            onSaveLocation = { lat, lng, radius -> settingsViewModel.setContextAlertLocation(lat, lng, radius) },
-            onClearLocation = { settingsViewModel.clearContextAlertLocation() },
+            onSaveSchoolLocation = { lat, lng, radius -> settingsViewModel.setSchoolLocation(lat, lng, radius) },
+            onClearSchoolLocation = { settingsViewModel.clearSchoolLocation() },
+            onSetSchoolTimeGateEnabled = { settingsViewModel.setSchoolLocationTimeGateEnabled(it) },
+            onSetSchoolTimeStart = { settingsViewModel.setSchoolLocationTimeStart(it) },
+            onSetSchoolTimeEnd = { settingsViewModel.setSchoolLocationTimeEnd(it) },
+            onSaveWorkLocation = { lat, lng, radius -> settingsViewModel.setWorkLocation(lat, lng, radius) },
+            onClearWorkLocation = { settingsViewModel.clearWorkLocation() },
+            onSetWorkTimeGateEnabled = { settingsViewModel.setWorkLocationTimeGateEnabled(it) },
+            onSetWorkTimeStart = { settingsViewModel.setWorkLocationTimeStart(it) },
+            onSetWorkTimeEnd = { settingsViewModel.setWorkLocationTimeEnd(it) },
             onBackClick = { showContextAlerts = false }
         )
         return
@@ -389,17 +398,17 @@ fun SettingsScreen(
                     icon = Icons.Default.Room,
                     iconBackground = Orchid.copy(alpha = 0.13f),
                     iconTint = Orchid,
-                    title = "Location Context",
+                    title = "Location",
                     subtitle = if (!config.contextAlertsEnabled) {
                         "Off"
                     } else {
-                        val hasWifi = !config.contextAlertWifiSsid.isNullOrBlank()
-                        val hasLocation = config.contextAlertLatitude != null
+                        val hasSchool = config.schoolLocationLatitude != null
+                        val hasWork = config.workLocationLatitude != null
                         when {
-                            hasWifi && hasLocation -> "On — watching a Wi-Fi network and a map location"
-                            hasWifi -> "On — watching \"${config.contextAlertWifiSsid}\" Wi-Fi"
-                            hasLocation -> "On — watching a pinned map location"
-                            else -> "On — set a Wi-Fi network or map location below"
+                            hasSchool && hasWork -> "On — watching School and Work locations"
+                            hasSchool -> "On — watching School location"
+                            hasWork -> "On — watching Work location"
+                            else -> "On — pin a School or Work location below"
                         }
                     },
                     trailing = SettingsTrailing.Toggle(config.contextAlertsEnabled) {
@@ -516,14 +525,14 @@ fun SettingsScreen(
 
         Spacer(modifier = Modifier.height(15.dp))
 
-        Text(
+        /*Text(
             text = "Physi-Lock · v${appVersionName(context)} · © 2026",
             modifier = Modifier.fillMaxWidth(),
             textAlign = TextAlign.Center,
-            fontFamily = FontFamily.Monospace,
+            fontFamily = DmMono,
             fontSize = 13.sp,
             color = SageAccent
-        )
+        )*/
     }
 
     if (showResetConfirm) {
@@ -817,13 +826,21 @@ private fun ProfileCard(currentAccount: Account?, streakDays: Int, onClick: () -
             )
             if (streakDays > 0) {
                 Spacer(modifier = Modifier.height(5.dp))
-                Text(
-                    text = "· $streakDays-day streak 🔥",
-                    fontFamily = Nunito,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    color = SecondarySage
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(
+                        text = "· $streakDays-day streak",
+                        fontFamily = Nunito,
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        color = SecondarySage
+                    )
+                    Icon(
+                        imageVector = Icons.Filled.LocalFireDepartment,
+                        contentDescription = null,
+                        tint = Ember,
+                        modifier = Modifier.size(14.dp)
+                    )
+                }
             }
         }
         Icon(
@@ -844,7 +861,7 @@ private fun UsageModeCard(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SoftSand, RoundedCornerShape(22.dp))
+            .background(CardCream, RoundedCornerShape(22.dp))
             .border(0.79.dp, DeepOlive.copy(alpha = 0.14f), RoundedCornerShape(22.dp))
             .padding(15.dp)
     ) {
@@ -946,7 +963,7 @@ private fun SettingsSectionCard(heading: String, rows: List<SettingsRow>) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SoftSand, RoundedCornerShape(22.dp))
+            .background(CardCream, RoundedCornerShape(22.dp))
             .border(0.79.dp, DeepOlive.copy(alpha = 0.14f), RoundedCornerShape(22.dp))
             .padding(horizontal = 15.dp)
     ) {
@@ -1038,17 +1055,20 @@ internal fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .background(SoftSand, RoundedCornerShape(22.dp))
+            .background(CardCream, RoundedCornerShape(22.dp))
             .border(0.79.dp, DeepOlive.copy(alpha = 0.14f), RoundedCornerShape(22.dp))
             .padding(15.dp),
         content = content
     )
 }
 
+// uncheckedTrackColor corrected 2026-09-11 to the real design system's --switch-background
+// token (#BAC892, solid SecondarySage) -- was a DeepOlive-alpha approximation instead of the
+// actual specified color.
 @Composable
 internal fun brandedSwitchColors() = SwitchDefaults.colors(
     checkedThumbColor = BackgroundLight,
     checkedTrackColor = DeepOlive,
     uncheckedThumbColor = BackgroundLight,
-    uncheckedTrackColor = DeepOlive.copy(alpha = 0.3f)
+    uncheckedTrackColor = SecondarySage
 )

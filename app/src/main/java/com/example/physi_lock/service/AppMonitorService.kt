@@ -23,7 +23,6 @@ import com.example.physi_lock.data.entity.MotionInterventionLog
 import com.example.physi_lock.data.entity.NotificationLog
 import com.example.physi_lock.data.db.PhysiLockDatabase
 import com.example.physi_lock.data.repository.UsageStatsRepository
-import com.example.physi_lock.data.context.currentWifiSsid
 import com.example.physi_lock.data.context.lastKnownLocation
 import com.example.physi_lock.ml.DoomscrollDetector
 import com.example.physi_lock.ml.DoomscrollInputs
@@ -155,10 +154,10 @@ class AppMonitorService : AccessibilityService() {
         // Focus Mode's block notification is appropriate -- no need to re-alert every
         // minute while the user stays connected to the same watched network.
         private const val CONTEXT_ALERT_NOTIFICATION_THROTTLE_MS = 5 * 60 * 1000L
-        // WifiManager reads are cheap (local, no IPC), but there's no reason to call it
-        // on every accessibility event either -- a cached value refreshed this often is
-        // fresh enough for a "which network am I on" check.
-        private const val WIFI_SSID_REFRESH_INTERVAL_MS = 30 * 1000L
+        // Last-known-location reads are cheap (local, no IPC), but there's no reason to
+        // call it on every accessibility event either -- a cached value refreshed this
+        // often is fresh enough for a "how far from a pinned anchor" check.
+        private const val CONTEXT_REFRESH_INTERVAL_MS = 30 * 1000L
 
         private const val SCHEDULE_BLOCK_CHANNEL_ID = "schedule_block_channel"
         private const val SCHEDULE_BLOCK_NOTIFICATION_ID = 1007
@@ -202,18 +201,25 @@ class AppMonitorService : AccessibilityService() {
     // as focusBlockedPackages above.
     @Volatile private var pomodoroPhase: String? = null
     @Volatile private var pomodoroBlockedPackages: Set<String> = emptySet()
-    // Module 7 (Context-Aware AI): Wi-Fi-network-matched Context Alerts. Not GPS
-    // geofencing -- real location-based locking is a Future Enhancement per the
-    // manuscript, out of MVP scope; this matches by Wi-Fi network name instead, which
-    // needs no new location SDK dependency. Reuses focusBlockedPackages (Admin-curated
-    // Social Media / Entertainment categories) as the same "distracting apps" set Focus
-    // Mode blocks -- alerting here is passive (a notification), not an enforced block.
+    // Location (Module 7, Context-Aware AI): real GPS-proximity Context Alerts against two
+    // named, independently pinned anchors (School, Work), each optionally gated to a preset
+    // time window. Reuses focusBlockedPackages (Admin-curated Social Media / Entertainment
+    // categories) as the same "distracting apps" set Focus Mode blocks -- alerting here is
+    // passive (a notification), not an enforced block. 2026-09-09: dropped the earlier
+    // Wi-Fi-network-name matching entirely per explicit user instruction.
     @Volatile private var contextAlertsEnabled: Boolean = false
-    @Volatile private var contextAlertWifiSsid: String? = null
-    @Volatile private var cachedWifiSsid: String? = null
-    @Volatile private var contextAlertLatitude: Double? = null
-    @Volatile private var contextAlertLongitude: Double? = null
-    @Volatile private var contextAlertRadiusMeters: Int = 100
+    @Volatile private var schoolLocationLatitude: Double? = null
+    @Volatile private var schoolLocationLongitude: Double? = null
+    @Volatile private var schoolLocationRadiusMeters: Int = 100
+    @Volatile private var schoolLocationTimeGateEnabled: Boolean = false
+    @Volatile private var schoolLocationTimeStartMinute: Int = 7 * 60
+    @Volatile private var schoolLocationTimeEndMinute: Int = 15 * 60
+    @Volatile private var workLocationLatitude: Double? = null
+    @Volatile private var workLocationLongitude: Double? = null
+    @Volatile private var workLocationRadiusMeters: Int = 100
+    @Volatile private var workLocationTimeGateEnabled: Boolean = false
+    @Volatile private var workLocationTimeStartMinute: Int = 9 * 60
+    @Volatile private var workLocationTimeEndMinute: Int = 17 * 60
     @Volatile private var cachedLocation: android.location.Location? = null
     private var lastContextAlertNotifyTime: Long = 0L
     // userMode drives both Work Mode's Work Hours window and (historically) Student
@@ -287,10 +293,18 @@ class AppMonitorService : AccessibilityService() {
                 doomscrollingDetectionEnabled = config?.doomscrollingDetectionEnabled ?: true
                 doomscrollingSensitivity = config?.doomscrollingSensitivity ?: "MODERATE"
                 contextAlertsEnabled = config?.contextAlertsEnabled ?: false
-                contextAlertWifiSsid = config?.contextAlertWifiSsid
-                contextAlertLatitude = config?.contextAlertLatitude
-                contextAlertLongitude = config?.contextAlertLongitude
-                contextAlertRadiusMeters = config?.contextAlertRadiusMeters ?: 100
+                schoolLocationLatitude = config?.schoolLocationLatitude
+                schoolLocationLongitude = config?.schoolLocationLongitude
+                schoolLocationRadiusMeters = config?.schoolLocationRadiusMeters ?: 100
+                schoolLocationTimeGateEnabled = config?.schoolLocationTimeGateEnabled ?: false
+                schoolLocationTimeStartMinute = config?.schoolLocationTimeStartMinute ?: (7 * 60)
+                schoolLocationTimeEndMinute = config?.schoolLocationTimeEndMinute ?: (15 * 60)
+                workLocationLatitude = config?.workLocationLatitude
+                workLocationLongitude = config?.workLocationLongitude
+                workLocationRadiusMeters = config?.workLocationRadiusMeters ?: 100
+                workLocationTimeGateEnabled = config?.workLocationTimeGateEnabled ?: false
+                workLocationTimeStartMinute = config?.workLocationTimeStartMinute ?: (9 * 60)
+                workLocationTimeEndMinute = config?.workLocationTimeEndMinute ?: (17 * 60)
                 userMode = config?.userMode ?: "STUDENT_MODE"
                 bedtimeModeEnabled = config?.bedtimeModeEnabled ?: true
                 bedtimeStartMinute = config?.bedtimeStartMinute ?: (23 * 60)
@@ -380,27 +394,23 @@ class AppMonitorService : AccessibilityService() {
 
         startRiskRefreshLoop()
         startExcessiveUsagePredictionLoop()
-        startWifiSsidRefreshLoop()
+        startLocationRefreshLoop()
     }
 
-    // Module 7 (Context-Aware AI): periodically caches the connected Wi-Fi SSID (see
-    // WifiSsidReader.kt) so the per-event Context Alert check below is a cheap in-memory
-    // comparison instead of hitting WifiManager on every accessibility event. Runs
+    // Location (Module 7, Context-Aware AI): periodically caches the last known GPS fix so
+    // the per-event Context Alert check below is a cheap in-memory distance comparison
+    // instead of requesting a fresh location on every accessibility event. Runs
     // unconditionally (the read itself is cheap, local, no IPC) rather than gating it on
     // contextAlertsEnabled, avoiding extra start/stop lifecycle complexity.
-    private fun startWifiSsidRefreshLoop() {
+    private fun startLocationRefreshLoop() {
         serviceScope.launch {
             while (true) {
                 try {
-                    cachedWifiSsid = currentWifiSsid(this@AppMonitorService)
-                    // Context Alert's GPS trigger (2026-09-04): same cadence/rationale as the
-                    // Wi-Fi read above -- a cheap periodic cache read backing the per-event
-                    // check below, not a live location request.
                     cachedLocation = lastKnownLocation(this@AppMonitorService)
                 } catch (e: Exception) {
                     e.printStackTrace()
                 }
-                delay(WIFI_SSID_REFRESH_INTERVAL_MS)
+                delay(CONTEXT_REFRESH_INTERVAL_MS)
             }
         }
     }
@@ -515,7 +525,7 @@ class AppMonitorService : AccessibilityService() {
             "Context Alerts",
             NotificationManager.IMPORTANCE_HIGH
         ).apply {
-            description = "Alerts when you open a distracting app on your watched Wi-Fi network"
+            description = "Alerts when you open a distracting app near a pinned School/Work location"
         }
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
     }
@@ -883,10 +893,11 @@ class AppMonitorService : AccessibilityService() {
                 putExtra(ModeLockActivity.EXTRA_MESSAGE, "Blocked while your focus session is running")
             }
             startActivity(intent)
-        } else if (contextAlertsEnabled && packageName in focusBlockedPackages &&
-            (isOnWatchedWifi() || isNearWatchedLocation())
-        ) {
-            handleContextAlert(packageName, currentTime)
+        } else if (contextAlertsEnabled && packageName in focusBlockedPackages) {
+            val watchedLocationName = nearestWatchedLocationName()
+            if (watchedLocationName != null) {
+                handleContextAlert(packageName, currentTime, watchedLocationName)
+            }
         }
     }
 
@@ -986,34 +997,58 @@ class AppMonitorService : AccessibilityService() {
         }
     }
 
+    // Location's per-anchor time gate (2026-09-09, real custom HH:MM start/finish per
+    // explicit user instruction, not a fixed preset): when an anchor's gate is off, being
+    // within radius is enough on its own -- matches the pre-existing always-on behavior.
+    // Same wrap-past-midnight shape as isWithinBedtimeWindow/isWithinWorkHours.
+    private fun isWithinMinuteWindow(startMinute: Int, endMinute: Int): Boolean {
+        val calendar = Calendar.getInstance()
+        val minuteOfDay = calendar.get(Calendar.HOUR_OF_DAY) * 60 + calendar.get(Calendar.MINUTE)
+        return if (startMinute <= endMinute) {
+            minuteOfDay >= startMinute && minuteOfDay < endMinute
+        } else {
+            minuteOfDay >= startMinute || minuteOfDay < endMinute
+        }
+    }
+
     // Context Alert (Module 7): unlike Focus Mode's block, this never redirects the user
-    // away -- it's a passive notification ("Receive Context Alerts"), matching a network
-    // the user has flagged as a context worth being mindful in (e.g. a study space), not
-    // an enforced restriction.
-    private fun isOnWatchedWifi(): Boolean {
-        val watched = contextAlertWifiSsid ?: return false
-        return cachedWifiSsid != null && cachedWifiSsid == watched
-    }
-
-    // Context Alert's GPS trigger (2026-09-04, see UserConfiguration.contextAlertLatitude
-    // kdoc): same passive-notification-only semantics as isOnWatchedWifi above, just a
-    // distance check instead of a name match.
-    private fun isNearWatchedLocation(): Boolean {
-        val lat = contextAlertLatitude ?: return false
-        val lng = contextAlertLongitude ?: return false
-        val here = cachedLocation ?: return false
+    // away -- it's a passive notification ("Receive Context Alerts"), matching a real spot
+    // the user has flagged as a context worth being mindful in (e.g. a study space), not an
+    // enforced restriction. Checks both named anchors and returns whichever one is currently
+    // in range (and, if its time gate is on, within its custom window) -- School first,
+    // since a School+Work radius overlap is an edge case, not a real conflict to resolve.
+    private fun nearestWatchedLocationName(): String? {
+        val here = cachedLocation ?: return null
         val results = FloatArray(1)
-        android.location.Location.distanceBetween(here.latitude, here.longitude, lat, lng, results)
-        return results[0] <= contextAlertRadiusMeters
+
+        val schoolLat = schoolLocationLatitude
+        val schoolLng = schoolLocationLongitude
+        if (schoolLat != null && schoolLng != null) {
+            android.location.Location.distanceBetween(here.latitude, here.longitude, schoolLat, schoolLng, results)
+            val withinRadius = results[0] <= schoolLocationRadiusMeters
+            val withinTime = !schoolLocationTimeGateEnabled || isWithinMinuteWindow(schoolLocationTimeStartMinute, schoolLocationTimeEndMinute)
+            if (withinRadius && withinTime) return "School"
+        }
+
+        val workLat = workLocationLatitude
+        val workLng = workLocationLongitude
+        if (workLat != null && workLng != null) {
+            android.location.Location.distanceBetween(here.latitude, here.longitude, workLat, workLng, results)
+            val withinRadius = results[0] <= workLocationRadiusMeters
+            val withinTime = !workLocationTimeGateEnabled || isWithinMinuteWindow(workLocationTimeStartMinute, workLocationTimeEndMinute)
+            if (withinRadius && withinTime) return "Work"
+        }
+
+        return null
     }
 
-    private fun handleContextAlert(packageName: String, currentTime: Long) {
+    private fun handleContextAlert(packageName: String, currentTime: Long, locationName: String) {
         if (currentTime - lastContextAlertNotifyTime < CONTEXT_ALERT_NOTIFICATION_THROTTLE_MS) return
         lastContextAlertNotifyTime = currentTime
-        postContextAlertNotification(packageName)
+        postContextAlertNotification(packageName, locationName)
     }
 
-    private fun postContextAlertNotification(packageName: String) {
+    private fun postContextAlertNotification(packageName: String, locationName: String) {
         if (ActivityCompat.checkSelfPermission(
                 this, Manifest.permission.POST_NOTIFICATIONS
             ) != PackageManager.PERMISSION_GRANTED
@@ -1022,7 +1057,6 @@ class AppMonitorService : AccessibilityService() {
         }
 
         val appName = getAppName(packageName)
-        val ssid = contextAlertWifiSsid ?: return
         val contentIntent = PendingIntent.getActivity(
             this, 0,
             Intent(this, MainActivity::class.java).apply {
@@ -1034,7 +1068,7 @@ class AppMonitorService : AccessibilityService() {
         val notification = NotificationCompat.Builder(this, CONTEXT_ALERT_CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher_round)
             .setContentTitle("Context Alert")
-            .setContentText("You opened $appName while connected to $ssid")
+            .setContentText("You opened $appName near your $locationName location")
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setContentIntent(contentIntent)
             .setAutoCancel(true)
@@ -1044,7 +1078,7 @@ class AppMonitorService : AccessibilityService() {
         logNotification(
             type = "CONTEXT_ALERT",
             title = "Context Alert",
-            description = "You opened $appName while connected to $ssid"
+            description = "You opened $appName near your $locationName location"
         )
     }
 

@@ -1,6 +1,8 @@
 package com.example.physi_lock.ui.lock
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,18 +22,18 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.physi_lock.ui.components.AppIconAvatar
-import com.example.physi_lock.ui.theme.BackgroundLight
-import com.example.physi_lock.ui.theme.CardCream
 import com.example.physi_lock.ui.theme.DeepOlive
-import com.example.physi_lock.ui.theme.MutedText
+import com.example.physi_lock.ui.theme.MidnightForest
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
+import com.example.physi_lock.ui.theme.SecondarySage
 
 private fun formatMinuteOfDay(minuteOfDay: Int): String {
     val hour = minuteOfDay / 60
@@ -44,12 +46,15 @@ private fun formatMinuteOfDay(minuteOfDay: Int): String {
     return "%d:%02d %s".format(displayHour, minute, if (hour < 12) "AM" else "PM")
 }
 
-/** Real content for [BedtimeLockActivity] -- same app-theme tokens (BackgroundLight,
- *  DeepOlive, SageAccent, CardCream, Nunito) as BedtimeModeScreen and the rest of
- *  Settings/Home/Reports, not a one-off dark screen. No challenge to complete: Bedtime is a
- *  hard block by design, so [onGoHome] is the only action -- finishes the activity, and
- *  because BedtimeLockActivity launches with NEW_TASK|CLEAR_TASK (same as LockActivity),
- *  the OS shows the home launcher next. */
+/** Real content for [BedtimeLockActivity] -- Figma's "Lock Screens" export specifies a dark
+ *  full-screen background (#0F1A09 "Midnight Forest") for Bedtime's violation overlay
+ *  specifically, with a translucent DeepOlive-tinted info box (rgba(61,73,40,0.30) bg,
+ *  rgba(156,176,109,0.20) SageAccent border) -- distinct from the plain App-Lock challenge
+ *  screen's light theme and from Focus/Deep Work's DeepForest overlay (2026-09-10 re-theme,
+ *  was previously built light by mistake). No challenge to complete: Bedtime is a hard block
+ *  by design, so [onGoHome] is the only action -- finishes the activity, and because
+ *  BedtimeLockActivity launches with NEW_TASK|CLEAR_TASK (same as LockActivity), the OS shows
+ *  the home launcher next. */
 @Composable
 fun BedtimeLockScreen(packageName: String, bedtimeEndMinute: Int, onGoHome: () -> Unit) {
     val context = LocalContext.current
@@ -63,7 +68,7 @@ fun BedtimeLockScreen(packageName: String, bedtimeEndMinute: Int, onGoHome: () -
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(BackgroundLight)
+            .background(MidnightForest)
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.Center
@@ -71,13 +76,13 @@ fun BedtimeLockScreen(packageName: String, bedtimeEndMinute: Int, onGoHome: () -
         Box(
             modifier = Modifier
                 .size(72.dp)
-                .background(CardCream, RoundedCornerShape(36.dp)),
+                .background(DeepOlive.copy(alpha = 0.30f), RoundedCornerShape(36.dp)),
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Filled.Bedtime,
                 contentDescription = null,
-                tint = DeepOlive,
+                tint = SecondarySage,
                 modifier = Modifier.size(32.dp)
             )
         }
@@ -89,7 +94,7 @@ fun BedtimeLockScreen(packageName: String, bedtimeEndMinute: Int, onGoHome: () -
             fontFamily = Nunito,
             fontSize = 20.sp,
             fontWeight = FontWeight.ExtraBold,
-            color = DeepOlive,
+            color = Color.White,
             textAlign = TextAlign.Center
         )
 
@@ -98,15 +103,16 @@ fun BedtimeLockScreen(packageName: String, bedtimeEndMinute: Int, onGoHome: () -
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(CardCream, RoundedCornerShape(16.dp))
+                .background(DeepOlive.copy(alpha = 0.30f), RoundedCornerShape(16.dp))
+                .border(BorderStroke(1.dp, SageAccent.copy(alpha = 0.20f)), RoundedCornerShape(16.dp))
                 .padding(15.dp)
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 AppIconAvatar(
                     packageName = packageName,
                     appName = appName,
-                    backgroundColor = BackgroundLight,
-                    contentColor = DeepOlive,
+                    backgroundColor = MidnightForest,
+                    contentColor = SecondarySage,
                     size = 44.dp
                 )
                 Spacer(modifier = Modifier.height(8.dp))
@@ -115,14 +121,14 @@ fun BedtimeLockScreen(packageName: String, bedtimeEndMinute: Int, onGoHome: () -
                     fontFamily = Nunito,
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Bold,
-                    color = DeepOlive
+                    color = Color.White
                 )
                 Spacer(modifier = Modifier.height(2.dp))
                 Text(
                     text = "Locked until ${formatMinuteOfDay(bedtimeEndMinute)}",
                     fontFamily = Nunito,
                     fontSize = 13.sp,
-                    color = SageAccent
+                    color = SecondarySage
                 )
             }
         }
@@ -133,7 +139,7 @@ fun BedtimeLockScreen(packageName: String, bedtimeEndMinute: Int, onGoHome: () -
             text = "Apps are locked during Bedtime Mode. Only whitelisted apps (see Whitelist Manager) remain accessible.",
             fontFamily = Nunito,
             fontSize = 12.sp,
-            color = MutedText,
+            color = SecondarySage.copy(alpha = 0.8f),
             lineHeight = 18.sp,
             textAlign = TextAlign.Center
         )
@@ -143,7 +149,8 @@ fun BedtimeLockScreen(packageName: String, bedtimeEndMinute: Int, onGoHome: () -
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .background(DeepOlive, RoundedCornerShape(15.dp))
+                .background(Color.White.copy(alpha = 0.06f), RoundedCornerShape(15.dp))
+                .border(BorderStroke(1.dp, Color.White.copy(alpha = 0.10f)), RoundedCornerShape(15.dp))
                 .clickable(onClick = onGoHome)
                 .padding(vertical = 14.dp),
             contentAlignment = Alignment.Center
@@ -153,7 +160,7 @@ fun BedtimeLockScreen(packageName: String, bedtimeEndMinute: Int, onGoHome: () -
                 fontFamily = Nunito,
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Bold,
-                color = BackgroundLight
+                color = SecondarySage
             )
         }
     }

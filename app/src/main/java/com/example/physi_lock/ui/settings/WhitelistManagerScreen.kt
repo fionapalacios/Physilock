@@ -31,7 +31,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -40,6 +39,7 @@ import com.example.physi_lock.ui.components.AppIconAvatar
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.CardCream
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.ErrorRed
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
@@ -244,7 +244,7 @@ fun WhitelistManagerScreen(
 private fun SectionLabel(text: String) {
     Text(
         text = text,
-        fontFamily = FontFamily.Monospace,
+        fontFamily = DmMono,
         fontSize = 12.sp,
         fontWeight = FontWeight.Medium,
         color = SageAccent,

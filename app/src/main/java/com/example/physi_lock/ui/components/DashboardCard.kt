@@ -23,10 +23,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.example.physi_lock.ui.theme.CardCream
 import com.example.physi_lock.ui.theme.DeepOlive
 
 /** Ported from the teammate's sprint-2-ui-navigation branch, unchanged aside from theme tokens. */
-private val CoreModuleCardBackground = Color(0xFFF5F3EB)
+private val CoreModuleCardBackground = CardCream
 
 @Composable
 fun DashboardCard(

@@ -70,7 +70,7 @@ import com.example.physi_lock.data.entity.UserConfiguration
         PomodoroSession::class,
         PomodoroBlockedApp::class
     ],
-    version = 27,
+    version = 30,
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {

@@ -81,14 +81,35 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     fun setWellnessNudgesEnabled(enabled: Boolean) =
         update { it.copy(wellnessNudgesEnabled = enabled) }
 
-    fun setContextAlertWifiSsid(ssid: String?) =
-        update { it.copy(contextAlertWifiSsid = ssid?.takeIf { s -> s.isNotBlank() }) }
+    fun setSchoolLocation(latitude: Double, longitude: Double, radiusMeters: Int) =
+        update { it.copy(schoolLocationLatitude = latitude, schoolLocationLongitude = longitude, schoolLocationRadiusMeters = radiusMeters) }
 
-    fun setContextAlertLocation(latitude: Double, longitude: Double, radiusMeters: Int) =
-        update { it.copy(contextAlertLatitude = latitude, contextAlertLongitude = longitude, contextAlertRadiusMeters = radiusMeters) }
+    fun clearSchoolLocation() =
+        update { it.copy(schoolLocationLatitude = null, schoolLocationLongitude = null) }
 
-    fun clearContextAlertLocation() =
-        update { it.copy(contextAlertLatitude = null, contextAlertLongitude = null) }
+    fun setSchoolLocationTimeGateEnabled(enabled: Boolean) =
+        update { it.copy(schoolLocationTimeGateEnabled = enabled) }
+
+    fun setSchoolLocationTimeStart(minuteOfDay: Int) =
+        update { it.copy(schoolLocationTimeStartMinute = minuteOfDay) }
+
+    fun setSchoolLocationTimeEnd(minuteOfDay: Int) =
+        update { it.copy(schoolLocationTimeEndMinute = minuteOfDay) }
+
+    fun setWorkLocation(latitude: Double, longitude: Double, radiusMeters: Int) =
+        update { it.copy(workLocationLatitude = latitude, workLocationLongitude = longitude, workLocationRadiusMeters = radiusMeters) }
+
+    fun clearWorkLocation() =
+        update { it.copy(workLocationLatitude = null, workLocationLongitude = null) }
+
+    fun setWorkLocationTimeGateEnabled(enabled: Boolean) =
+        update { it.copy(workLocationTimeGateEnabled = enabled) }
+
+    fun setWorkLocationTimeStart(minuteOfDay: Int) =
+        update { it.copy(workLocationTimeStartMinute = minuteOfDay) }
+
+    fun setWorkLocationTimeEnd(minuteOfDay: Int) =
+        update { it.copy(workLocationTimeEndMinute = minuteOfDay) }
 
     fun setBedtimeStartMinute(minuteOfDay: Int) =
         update { it.copy(bedtimeStartMinute = minuteOfDay) }

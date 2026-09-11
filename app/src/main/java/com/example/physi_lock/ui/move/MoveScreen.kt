@@ -21,12 +21,18 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
-import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.LocalFireDepartment
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
@@ -42,7 +48,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -54,9 +59,10 @@ import com.example.physi_lock.sensor.isActivityRecognitionGranted
 import com.example.physi_lock.ui.challenge.ChallengeActiveScreen
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
+import com.example.physi_lock.ui.theme.Ember
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.SageAccent
-import com.example.physi_lock.ui.theme.SoftSand
 
 /**
  * Visual design ported from the teammate's sprint-2-ui-navigation branch
@@ -65,7 +71,7 @@ import com.example.physi_lock.ui.theme.SoftSand
  * data (totalXp, streakDays, lockedApps, completedToday) and the real
  * ACTIVITY_RECOGNITION permission + app-picker flow underneath the new visuals.
  */
-private val MoveStreakOrange = androidx.compose.ui.graphics.Color(0xFFE8854A)
+private val MoveStreakOrange = Ember // Figma "Streak flame SVG fill/stroke" -- exact hex match
 
 private data class ChallengeCardSpec(
     val title: String,
@@ -87,18 +93,48 @@ private fun cardSpecFor(type: ChallengeType): ChallengeCardSpec = when (type) {
         icon = Icons.AutoMirrored.Filled.DirectionsWalk,
         accentColor = SageAccent
     )
-    ChallengeType.ROTATIONAL_ARM -> ChallengeCardSpec(
-        title = "Rotational Arm Movements",
-        description = "Rotate your arm through the full motion",
-        icon = Icons.Default.Bolt,
+    ChallengeType.ARM_SWING_FRONT_BACK -> ChallengeCardSpec(
+        title = "Front-to-Back Swing",
+        description = "Swing your arm forward and back like a pendulum",
+        icon = Icons.AutoMirrored.Filled.CompareArrows,
         accentColor = DeepOlive
+    )
+    ChallengeType.ARM_FULL_ROTATION -> ChallengeCardSpec(
+        title = "Full Arm Rotation",
+        description = "Rotate your whole arm in a full circle, like a windmill",
+        icon = Icons.Default.Autorenew,
+        accentColor = com.example.physi_lock.ui.theme.Orchid
+    )
+    ChallengeType.ARM_SIDE_RAISE -> ChallengeCardSpec(
+        title = "Side Arm Raise",
+        description = "Raise your arm out to the side to shoulder height, then lower",
+        icon = Icons.AutoMirrored.Filled.TrendingUp,
+        accentColor = com.example.physi_lock.ui.theme.MutedText
+    )
+    ChallengeType.ARM_BICEP_CURL -> ChallengeCardSpec(
+        title = "Bicep Curl",
+        description = "Bend your elbow and curl your forearm up and down, like lifting a dumbbell",
+        icon = Icons.Default.FitnessCenter,
+        accentColor = SageAccent
+    )
+    ChallengeType.ARM_SWAY -> ChallengeCardSpec(
+        title = "Arm Sway",
+        description = "Sway your arm gently side to side",
+        icon = Icons.Default.Waves,
+        accentColor = DeepOlive
+    )
+    ChallengeType.ARM_STRETCH -> ChallengeCardSpec(
+        title = "Arm Stretch",
+        description = "Stretch your arm out, hold, then release",
+        icon = Icons.Default.SelfImprovement,
+        accentColor = SageAccent
     )
 }
 
 private fun targetLabel(type: ChallengeType, sensitivity: ChallengeSensitivity): String = when (type) {
     ChallengeType.RUN_JOG -> "${sensitivity.jogDurationMs / 60_000}m"
     ChallengeType.WALK -> "${sensitivity.walkStepsRequired} steps"
-    ChallengeType.ROTATIONAL_ARM -> "${sensitivity.armRepsRequired} reps"
+    else -> "${sensitivity.armRepsRequired} reps" // all 6 ChallengeType.ARM_VARIANTS
 }
 
 @Composable
@@ -167,19 +203,11 @@ fun MoveScreen(moveViewModel: MoveViewModel = viewModel()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(SoftSand)
+            .background(BackgroundLight)
             .verticalScroll(rememberScrollState())
             .padding(horizontal = 15.dp)
             .padding(top = 12.dp, bottom = 24.dp)
     ) {
-        Text(
-            text = "MOTION LOCK",
-            fontFamily = FontFamily.Monospace,
-            fontSize = 13.sp,
-            fontWeight = FontWeight.Medium,
-            lineHeight = 19.5.sp,
-            color = SageAccent
-        )
         Text(
             text = "Move to Unlock",
             fontFamily = Nunito,
@@ -230,7 +258,7 @@ fun MoveScreen(moveViewModel: MoveViewModel = viewModel()) {
         } else {
             Text(
                 text = "TODAY'S CHALLENGES",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 19.5.sp,
@@ -338,7 +366,7 @@ private fun XpStreakCard(totalXp: Int, streakDays: Int) {
             Column {
                 Text(
                     text = "TOTAL XP EARNED",
-                    fontFamily = FontFamily.Monospace,
+                    fontFamily = DmMono,
                     fontSize = 12.sp,
                     lineHeight = 18.sp,
                     color = SageAccent
@@ -422,7 +450,7 @@ private fun XpStreakCard(totalXp: Int, streakDays: Int) {
                     }
                     Text(
                         text = label,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = DmMono,
                         fontSize = 12.sp,
                         lineHeight = 18.sp,
                         color = if (isActive) SageAccent else SageAccent.copy(alpha = 0.40f)
@@ -450,7 +478,7 @@ private fun ScreenCreditCard(creditMinutes: Int, hasLockedApps: Boolean, onRedee
         Column {
             Text(
                 text = "SCREEN CREDIT",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 lineHeight = 18.sp,
                 color = SageAccent
@@ -539,7 +567,7 @@ private fun ChallengeCard(
                     ) {
                         Text(
                             text = "+${type.xpReward} XP",
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = DmMono,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             lineHeight = 18.sp,
@@ -553,7 +581,7 @@ private fun ChallengeCard(
                     ) {
                         Text(
                             text = targetLabel(type, sensitivity),
-                            fontFamily = FontFamily.Monospace,
+                            fontFamily = DmMono,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium,
                             lineHeight = 18.sp,
@@ -570,14 +598,22 @@ private fun ChallengeCard(
                     color = DeepOlive
                 )
                 Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = "🎁 Unlocks the app you pick for 20 min",
-                    fontFamily = Nunito,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    lineHeight = 18.sp,
-                    color = spec.accentColor
-                )
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Icon(
+                        imageVector = Icons.Filled.CardGiftcard,
+                        contentDescription = null,
+                        tint = spec.accentColor,
+                        modifier = Modifier.size(12.dp)
+                    )
+                    Text(
+                        text = "Unlocks the app you pick for 20 min",
+                        fontFamily = Nunito,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        lineHeight = 18.sp,
+                        color = spec.accentColor
+                    )
+                }
             }
         }
 

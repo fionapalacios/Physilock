@@ -1,5 +1,6 @@
 package com.example.physi_lock.data.repository
 
+import android.app.usage.UsageEvents
 import android.app.usage.UsageStatsManager
 import android.content.Context
 import android.content.Intent
@@ -35,17 +36,47 @@ class UsageStatsRepository(private val context: Context) {
         return getUsageForRange(cal.timeInMillis, System.currentTimeMillis())
     }
 
-    /** [startMillis]/[endMillis] should bound a single day — UsageStatsManager's
-     *  multi-day aggregation behavior isn't reliable enough to trust across a wider
-     *  range, so callers wanting a multi-day total should call this once per day
-     *  and sum the results themselves (see ReportsViewModel). */
+    /** [startMillis]/[endMillis] should bound a single day — reconstructed from raw
+     *  [UsageEvents] (MOVE_TO_FOREGROUND/MOVE_TO_BACKGROUND pairs) rather than
+     *  `queryUsageStats(INTERVAL_DAILY, ...)`'s pre-aggregated OS buckets, which lag
+     *  until the OS flushes them and don't strictly bound to the requested range —
+     *  the root cause of screen-time totals not matching Digital Wellbeing/Settings
+     *  (2026-09-10). Callers wanting a multi-day total should still call this once
+     *  per day and sum the results themselves (see ReportsViewModel). */
     fun getUsageForRange(startMillis: Long, endMillis: Long): List<AppUsageSummary> {
-        val stats = usageStatsManager.queryUsageStats(
-            UsageStatsManager.INTERVAL_DAILY, startMillis, endMillis
-        )
-        return stats
-            .filter { it.totalTimeInForeground > 0 && it.packageName != launcherPackageName }
-            .map { AppUsageSummary(it.packageName, it.totalTimeInForeground) }
+        val events = usageStatsManager.queryEvents(startMillis, endMillis)
+        val event = UsageEvents.Event()
+        val foregroundSince = mutableMapOf<String, Long>()
+        val totals = mutableMapOf<String, Long>()
+
+        while (events.hasNextEvent()) {
+            events.getNextEvent(event)
+            when (event.eventType) {
+                UsageEvents.Event.MOVE_TO_FOREGROUND -> {
+                    foregroundSince[event.packageName] = event.timeStamp
+                }
+                UsageEvents.Event.MOVE_TO_BACKGROUND -> {
+                    val since = foregroundSince.remove(event.packageName)
+                    if (since != null) {
+                        val duration = (event.timeStamp - since).coerceAtLeast(0)
+                        totals[event.packageName] = (totals[event.packageName] ?: 0) + duration
+                    }
+                }
+            }
+        }
+
+        // Any package still foreground when the range ends (e.g. "today" queried
+        // mid-session) gets credited up to now, not silently dropped.
+        val rangeEnd = minOf(endMillis, System.currentTimeMillis())
+        foregroundSince.forEach { (packageName, since) ->
+            val duration = (rangeEnd - since).coerceAtLeast(0)
+            totals[packageName] = (totals[packageName] ?: 0) + duration
+        }
+
+        return totals
+            .filterKeys { it != launcherPackageName }
+            .filterValues { it > 0 }
+            .map { (packageName, totalTimeMs) -> AppUsageSummary(packageName, totalTimeMs) }
             .sortedByDescending { it.totalTimeMs }
     }
 

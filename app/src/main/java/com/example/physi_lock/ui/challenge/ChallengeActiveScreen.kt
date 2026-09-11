@@ -16,10 +16,16 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.CompareArrows
 import androidx.compose.material.icons.automirrored.filled.DirectionsRun
 import androidx.compose.material.icons.automirrored.filled.DirectionsWalk
-import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.automirrored.filled.TrendingUp
+import androidx.compose.material.icons.filled.Autorenew
+import androidx.compose.material.icons.filled.CardGiftcard
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.FitnessCenter
+import androidx.compose.material.icons.filled.SelfImprovement
+import androidx.compose.material.icons.filled.Waves
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -32,7 +38,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,10 +48,11 @@ import com.example.physi_lock.sensor.ChallengeType
 import com.example.physi_lock.ui.components.CircularProgressRing
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.Nunito
 import com.example.physi_lock.ui.theme.Orchid
+import com.example.physi_lock.ui.theme.CardCream
 import com.example.physi_lock.ui.theme.SageAccent
-import com.example.physi_lock.ui.theme.SoftSand
 import com.example.physi_lock.ui.theme.TertiaryTan
 
 /**
@@ -82,12 +88,47 @@ private fun visualFor(type: ChallengeType): ChallengeVisual = when (type) {
         accentColor = SageAccent,
         quote = "One step at a time — that's all it takes."
     )
-    ChallengeType.ROTATIONAL_ARM -> ChallengeVisual(
-        title = "Rotational Arm Movements",
-        description = "Rotate your arm through the full motion — detected via accelerometer and gyroscope.",
-        icon = Icons.Default.Bolt,
+    ChallengeType.ARM_SWING_FRONT_BACK -> ChallengeVisual(
+        title = "Front-to-Back Swing",
+        description = "Swing your arm forward and back like a pendulum — detected via accelerometer and gyroscope.",
+        icon = Icons.AutoMirrored.Filled.CompareArrows,
         accentColor = DeepOlive,
-        quote = "Motion is the medicine. Keep moving."
+        quote = "Let the motion carry you — back and forth, steady and sure."
+    )
+    ChallengeType.ARM_FULL_ROTATION -> ChallengeVisual(
+        title = "Full Arm Rotation",
+        description = "Rotate your whole arm in a full circle, like a windmill.",
+        icon = Icons.Default.Autorenew,
+        accentColor = Orchid,
+        quote = "Full circle, full reset."
+    )
+    ChallengeType.ARM_SIDE_RAISE -> ChallengeVisual(
+        title = "Side Arm Raise",
+        description = "Raise your arm out to the side to shoulder height, then lower it.",
+        icon = Icons.AutoMirrored.Filled.TrendingUp,
+        accentColor = com.example.physi_lock.ui.theme.MutedText,
+        quote = "Lift, hold, lower — feel it work."
+    )
+    ChallengeType.ARM_BICEP_CURL -> ChallengeVisual(
+        title = "Bicep Curl",
+        description = "Bend your elbow and curl your forearm up and down, like lifting a dumbbell.",
+        icon = Icons.Default.FitnessCenter,
+        accentColor = SageAccent,
+        quote = "Strength is built one curl at a time."
+    )
+    ChallengeType.ARM_SWAY -> ChallengeVisual(
+        title = "Arm Sway",
+        description = "Sway your arm gently side to side — a real motion, just a gentler one.",
+        icon = Icons.Default.Waves,
+        accentColor = DeepOlive,
+        quote = "Gentle motion still counts as motion."
+    )
+    ChallengeType.ARM_STRETCH -> ChallengeVisual(
+        title = "Arm Stretch",
+        description = "Stretch your arm out, hold, then release — repeat.",
+        icon = Icons.Default.SelfImprovement,
+        accentColor = SageAccent,
+        quote = "Stretch it out. Your body will thank you."
     )
 }
 
@@ -125,7 +166,7 @@ fun ChallengeActiveScreen(
             )
             Text(
                 text = "CHALLENGE ACTIVE",
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 13.sp,
                 fontWeight = FontWeight.Medium,
                 lineHeight = 19.5.sp,
@@ -236,7 +277,7 @@ fun ChallengeActiveScreen(
             Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(SoftSand, RoundedCornerShape(15.dp))
+                    .background(CardCream, RoundedCornerShape(15.dp))
                     .border(1.06.dp, DeepOlive.copy(alpha = 0.08f), RoundedCornerShape(15.dp))
                     .padding(horizontal = 18.75.dp, vertical = 15.dp)
             ) {
@@ -264,7 +305,12 @@ fun ChallengeActiveScreen(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(7.5.dp)
             ) {
-                Text(text = "🎁", fontSize = 14.sp)
+                Icon(
+                    imageVector = Icons.Filled.CardGiftcard,
+                    contentDescription = null,
+                    tint = visual.accentColor,
+                    modifier = Modifier.size(14.dp)
+                )
                 Text(
                     text = "Unlocks $appName for 20 min",
                     fontFamily = Nunito,
@@ -292,7 +338,7 @@ fun ChallengeActiveScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Claim +${challengeType.xpReward} XP 🎉",
+                        text = "Claim +${challengeType.xpReward} XP",
                         textAlign = TextAlign.Center,
                         fontFamily = Nunito,
                         fontSize = 15.sp,

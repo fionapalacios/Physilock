@@ -16,7 +16,7 @@ import androidx.compose.ui.Modifier
 // everywhere at once, matching the same colors the custom-styled Admin components already use.
 private val LightColorScheme = lightColorScheme(
     primary = DeepOlive,
-    onPrimary = SurfaceLight,
+    onPrimary = BackgroundLight,
     primaryContainer = CardCream,
     onPrimaryContainer = DeepOlive,
     secondary = SageAccent,
@@ -31,9 +31,9 @@ private val LightColorScheme = lightColorScheme(
     onError = BackgroundLight,
     errorContainer = SignOutBackground,
     onErrorContainer = ErrorRed,
-    background = SurfaceLight,
+    background = BackgroundLight,
     onBackground = OnSurfaceLight,
-    surface = SurfaceLight,
+    surface = BackgroundLight,
     onSurface = OnSurfaceLight,
     surfaceVariant = TertiaryTan,
     onSurfaceVariant = MutedText,

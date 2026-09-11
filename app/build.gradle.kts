@@ -89,6 +89,13 @@ dependencies {
     // Core & Lifecycle
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
+
+    // WebViewAssetLoader (Location screen's Leaflet map): serves bundled assets over a
+    // real https:// origin instead of file:///android_asset/, which Chromium's WebView
+    // treats as a unique/opaque per-load origin and blocks on reload ("Unsafe attempt to
+    // load URL ... 'file:' URLs are treated as unique security origins" -- confirmed via
+    // chrome://inspect on-device 2026-09-10). See LocationMapPicker.kt.
+    implementation("androidx.webkit:webkit:1.12.1")
     
     // Testing
     testImplementation(libs.junit)

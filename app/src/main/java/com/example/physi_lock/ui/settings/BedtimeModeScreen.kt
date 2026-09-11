@@ -32,7 +32,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -40,6 +39,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.physi_lock.ui.theme.BackgroundLight
 import com.example.physi_lock.ui.theme.CardCream
+import com.example.physi_lock.ui.theme.DmMono
 import com.example.physi_lock.ui.theme.DeepOlive
 import com.example.physi_lock.ui.theme.MutedText
 import com.example.physi_lock.ui.theme.Nunito
@@ -60,8 +60,8 @@ private fun hourLabel(hour: Int): String {
  *  separate "Enable Bedtime Mode" toggle was dropped at first (this was active purely by
  *  falling inside the configured window, nothing else to switch on/off), then added back
  *  for real 2026-09-07 to match every other Settings row's toggle-plus-tap-to-customize
- *  pattern (Context Alerts, Wellness Nudges) -- same `SettingsCard` + `Switch` layout
- *  ContextAlertsScreen uses, config UI hidden while disabled. Hour-only granularity
+ *  pattern (Location, Wellness Nudges) -- same `SettingsCard` + `Switch` layout
+ *  LocationScreen uses, config UI hidden while disabled. Hour-only granularity
  *  (DropdownMenu, matching ScheduleBlockSection's old picker) rather than the mockup's
  *  native minute-precision time input, for consistency with the rest of the app's time
  *  pickers. The whitelist-based hard-block mechanism itself is unchanged for now -- a
@@ -199,7 +199,7 @@ private fun HourField(label: String, hour: Int, onSelect: (Int) -> Unit) {
         Column {
             Text(
                 text = label,
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 color = SageAccent
@@ -207,7 +207,7 @@ private fun HourField(label: String, hour: Int, onSelect: (Int) -> Unit) {
             Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = hourLabel(hour),
-                fontFamily = FontFamily.Monospace,
+                fontFamily = DmMono,
                 fontSize = 22.sp,
                 fontWeight = FontWeight.ExtraBold,
                 color = DeepOlive

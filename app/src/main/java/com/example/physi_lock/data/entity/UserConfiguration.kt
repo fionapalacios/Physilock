@@ -21,19 +21,29 @@ data class UserConfiguration(
     val breakReminderIntervalMs: Long = 30 * 60 * 1000, // 30 minutes default
     val overuseAlertsEnabled: Boolean = true,
     val weeklyScreenTimeGoalMs: Long = 35 * 3_600_000L, // 35 hours default (Usage Goals screen)
-    // Module 7 (Context-Aware AI): a "Context Alert" -- a passive notification when a
-    // distracting app opens somewhere the user flagged, either by Wi-Fi network name or
-    // (2026-09-04, user's own explicit ask, going beyond the manuscript's stated MVP scope
-    // which lists real location-based locking as a Future Enhancement) by real GPS
-    // proximity via a Leaflet.js map picker -- see ContextAlertsScreen.kt /
-    // AppMonitorService.isNearWatchedLocation. Either/both trigger signals can be set;
-    // contextAlertWifiSsid/contextAlertLatitude+Longitude null means that one isn't
-    // configured, independent of whether the other is.
+    // Location (Module 7, Context-Aware AI): a passive notification when a distracting app
+    // opens near a pinned real-world spot, via a Leaflet.js map picker (2026-09-04, user's
+    // own explicit ask, going beyond the manuscript's stated MVP scope which lists
+    // location-based locking as a Future Enhancement). 2026-09-09 redesign dropped the old
+    // single-generic-location + Wi-Fi-SSID shape for two named, independently pinned
+    // anchors -- School and Work -- each optionally time-gated to a real custom HH:MM
+    // start/finish window (not a fixed preset, per explicit user instruction) so the alert
+    // only fires during, say, actual class or work hours rather than any time you're
+    // physically there. Null lat/lng means that anchor isn't pinned yet. See
+    // LocationScreen.kt / AppMonitorService.nearestWatchedLocationName.
     val contextAlertsEnabled: Boolean = false,
-    val contextAlertWifiSsid: String? = null,
-    val contextAlertLatitude: Double? = null,
-    val contextAlertLongitude: Double? = null,
-    val contextAlertRadiusMeters: Int = 100,
+    val schoolLocationLatitude: Double? = null,
+    val schoolLocationLongitude: Double? = null,
+    val schoolLocationRadiusMeters: Int = 100,
+    val schoolLocationTimeGateEnabled: Boolean = false,
+    val schoolLocationTimeStartMinute: Int = 7 * 60,
+    val schoolLocationTimeEndMinute: Int = 15 * 60,
+    val workLocationLatitude: Double? = null,
+    val workLocationLongitude: Double? = null,
+    val workLocationRadiusMeters: Int = 100,
+    val workLocationTimeGateEnabled: Boolean = false,
+    val workLocationTimeStartMinute: Int = 9 * 60,
+    val workLocationTimeEndMinute: Int = 17 * 60,
     // Bedtime Mode (2026-09-04): a daily recurring window, minutes-since-midnight, during
     // which every app not on the (shared, see AllowlistedApp/Whitelist Manager) allowlist
     // gets sent to the home screen -- same allowlist-inverted enforcement shape as Student

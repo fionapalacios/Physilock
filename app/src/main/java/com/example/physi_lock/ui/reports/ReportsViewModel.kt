@@ -46,7 +46,6 @@ data class UsagePatterns(
 data class CategoryUsage(
     val category: String,
     val label: String,
-    val emoji: String,
     val durationMs: Long,
     val percent: Int
 )
@@ -108,6 +107,11 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
 
     private val _doomscrollEpisodesToday = MutableStateFlow(0)
     val doomscrollEpisodesToday: StateFlow<Int> = _doomscrollEpisodesToday.asStateFlow()
+
+    // Drives the skeleton-loader → real-content swap on Reports' first load (2026-09-10) --
+    // false until the 28-day usage fetch below completes.
+    private val _initialLoadComplete = MutableStateFlow(false)
+    val initialLoadComplete: StateFlow<Boolean> = _initialLoadComplete.asStateFlow()
 
     init {
         viewModelScope.launch {
@@ -176,6 +180,8 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 }
 
             _categoryBreakdown.value = buildCategoryBreakdown(packageTotals)
+
+            _initialLoadComplete.value = true
         }
     }
 
@@ -220,19 +226,10 @@ class ReportsViewModel(application: Application) : AndroidViewModel(application)
                 CategoryUsage(
                     category = category,
                     label = AppCategoryType.label(category),
-                    emoji = emojiForCategory(category),
                     durationMs = ms,
                     percent = ((ms.toFloat() / grandTotal) * 100).roundToInt()
                 )
             }
-    }
-
-    private fun emojiForCategory(category: String): String = when (category) {
-        AppCategoryType.SOCIAL_MEDIA -> "📱"
-        AppCategoryType.ENTERTAINMENT -> "🎬"
-        AppCategoryType.GAMES -> "🎮"
-        AppCategoryType.PRODUCTIVITY -> "📋"
-        else -> "📦"
     }
 
     /** Midnight-to-midnight for past days; midnight-to-now for today. */

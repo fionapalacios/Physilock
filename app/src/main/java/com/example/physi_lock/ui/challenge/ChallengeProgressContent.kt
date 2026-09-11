@@ -24,6 +24,10 @@ import com.example.physi_lock.sensor.RotationalArmDetector
 import com.example.physi_lock.sensor.StepChallengeDetector
 import com.example.physi_lock.sensor.StepChallengeMode
 import com.example.physi_lock.ui.components.CircularProgressRing
+import com.example.physi_lock.ui.theme.DeepOlive
+import com.example.physi_lock.ui.theme.MutedText
+import com.example.physi_lock.ui.theme.SageAccent
+import com.example.physi_lock.ui.theme.TertiaryTan
 
 // Sensor-driving + progress-ring UI shared by the forced lock-trigger screen
 // (LockScreen, full-screen/no-back) and the voluntary Challenges hub
@@ -36,10 +40,10 @@ fun ChallengeProgressContent(
     sensitivity: ChallengeSensitivity,
     onComplete: () -> Unit,
     modifier: Modifier = Modifier,
-    ringColor: Color = Color(0xFF4CAF50),
-    trackColor: Color = Color.White.copy(alpha = 0.1f),
-    textColor: Color = Color.White,
-    secondaryTextColor: Color = Color.LightGray
+    ringColor: Color = SageAccent,
+    trackColor: Color = TertiaryTan,
+    textColor: Color = DeepOlive,
+    secondaryTextColor: Color = MutedText
 ) {
     val context = LocalContext.current
 
@@ -49,12 +53,6 @@ fun ChallengeProgressContent(
 
     DisposableEffect(challengeType, sensitivity) {
         val detector: ChallengeDetector = when (challengeType) {
-            ChallengeType.ROTATIONAL_ARM -> RotationalArmDetector(
-                context = context,
-                sensitivity = sensitivity,
-                onProgress = { count -> stepCount = count },
-                onComplete = onComplete
-            )
             ChallengeType.WALK -> StepChallengeDetector(
                 context = context,
                 mode = StepChallengeMode.WALK,
@@ -69,17 +67,21 @@ fun ChallengeProgressContent(
                 onProgress = { steps, elapsed, stepsPerMin -> stepCount = steps; elapsedMs = elapsed; cadence = stepsPerMin },
                 onComplete = onComplete
             )
+            // All 6 ChallengeType.ARM_VARIANTS -- armVariant tunes amplitude/timing
+            // per named exercise, see RotationalArmRepConfig.forSensitivity.
+            else -> RotationalArmDetector(
+                context = context,
+                sensitivity = sensitivity,
+                armVariant = challengeType,
+                onProgress = { count -> stepCount = count },
+                onComplete = onComplete
+            )
         }
         detector.start()
         onDispose { detector.stop() }
     }
 
     val (progress, primaryText, secondaryText) = when (challengeType) {
-        ChallengeType.ROTATIONAL_ARM -> Triple(
-            stepCount.toFloat() / sensitivity.armRepsRequired.toFloat(),
-            "$stepCount",
-            "of ${sensitivity.armRepsRequired} moves"
-        )
         ChallengeType.WALK -> Triple(
             stepCount.toFloat() / sensitivity.walkStepsRequired.toFloat(),
             "$stepCount",
@@ -89,6 +91,11 @@ fun ChallengeProgressContent(
             elapsedMs.toFloat() / sensitivity.jogDurationMs.toFloat(),
             formatMmSs(elapsedMs),
             "of ${formatMmSs(sensitivity.jogDurationMs)} · $cadence/${sensitivity.jogMinStepsPerMin} steps/min"
+        )
+        else -> Triple( // all 6 ChallengeType.ARM_VARIANTS -- reps target unaffected by variant
+            stepCount.toFloat() / sensitivity.armRepsRequired.toFloat(),
+            "$stepCount",
+            "of ${sensitivity.armRepsRequired} moves"
         )
     }
 
