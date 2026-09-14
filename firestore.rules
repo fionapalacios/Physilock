@@ -13,29 +13,38 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      // Any signed-in user can read a specific profile or query the collection —
-      // required for: username/email uniqueness checks (register), fetchAccount
-      // after login, and the Admin dashboard's account list.
-      // Caveat: this also lets any authenticated User (not just Admin) query the
-      // full account list, same as Admin does. Acceptable at this project's scale;
-      // tighten to Admin-only `list` + a narrower per-doc `get` if that matters later.
-      allow get, list: if request.auth != null;
+      // You can read your own profile (fetchAccount after login); Admin can read/query
+      // any profile, including the full account list for the Admin dashboard.
+      // Username/email uniqueness checks during registration go through the separate
+      // /usernames lookup below instead of querying this collection directly.
+      allow get: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      allow list: if request.auth != null && isAdmin();
 
-      // You can only create your own profile document (id must match your own uid).
-      allow create: if request.auth != null && request.auth.uid == userId;
+      // You can only create your own profile document (id must match your own uid),
+      // and only as a plain USER — role can't be self-assigned at signup.
+      allow create: if request.auth != null && request.auth.uid == userId &&
+        request.resource.data.role == 'USER';
 
-      // You can update/delete your own profile; Admin can update/delete any profile
-      // (activate/deactivate/delete accounts).
-      allow update, delete: if request.auth != null &&
+      // You can update your own profile, but never your own `role` or `isActive` —
+      // those are Admin-only (account activation/deactivation, privilege changes).
+      // Admin can update/delete any profile without restriction.
+      allow update: if request.auth != null &&
+        (isAdmin() ||
+         (request.auth.uid == userId &&
+          request.resource.data.role == resource.data.role &&
+          request.resource.data.isActive == resource.data.isActive));
+
+      allow delete: if request.auth != null &&
         (request.auth.uid == userId || isAdmin());
     }
 
-    // Public username -> email lookup, used only to resolve a username to an email
-    // before sign-in (login-by-username; register/update's own uniqueness checks run
-    // post-auth against /users and don't need this). Deliberately minimal: each doc
-    // holds nothing but { email }, and only exact-ID `get` is allowed — never `list` —
-    // so the collection can't be enumerated, only looked up if you already know the
-    // exact username.
+    // Public username -> email lookup, used to resolve a username to an email before
+    // sign-in (login-by-username), and also by register/update/suggestUsername's own
+    // uniqueness checks (querying /users directly by username is no longer allowed for
+    // non-admins above, so those checks use this exact-key lookup instead). Deliberately
+    // minimal: each doc holds nothing but { email }, and only exact-ID `get` is allowed —
+    // never `list` — so the collection can't be enumerated, only looked up if you already
+    // know the exact username.
     match /usernames/{username} {
       allow get: if true;
       allow list: if false;

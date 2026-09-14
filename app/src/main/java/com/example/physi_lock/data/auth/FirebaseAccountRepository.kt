@@ -41,11 +41,12 @@ class FirebaseAccountRepository(
 
     private val usersCollection get() = firestore.collection("users")
 
-    // Public username -> email lookup, used only to resolve a username to an email
-    // before the client is authenticated (login by username, and register/update's
-    // uniqueness checks can't rely on this since they run post-auth against `users`).
-    // Deliberately minimal: exposes nothing but email, keyed by exact username (no
-    // `list`/enumeration allowed by the security rules) — see firestore.rules.
+    // Public username -> email lookup. Used to resolve a username to an email before the
+    // client is authenticated (login by username), and also as the uniqueness check for
+    // register/update/suggestUsername below — `/users` no longer allows `list` for
+    // non-admins (see firestore.rules), so those checks can't query `users` by username
+    // anymore and use this exact-key lookup instead. Deliberately minimal: exposes nothing
+    // but email, keyed by exact username (no `list`/enumeration allowed by the rules).
     private val usernamesCollection get() = firestore.collection("usernames")
 
     override suspend fun register(form: AuthFormState): Account? {
@@ -61,12 +62,8 @@ class FirebaseAccountRepository(
         // Best-effort username uniqueness check — Firestore has no unique-field constraint
         // and Firebase Auth only enforces email uniqueness, so there's a small race window
         // between this read and the write below. Acceptable at this project's scale.
-        val usernameTaken = usersCollection
-            .whereEqualTo("username", form.username)
-            .limit(1)
-            .get()
-            .await()
-        if (!usernameTaken.isEmpty) {
+        val usernameTaken = usernamesCollection.document(form.username).get().await()
+        if (usernameTaken.exists()) {
             authResult.user?.delete()?.await() // roll back the auth account we just created
             return null
         }
@@ -218,14 +215,9 @@ class FirebaseAccountRepository(
     }
 
     override suspend fun updateAccount(account: Account): Account? {
-        val conflict = usersCollection
-            .whereEqualTo("username", account.username)
-            .limit(1)
-            .get()
-            .await()
-            .documents
-            .firstOrNull { it.id != account.id }
-        if (conflict != null) return null
+        val existingMapping = usernamesCollection.document(account.username).get().await()
+        val conflict = existingMapping.exists() && existingMapping.getString("email") != account.email
+        if (conflict) return null
 
         val previous = fetchAccount(account.id)
         usersCollection.document(account.id).set(account).await()
@@ -308,7 +300,7 @@ class FirebaseAccountRepository(
         val base = email.substringBefore("@")
             .filter { it.isLetterOrDigit() }
             .ifBlank { "user" }
-        val taken = usersCollection.whereEqualTo("username", base).limit(1).get().await()
-        return if (taken.isEmpty) base else "$base${uid.takeLast(4)}"
+        val taken = usernamesCollection.document(base).get().await()
+        return if (!taken.exists()) base else "$base${uid.takeLast(4)}"
     }
 }

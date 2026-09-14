@@ -70,7 +70,7 @@ import com.example.physi_lock.data.entity.UserConfiguration
         PomodoroSession::class,
         PomodoroBlockedApp::class
     ],
-    version = 30,
+    version = 31, // 31: LoginEvent.accountId -> CachedAccount.id foreign key (CASCADE)
     exportSchema = false
 )
 abstract class PhysiLockDatabase : RoomDatabase() {
