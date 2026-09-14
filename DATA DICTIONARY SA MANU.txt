@@ -1,0 +1,215 @@
+DATA DICTIONARY OF ACCOUNT
+Column	Constraints	Data Type	Description
+id	PK	String	Unique ID for user account
+username	Not Null	String	Username of the user
+fullName	Not Null	String	Full name of the user
+email	Not Null	String	Email address of the user
+occupation	Nullable	String	Stated occupation
+role	Not Null	Enum	Determines whether this account has Admin or User privileges.
+createdAt	Nullable	Long	Timestamp when the account was created
+isActive	Nullable	Boolean	Whether account is enabled
+
+DATA DICTIONARY OF USERNAME
+Column	Constraints	Data Type	Description
+username	PK	String	The reserved username
+email	Not Null	String	Resolves a username to the email Firebase Auth needs to sign in
+
+DATA DICTIONARY OF CACHE_ACCOUNTS
+Column	Constraints	Data Type	Description
+id	PK	String	Local copy of Account.id
+username	Not Null	String	Mirrors Account.username
+fullName	Not Null	String	Mirrors Account.fullName
+email	Not Null	String	Mirrors Account.email
+occupation	Nullable	String	Mirrors Account.occupation
+role	Not Null	String	Mirrors Account.role
+createdAt	Not Null	Long	Mirrors Account.createdAt
+isActive	Not Null	Boolean	Mirrors Account.isActive
+passwordHash	Not Null	String	Salted hash for the offline-login fallback
+passwordSalt	Not Null	String	Per-account salt paired with passwordHash
+lastSyncedAt	Not Null	Long	Last time this row was refreshed from Firestore
+
+DATA DICTIONARY OF LOGIN_EVENTS
+Column	Constraints	Data Type	Description
+id	PK	Int	Row identity
+accountId	FK	String	The account this login belongs to
+dateKey	Not Null	String	Calendar day of the login
+timestamp	Not Null	Long	Exact moment recorded
+
+DATA DICTIONARY OF USER_CONFIGURATION
+Column	Constraints	Data Type	Description
+configId	PK	Int	Identifies the single active configuration
+userMode	Not Null	String	Selected usage profile
+dailyLimitMs	Not Null	Long	Daily screen-time alert threshold
+hourlyLimitMs	Not Null	Long	Per-hour excessive usage threshold
+dscrollDetEn	Nullable	Boolean	Toggle for doomscroll detection
+dscrollSens	Not Null	String	Admin-set bias layered on the doomscroll risk recipe
+motionLockSens	Nullable	String	Sensitivity for motion-based unlock challenges
+breakRemEn	Nullable	Boolean	Toggle for break reminders
+breakIntvMs	Nullable	Long	Interval between break reminders
+overuseEn	Nullable	Boolean	Toggle for overuse alerts
+weeklyGoalMs	Nullable	Long	Weekly screen-time goal
+ctxAlertsEn	Not Null	Boolean	Toggle for location-based context alerts
+schoolLocLat	Nullable	Double	School anchor latitude
+schoolLocLon	Nullable	Double	School anchor longitude
+schoolLocRadM	Not Null	Int	Geofence radius
+schoolGateEn	Nullable	Boolean	Time-gates the School alert
+schoolStartMin	Not Null	Int	School alert active window
+schoolEndMin	Not Null	Int	School alert active window
+workLocLat	Nullable	Double	Work anchor latitude
+workLocLon	Nullable	Double	Work anchor longitude
+workLocRadM	Not Null	Int	Geofence radius
+workGateEn	Not Null	Boolean	Time-gates the Work alert
+workStartMin	Not Null	Int	Work alert active window
+workEndMin	Not Null	Int	Work alert active window
+bedtimeStartMin	Not Null	Int	Bedtime Mode window
+bedtimeEndMin	Not Null	Int	Bedtime Mode window
+bedtimeModeEn	Not Null	Boolean	Toggles Bedtime Mode enforcement
+whStartMin	Not Null	Int	Work Mode Mon–Fri window
+whEndMin	Not Null	Int	Work Mode Mon–Fri window
+focusCredMin	Not Null	Int	Earned Focus Mode screen-credit balance
+nudgesEn	Not Null	Boolean	Gates Focus/Deep Work rotating mindful messages
+updatedAt	Not Null	Long	Last write timestamp
+
+DATA DICTIONARY OF APP_USAGE_LOGS
+Column	Constraints	Data Type	Description
+id	PK	Int	Row identifier
+packageName	Not Null	String	App package identifier
+appName	Not Null	String	Display the name of the app
+sessionStartTime	Not Null	Long	Foreground session start
+sessionEndTime	Nullable	Long	Foreground session end
+foregroundDurationMs	Not Null	Long	Total foreground time for this session
+scrollEventCount	Not Null	Int	Number of scroll events during session
+maxScrollGapMs	Not Null	Long	Longest gap between consecutive scroll events
+dateKey	Not Null	String	Calendar day this log belongs to
+
+DATA DICTIONARY OF USAGE_SESSIONS
+Column	Constraints	Data Type	Description
+id	PK	Int	Row identifier
+packageName	Not Null	String	App package name
+appName	Not Null	String	App display name
+startTime	Not Null	Long	Session start
+endTime	Not Null	Long	Session end
+durationMs	Not Null	Long	Session duration
+dateKey	Not Null	String	Calendar day of the session
+
+DATA DICTIONARY OF EXCESSIVE_USAGE_PREDICTION
+Column	Constraints	Data Type	Description
+predictionId	PK	Int	Row identifier
+dateKey	Not Null	String	Calendar day
+hour	Not Null	Int	Hour of day
+predictedUsageMinutes	Not Null	Double	Model output: predicted usage
+excessiveProbability	Not Null	Double	Model output: probability of excessive use
+isExcessive	Not Null	Boolean	Thresholded prediction result
+createdAt	Not Null	Long	Row creation timestamp
+
+DATA DICTIONARY OF MOTION_INTERVENTION_LOGS
+Column	Constraints	Data Type	Description
+interventionId	PK	Int	Row identifier
+packageName	Not Null	String	App that triggered the intervention
+triggerType	Not Null	String	What triggered the intervention
+interventionTimestamp	Not Null	Long	When it fired
+userResponse	Nullable	String	How the User responded
+accelerometerVariance	Not Null	Float	Motion intensity metric
+riskScore	Not Null	Double	AI-computed behavioral risk at intervention time
+challengeType	Nullable	String	Which Activity Challenge, if any
+xpEarned	Not Null	Int	XP credited
+
+DATA DICTIONARY OF APP_LOCK_RULES
+Column	Constraints	Data Type	Description
+packageName	PK	String	The locked app
+isLocked	Not Null	Boolean	Whether the rule is active
+lockType	Not Null	String	ADAPTIVE, CUSTOM, or GOALS
+dailyLimitMs	Nullable	Long	Optional daily limit for GOALS-type locks
+
+DATA DICTIONARY OF FOCUS_SESSIONS
+Column	Constraints	Data Type	Description
+id	PK	Int	Row identifier
+startTimeMillis	Not Null	Long	Session start
+endTimeMillis	Nullable	Long	Session end
+creditMinutesEarned	Not Null	Int	Credit minutes earned, set once the session ends.
+
+DATA DICTIONARY OF FOCUS_BLOCKED_APPS
+Column	Constraints	Data Type	Description
+packageName	Not Null	String	Blocked app
+appName	Not Null	String	Denormalized display name
+
+DATA DICTIONARY OF DEEP_WORK_SESSIONS
+Column	Constraints	Data Type	Description
+id	PK	Long	Row identifier
+startTimeMillis	Not Null	Long	Session start
+durationSecs	Not Null	Int	Fixed committed duration
+endTimeMillis	Nullable	Long	Actual end time
+endedEarly	Not Null	Boolean	Whether the shake-exit gate was used
+creditMinutesEarned	Not Null	Int	Credit minutes earned (same rate whether ended early or not)
+triggeredBy	Not Null	String	Whether started by hand or by a DeepWorkSchedule window
+
+DATA DICTIONARY OF DEEP_WORK_SCHEDULES
+Column	Constraints	Data Type	Description
+id	PK	Long	Row identifier
+label	Not Null	String	Display name (e.g., "Deep Work A")
+startMinute	Not Null	Int	Window start (minutes since midnight)
+endMinute	Not Null	Int	Window end (minutes since midnight)
+active	Not Null	Boolean	Whether the schedule is enabled
+
+DATA DICTIONARY OF POMODORO_SESSIONS
+Column	Constraints	Data Type	Description
+id	PK	Long	Row identifier
+startTimeMillis	Not Null	Long	Run start (first WORK phase)
+workMinutes	Not Null	Int	Configured WORK phase length
+breakMinutes	Not Null	Int	Configured BREAK phase length
+phase	Not Null	String	Current phase: 'WORK' or 'BREAK'
+phaseStartTimeMillis	Not Null	Long	Wall-clock anchor for the current phase's countdown
+sessionNumber	Not Null	Int	Which WORK/BREAK cycle this is within the run
+pausedAt	Nullable	Long	Set while paused; null when running
+endedAt	Nullable	Long	Set when the run is stopped/reset
+
+DATA DICTIONARY OF POMODORO_BLOCKED_APPS
+Column	Constraints	Data Type	Description
+packageName	PK	String	App blocked during Pomodoro WORK phase
+appName	Not Null	String	App label
+
+DATA DICTIONARY OF ALLOWLISTED_APPS
+Column	Constraints	Data Type	Description
+packageName	PK	String	Allowed app
+appName	Not Null	String	App label
+
+DATA DICTIONARY OF CATEGORY_GOALS
+Column	Constraints	Data Type	Description
+categoryType	PK	String	Which category this goal applies to (SOCIAL_MEDIA, ENTERTAINMENT, or GAMES)
+targetMs	Not Null	Long	User-set daily usage goal for that category
+
+DATA DICTIONARY OF REFLECTION_ENTRIES
+Column	Constraints	Data Type	Description
+dateKey	PK	String	Calendar day of the entry
+moodImpact	Not Null	String	'Worse', 'Same', or 'Better'
+controlLevel	Not Null	String	'Not at all', 'Somewhat', or 'Yes, fully'
+trigger	Not Null	String	'Boredom', 'Anxiety', 'Habit', 'FOMO', or 'Work need'
+highlight	Not Null	String	Highlight of the day
+tomorrowPlan	Not Null	String	Intention of the day
+timestamp	Not Null	Long	When the entry was submitted/last edited
+
+DATA DICTIONARY OF NOTIFICATION_LOGS
+Column	Constraints	Data Type	Description
+id	PK	Int	Row identifier
+type	Not Null	String	Session start
+title	Not Null	String	Notification title text
+description	Not Null	String	Notification text
+timestamp	Not Null	Long	When the notification was posted
+isRead	Not Null	Boolean	Whether the User has viewed it
+
+DATA DICTIONARY OF APP_CATEGORY
+Column	Constraints	Data Type	Description
+packageName	PK	String	The categorized app
+appName	Not Null	String	Denormalized display name
+category	Not Null	String	Assigned category
+
+DATA DICTIONARY OF DEFAULT_SETTINGS
+Column	Constraints	Data Type	Description
+id	PK	Int	Identifies the single active default configuration
+userMode	Not Null	String	Default usage profile for new accounts
+dailyLimitMs	Not Null	Long	Default daily threshold
+hourlyLimitMs	Not Null	Long	Default hourly threshold
+dscrollDetEn	Not Null	Boolean	Default toggle
+dscrollSens	Not Null	String	Default sensitivity bias
+motionSens	Not Null	String	Default motion-lock difficulty
+updatedAt	Not Null	Long	Last write timestamp
