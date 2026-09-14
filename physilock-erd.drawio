@@ -1,0 +1,580 @@
+<mxfile host="app.diagrams.net" agent="claude-code" version="24.0.0">
+  <diagram name="PhysiLock ERD" id="physilock-erd">
+    <mxGraphModel dx="1400" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="2400" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+<mxCell id="ent_Account" value="Account&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Firestore: users/{uid})&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="40" y="40" width="190" height="172" as="geometry" />
+  </mxCell>
+<mxCell id="ent_Account_r0" value="PK  id : String (UID)" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#6c8ebf;" vertex="1" parent="ent_Account">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_Account_r1" value="username : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_Account">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_Account_r2" value="fullName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_Account">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_Account_r3" value="email : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_Account">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_Account_r4" value="occupation : String?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_Account">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_Account_r5" value="role : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_Account">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_Account_r6" value="createdAt : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_Account">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_Account_r7" value="isActive : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_Account">
+      <mxGeometry x="0" y="112" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_Username" value="Username&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Firestore: usernames/{username})&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="260" y="40" width="190" height="76" as="geometry" />
+  </mxCell>
+<mxCell id="ent_Username_r0" value="PK  username : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#6c8ebf;" vertex="1" parent="ent_Username">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_Username_r1" value="email : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_Username">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount" value="CachedAccount&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: cached_accounts)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="480" y="40" width="190" height="220" as="geometry" />
+  </mxCell>
+<mxCell id="ent_CachedAccount_r0" value="PK  id : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r1" value="username : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r2" value="fullName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r3" value="email : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r4" value="occupation : String?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r5" value="role : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r6" value="createdAt : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r7" value="isActive : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="112" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r8" value="pwdHash : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="128" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r9" value="pwdSalt : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="144" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CachedAccount_r10" value="lastSyncAt : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_CachedAccount">
+      <mxGeometry x="0" y="160" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_LoginEvent" value="LoginEvent&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: login_events)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="700" y="40" width="190" height="108" as="geometry" />
+  </mxCell>
+<mxCell id="ent_LoginEvent_r0" value="PK  id : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#6c8ebf;" vertex="1" parent="ent_LoginEvent">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_LoginEvent_r1" value="FK  accountId : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=2;fillColor=#f8cecc;strokeColor=#6c8ebf;" vertex="1" parent="ent_LoginEvent">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_LoginEvent_r2" value="dateKey : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_LoginEvent">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_LoginEvent_r3" value="ts : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#6c8ebf;" vertex="1" parent="ent_LoginEvent">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppCategory" value="AppCategory&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: app_categories) — Admin&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="40" y="320" width="190" height="92" as="geometry" />
+  </mxCell>
+<mxCell id="ent_AppCategory_r0" value="PK  pkgName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#d79b00;" vertex="1" parent="ent_AppCategory">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppCategory_r1" value="appName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="ent_AppCategory">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppCategory_r2" value="cat : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="ent_AppCategory">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CategoryGoal" value="CategoryGoal&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: category_goals)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="260" y="320" width="190" height="76" as="geometry" />
+  </mxCell>
+<mxCell id="ent_CategoryGoal_r0" value="PK  catType : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_CategoryGoal">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_CategoryGoal_r1" value="targetMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_CategoryGoal">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DefaultSettings" value="DefaultSettings&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: default_settings) — Admin&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#ffe6cc;strokeColor=#d79b00;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="480" y="320" width="190" height="172" as="geometry" />
+  </mxCell>
+<mxCell id="ent_DefaultSettings_r0" value="PK  id : Int (=1)" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#d79b00;" vertex="1" parent="ent_DefaultSettings">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DefaultSettings_r1" value="userMode : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="ent_DefaultSettings">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DefaultSettings_r2" value="dailyLimitMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="ent_DefaultSettings">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DefaultSettings_r3" value="hourlyLimitMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="ent_DefaultSettings">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DefaultSettings_r4" value="dscrollDetEn : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="ent_DefaultSettings">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DefaultSettings_r5" value="dscrollSens : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="ent_DefaultSettings">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DefaultSettings_r6" value="motionLockSens : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="ent_DefaultSettings">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DefaultSettings_r7" value="updatedAt : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#d79b00;" vertex="1" parent="ent_DefaultSettings">
+      <mxGeometry x="0" y="112" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppLockRule" value="AppLockRule&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: app_lock_rules)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="40" y="552" width="190" height="108" as="geometry" />
+  </mxCell>
+<mxCell id="ent_AppLockRule_r0" value="PK  pkgName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_AppLockRule">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppLockRule_r1" value="isLocked : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppLockRule">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppLockRule_r2" value="lockType : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppLockRule">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppLockRule_r3" value="dailyLimitMs : Long?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppLockRule">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AllowlistedApp" value="AllowlistedApp&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: allowlisted_apps)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="260" y="552" width="190" height="76" as="geometry" />
+  </mxCell>
+<mxCell id="ent_AllowlistedApp_r0" value="PK  pkgName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_AllowlistedApp">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AllowlistedApp_r1" value="appName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AllowlistedApp">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_FocusBlockedApp" value="FocusBlockedApp&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: focus_blocked_apps)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="480" y="552" width="190" height="76" as="geometry" />
+  </mxCell>
+<mxCell id="ent_FocusBlockedApp_r0" value="PK  pkgName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_FocusBlockedApp">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_FocusBlockedApp_r1" value="appName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_FocusBlockedApp">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroBlockedApp" value="PomodoroBlockedApp&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: pomodoro_blocked_apps)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="700" y="552" width="190" height="76" as="geometry" />
+  </mxCell>
+<mxCell id="ent_PomodoroBlockedApp_r0" value="PK  pkgName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroBlockedApp">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroBlockedApp_r1" value="appName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroBlockedApp">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppUsageLog" value="AppUsageLog&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: app_usage_logs)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="40" y="720" width="190" height="188" as="geometry" />
+  </mxCell>
+<mxCell id="ent_AppUsageLog_r0" value="PK  id : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_AppUsageLog">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppUsageLog_r1" value="pkgName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppUsageLog">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppUsageLog_r2" value="appName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppUsageLog">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppUsageLog_r3" value="sessStart : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppUsageLog">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppUsageLog_r4" value="sessEnd : Long?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppUsageLog">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppUsageLog_r5" value="fgDurMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppUsageLog">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppUsageLog_r6" value="scrollEvtCnt : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppUsageLog">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppUsageLog_r7" value="maxScrollGapMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppUsageLog">
+      <mxGeometry x="0" y="112" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_AppUsageLog_r8" value="dateKey : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_AppUsageLog">
+      <mxGeometry x="0" y="128" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UsageSession" value="UsageSession&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: usage_sessions, legacy)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="260" y="720" width="190" height="156" as="geometry" />
+  </mxCell>
+<mxCell id="ent_UsageSession_r0" value="PK  id : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_UsageSession">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UsageSession_r1" value="pkgName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UsageSession">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UsageSession_r2" value="appName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UsageSession">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UsageSession_r3" value="startTime : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UsageSession">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UsageSession_r4" value="endTime : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UsageSession">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UsageSession_r5" value="durMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UsageSession">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UsageSession_r6" value="dateKey : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UsageSession">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_MotionInterventionLog" value="MotionInterventionLog&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: motion_intervention_logs)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="480" y="720" width="190" height="188" as="geometry" />
+  </mxCell>
+<mxCell id="ent_MotionInterventionLog_r0" value="PK  intervId : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_MotionInterventionLog">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_MotionInterventionLog_r1" value="pkgName : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_MotionInterventionLog">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_MotionInterventionLog_r2" value="triggerType : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_MotionInterventionLog">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_MotionInterventionLog_r3" value="intervTs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_MotionInterventionLog">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_MotionInterventionLog_r4" value="userResp : String?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_MotionInterventionLog">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_MotionInterventionLog_r5" value="accelVar : Float" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_MotionInterventionLog">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_MotionInterventionLog_r6" value="riskScore : Double" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_MotionInterventionLog">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_MotionInterventionLog_r7" value="chalType : String?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_MotionInterventionLog">
+      <mxGeometry x="0" y="112" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_MotionInterventionLog_r8" value="xpEarn : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_MotionInterventionLog">
+      <mxGeometry x="0" y="128" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ExcessiveUsagePredictionLog" value="ExcessiveUsagePredictionLog&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: excessive_usage_predictions)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="700" y="720" width="190" height="156" as="geometry" />
+  </mxCell>
+<mxCell id="ent_ExcessiveUsagePredictionLog_r0" value="PK  predId : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_ExcessiveUsagePredictionLog">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ExcessiveUsagePredictionLog_r1" value="dateKey : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ExcessiveUsagePredictionLog">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ExcessiveUsagePredictionLog_r2" value="hour : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ExcessiveUsagePredictionLog">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ExcessiveUsagePredictionLog_r3" value="predUsageMin : Double" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ExcessiveUsagePredictionLog">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ExcessiveUsagePredictionLog_r4" value="excProb : Double" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ExcessiveUsagePredictionLog">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ExcessiveUsagePredictionLog_r5" value="isExc : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ExcessiveUsagePredictionLog">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ExcessiveUsagePredictionLog_r6" value="createdAt : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ExcessiveUsagePredictionLog">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_NotificationLog" value="NotificationLog&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: notification_logs)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="920" y="720" width="190" height="140" as="geometry" />
+  </mxCell>
+<mxCell id="ent_NotificationLog_r0" value="PK  id : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_NotificationLog">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_NotificationLog_r1" value="type : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_NotificationLog">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_NotificationLog_r2" value="title : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_NotificationLog">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_NotificationLog_r3" value="desc : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_NotificationLog">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_NotificationLog_r4" value="ts : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_NotificationLog">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_NotificationLog_r5" value="isRead : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_NotificationLog">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration" value="UserConfiguration&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: user_configuration, singleton)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="40" y="968" width="190" height="556" as="geometry" />
+  </mxCell>
+<mxCell id="ent_UserConfiguration_r0" value="PK  configId : Int (=1)" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r1" value="userMode : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r2" value="dailyLimitMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r3" value="hourlyLimitMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r4" value="dscrollDetEn : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r5" value="dscrollSens : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r6" value="motionLockSens : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r7" value="breakRemEn : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="112" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r8" value="breakIntvlMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="128" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r9" value="overuseEn : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="144" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r10" value="weeklyGoalMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="160" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r11" value="ctxAlertsEn : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="176" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r12" value="schoolLocLat : Double?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="192" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r13" value="schoolLocLon : Double?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="208" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r14" value="schoolLocRadM : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="224" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r15" value="schoolGateEn : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="240" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r16" value="schoolStartMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="256" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r17" value="schoolEndMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="272" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r18" value="workLocLat : Double?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="288" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r19" value="workLocLon : Double?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="304" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r20" value="workLocRadM : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="320" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r21" value="workGateEn : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="336" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r22" value="workStartMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="352" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r23" value="workEndMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="368" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r24" value="bedtimeStartMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="384" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r25" value="bedtimeEndMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="400" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r26" value="bedtimeModeEn : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="416" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r27" value="whStartMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="432" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r28" value="whEndMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="448" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r29" value="focusCredMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="464" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r30" value="nudgesEn : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="480" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_UserConfiguration_r31" value="updatedAt : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_UserConfiguration">
+      <mxGeometry x="0" y="496" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_FocusSession" value="FocusSession&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: focus_sessions)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="260" y="968" width="190" height="108" as="geometry" />
+  </mxCell>
+<mxCell id="ent_FocusSession_r0" value="PK  id : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_FocusSession">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_FocusSession_r1" value="startTimeMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_FocusSession">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_FocusSession_r2" value="endTimeMs : Long?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_FocusSession">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_FocusSession_r3" value="credMinEarn : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_FocusSession">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSession" value="DeepWorkSession&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: deep_work_sessions)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="480" y="968" width="190" height="156" as="geometry" />
+  </mxCell>
+<mxCell id="ent_DeepWorkSession_r0" value="PK  id : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSession">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSession_r1" value="startTimeMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSession">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSession_r2" value="durSecs : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSession">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSession_r3" value="endTimeMs : Long?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSession">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSession_r4" value="endedEarly : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSession">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSession_r5" value="credMinEarn : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSession">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSession_r6" value="triggeredBy : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSession">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSchedule" value="DeepWorkSchedule&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: deep_work_schedules)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="700" y="968" width="190" height="124" as="geometry" />
+  </mxCell>
+<mxCell id="ent_DeepWorkSchedule_r0" value="PK  id : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSchedule">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSchedule_r1" value="label : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSchedule">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSchedule_r2" value="startMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSchedule">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSchedule_r3" value="endMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSchedule">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_DeepWorkSchedule_r4" value="active : Boolean" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_DeepWorkSchedule">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroSession" value="PomodoroSession&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: pomodoro_sessions)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="920" y="968" width="190" height="188" as="geometry" />
+  </mxCell>
+<mxCell id="ent_PomodoroSession_r0" value="PK  id : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroSession">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroSession_r1" value="startTimeMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroSession">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroSession_r2" value="workMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroSession">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroSession_r3" value="breakMin : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroSession">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroSession_r4" value="phase : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroSession">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroSession_r5" value="phaseStartMs : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroSession">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroSession_r6" value="sessNum : Int" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroSession">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroSession_r7" value="pausedAt : Long?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroSession">
+      <mxGeometry x="0" y="112" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_PomodoroSession_r8" value="endedAt : Long?" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_PomodoroSession">
+      <mxGeometry x="0" y="128" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ReflectionEntry" value="ReflectionEntry&lt;div style=&quot;font-size:9px;font-weight:normal;color:#555;&quot;&gt;(Room: reflection_entries)&lt;/div&gt;" style="swimlane;html=1;startSize=40;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=13;align=center;verticalAlign=top;whiteSpace=wrap;" vertex="1" parent="1">
+    <mxGeometry x="1140" y="968" width="190" height="156" as="geometry" />
+  </mxCell>
+<mxCell id="ent_ReflectionEntry_r0" value="PK  dateKey : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=1;fillColor=#fff2cc;strokeColor=#82b366;" vertex="1" parent="ent_ReflectionEntry">
+      <mxGeometry x="0" y="0" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ReflectionEntry_r1" value="moodImpact : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ReflectionEntry">
+      <mxGeometry x="0" y="16" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ReflectionEntry_r2" value="controlLvl : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ReflectionEntry">
+      <mxGeometry x="0" y="32" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ReflectionEntry_r3" value="trigger : enum" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ReflectionEntry">
+      <mxGeometry x="0" y="48" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ReflectionEntry_r4" value="highlight : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ReflectionEntry">
+      <mxGeometry x="0" y="64" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ReflectionEntry_r5" value="tomorrowPlan : String" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ReflectionEntry">
+      <mxGeometry x="0" y="80" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="ent_ReflectionEntry_r6" value="ts : Long" style="text;html=1;align=left;verticalAlign=middle;spacingLeft=6;fontSize=10;fontStyle=0;fillColor=#ffffff;strokeColor=#82b366;" vertex="1" parent="ent_ReflectionEntry">
+      <mxGeometry x="0" y="96" width="190" height="16" as="geometry" />
+    </mxCell>
+<mxCell id="edge_100" value="has" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#000000;strokeWidth=2;startArrow=ERone;endArrow=ERmany;startFill=0;endFill=0;fontSize=10;" edge="1" parent="1" source="ent_CachedAccount" target="ent_LoginEvent">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_101" value="reserves" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERone;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_Account" target="ent_Username">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_102" value="caches as" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERone;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_Account" target="ent_CachedAccount">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_103" value="generates" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERmany;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_AppCategory" target="ent_AppUsageLog">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_104" value="generates" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERmany;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_AppCategory" target="ent_UsageSession">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_105" value="triggers" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERmany;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_AppCategory" target="ent_MotionInterventionLog">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_106" value="has" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERzeroToOne;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_AppCategory" target="ent_AppLockRule">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_107" value="has" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERzeroToOne;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_AppCategory" target="ent_AllowlistedApp">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_108" value="has" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERzeroToOne;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_AppCategory" target="ent_FocusBlockedApp">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_109" value="has" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERzeroToOne;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_AppCategory" target="ent_PomodoroBlockedApp">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_110" value="belongs to" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERmany;endArrow=ERone;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_AppCategory" target="ent_CategoryGoal">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_111" value="triggers" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERmany;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_DeepWorkSchedule" target="ent_DeepWorkSession">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_112" value="earns" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERmany;endArrow=ERone;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_FocusSession" target="ent_UserConfiguration">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_113" value="governs" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERmany;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_UserConfiguration" target="ent_AllowlistedApp">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_114" value="seeds" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#666666;dashed=1;startArrow=ERone;endArrow=ERone;startFill=0;endFill=0;fontSize=10;fontColor=#666666;" edge="1" parent="1" source="ent_DefaultSettings" target="ent_UserConfiguration">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_115" value="shares dateKey" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#999999;dashed=1;startArrow=none;endArrow=none;fontSize=9;fontColor=#999999;" edge="1" parent="1" source="ent_AppUsageLog" target="ent_ReflectionEntry">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_116" value="shares dateKey" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#999999;dashed=1;startArrow=none;endArrow=none;fontSize=9;fontColor=#999999;" edge="1" parent="1" source="ent_AppUsageLog" target="ent_ExcessiveUsagePredictionLog">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+<mxCell id="edge_117" value="shares dateKey" style="edgeStyle=entityRelationEdgeStyle;rounded=0;html=1;strokeColor=#999999;dashed=1;startArrow=none;endArrow=none;fontSize=9;fontColor=#999999;" edge="1" parent="1" source="ent_AppUsageLog" target="ent_UsageSession">
+    <mxGeometry relative="1" as="geometry" />
+  </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
